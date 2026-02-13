@@ -1,8 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Usando uma versão específica do worker que coincide com a biblioteca instalada
-// Isso evita erros de versão incompatível entre o script principal e o worker
-const PDFJS_VERSION = '4.4.168'; 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface ExtractedData {
@@ -26,7 +24,6 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
     const pdf = await loadingTask.promise;
     let fullText = '';
 
-    // Extrair texto de todas as páginas
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
@@ -36,20 +33,19 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       fullText += pageText + ' ';
     }
 
-    console.log("Texto extraído do PDF:", fullText); // Para debug
+    console.log("Texto extraído do PDF:", fullText);
 
     const data: ExtractedData = {};
 
-    // 1. Buscar CNPJ (Padrão: 00.000.000/0000-00)
+    // 1. Buscar CNPJ
     const cnpjRegex = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/;
     const cnpjMatch = fullText.match(cnpjRegex);
     if (cnpjMatch) data.cnpj = cnpjMatch[0];
 
-    // 2. Buscar Datas (Padrão: DD/MM/YYYY)
+    // 2. Buscar Datas
     const dateRegex = /(\d{2}\/\d{2}\/\d{4})/g;
     const dateMatches = fullText.match(dateRegex);
     if (dateMatches && dateMatches.length > 0) {
-      // Converte DD/MM/YYYY para YYYY-MM-DD (formato do input date)
       const convertDate = (d: string) => {
         const [day, month, year] = d.split('/');
         return `${year}-${month}-${day}`;
@@ -61,7 +57,7 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       }
     }
 
-    // 3. Buscar Valor (Procura por R$ ou VALOR seguido de números)
+    // 3. Buscar Valor
     const amountRegex = /(?:R\$|VALOR|TOTAL|PAGAR|VALOR TOTAL)\s*[:\s]*([\d.]+,\d{2})/i;
     const amountMatch = fullText.match(amountRegex);
     if (amountMatch) {
@@ -69,15 +65,24 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       data.amount = parseFloat(valueStr);
     }
 
-    // 4. Buscar Número do Documento (Procura por Nº, DOC, NOTA)
+    // 4. Buscar Número do Documento
     const docRegex = /(?:N[º°]|DOC|NOTA|NÚMERO|NUMERO)\s*[:\s]*(\d+)/i;
     const docMatch = fullText.match(docRegex);
     if (docMatch) data.docNumber = docMatch[1];
 
-    // 5. Nome da Empresa (Tenta pegar a primeira linha significativa)
-    const lines = fullText.split(/\s{2,}/).filter(l => l.trim().length > 3);
-    if (lines.length > 0) {
-      data.companyName = lines[0].trim().substring(0, 60);
+    // 5. Nome da Empresa (Busca após "Nome / Nome Empresarial")
+    // Usamos uma regex que ignora espaços extras e busca o texto logo após o rótulo
+    const nameLabelRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*([^0-9\n]{3,100})/i;
+    const nameMatch = fullText.match(nameLabelRegex);
+    
+    if (nameMatch && nameMatch[1]) {
+      data.companyName = nameMatch[1].trim();
+    } else {
+      // Fallback: tenta pegar a primeira linha se não encontrar o rótulo
+      const lines = fullText.split(/\s{2,}/).filter(l => l.trim().length > 3);
+      if (lines.length > 0) {
+        data.companyName = lines[0].trim().substring(0, 60);
+      }
     }
 
     return data;
