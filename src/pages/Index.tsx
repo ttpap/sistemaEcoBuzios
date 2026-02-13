@@ -8,8 +8,10 @@ import PDFUploader from '@/components/PDFUploader';
 import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Wallet } from 'lucide-react';
+import { Wallet, Printer } from 'lucide-react';
 import { showError } from '@/utils/toast';
+import { Button } from '@/components/ui/button';
+import { printExpenseReport } from '@/utils/print-report';
 
 const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -66,6 +68,17 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Prestação de Contas Inteligente</p>
             </div>
           </div>
+          
+          {expenses.length > 0 && (
+            <Button 
+              onClick={() => printExpenseReport(expenses)}
+              variant="outline"
+              className="gap-2 border-primary text-primary hover:bg-primary/5"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir Relatório
+            </Button>
+          )}
         </div>
       </header>
 

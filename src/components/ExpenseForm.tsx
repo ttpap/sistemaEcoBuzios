@@ -14,6 +14,7 @@ import { showSuccess } from '@/utils/toast';
 import { ExtractedData } from '@/utils/pdf-extractor';
 
 const formSchema = z.object({
+  budgetItem: z.string().min(1, "O item orçamentário é obrigatório"),
   companyName: z.string().min(2, "O nome do credor é obrigatório"),
   cnpj: z.string().min(11, "CPF/CNPJ inválido"),
   paymentMethod: z.string().min(1, "Informe a forma de pagamento"),
@@ -33,6 +34,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      budgetItem: "",
       companyName: "",
       cnpj: "",
       paymentMethod: "",
@@ -46,6 +48,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
   useEffect(() => {
     if (initialData) {
       form.reset({
+        budgetItem: form.getValues('budgetItem'),
         companyName: initialData.companyName || "",
         cnpj: initialData.cnpj || "",
         paymentMethod: form.getValues('paymentMethod'),
@@ -60,6 +63,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newExpense: Expense = {
       id: crypto.randomUUID(),
+      budgetItem: values.budgetItem,
       companyName: values.companyName,
       cnpj: values.cnpj,
       paymentMethod: values.paymentMethod,
@@ -73,6 +77,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
     
     onAddExpense(newExpense);
     form.reset({
+      budgetItem: "",
       companyName: "",
       cnpj: "",
       paymentMethod: "",
@@ -111,6 +116,19 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
             <FormField
               control={form.control}
+              name="budgetItem"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>4 - ITEM ORÇ</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: 1.1 Saída, 1.3 Campo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="companyName"
               render={({ field }) => (
                 <FormItem>
@@ -142,7 +160,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>7 - Forma de Pagto/Nº</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: PIX, Boleto, Dinheiro" {...field} />
+                    <Input placeholder="Ex: Pix" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -200,8 +218,8 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 </FormItem>
               )}
             />
-            <div className="lg:col-span-2 flex justify-end">
-              <Button type="submit" className="w-full md:w-auto px-8">
+            <div className="lg:col-span-1 flex justify-end">
+              <Button type="submit" className="w-full px-8">
                 Salvar Registro
               </Button>
             </div>
