@@ -13,8 +13,8 @@ import { Wallet } from 'lucide-react';
 const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [currentAttachment, setCurrentAttachment] = useState<{ base64: string; name: string } | null>(null);
 
-  // Carregar dados do localStorage ao iniciar
   useEffect(() => {
     const saved = localStorage.getItem('financial-expenses');
     if (saved) {
@@ -26,29 +26,29 @@ const Index = () => {
     }
   }, []);
 
-  // Salvar dados no localStorage sempre que mudar
   useEffect(() => {
     localStorage.setItem('financial-expenses', JSON.stringify(expenses));
   }, [expenses]);
 
   const handleAddExpense = (newExpense: Expense) => {
     setExpenses(prev => [newExpense, ...prev]);
-    setExtractedData(null); // Limpa os dados extraídos após salvar
+    setExtractedData(null);
+    setCurrentAttachment(null);
   };
 
   const handleDeleteExpense = (id: string) => {
     setExpenses(prev => prev.filter(exp => exp.id !== id));
   };
 
-  const handleDataExtracted = (data: ExtractedData) => {
+  const handleDataExtracted = (data: ExtractedData, base64: string, fileName: string) => {
     setExtractedData(data);
+    setCurrentAttachment({ base64, name: fileName });
   };
 
   const totalAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-12">
-      {/* Header */}
       <header className="bg-white border-b mb-8">
         <div className="container mx-auto px-4 py-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -74,7 +74,11 @@ const Index = () => {
 
           <div className="grid gap-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados do Registro</h2>
-            <ExpenseForm onAddExpense={handleAddExpense} initialData={extractedData} />
+            <ExpenseForm 
+              onAddExpense={handleAddExpense} 
+              initialData={extractedData} 
+              attachment={currentAttachment}
+            />
           </div>
 
           <div className="grid gap-4">

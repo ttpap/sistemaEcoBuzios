@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Sparkles } from "lucide-react";
+import { PlusCircle, Sparkles, FileCheck } from "lucide-react";
 import { Expense } from '@/types/expense';
 import { showSuccess } from '@/utils/toast';
 import { ExtractedData } from '@/utils/pdf-extractor';
@@ -26,9 +26,10 @@ const formSchema = z.object({
 interface ExpenseFormProps {
   onAddExpense: (expense: Expense) => void;
   initialData?: ExtractedData | null;
+  attachment?: { base64: string; name: string } | null;
 }
 
-const ExpenseForm = ({ onAddExpense, initialData }: ExpenseFormProps) => {
+const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -42,13 +43,12 @@ const ExpenseForm = ({ onAddExpense, initialData }: ExpenseFormProps) => {
     },
   });
 
-  // Atualiza o formulário quando novos dados são extraídos do PDF
   useEffect(() => {
     if (initialData) {
       form.reset({
         companyName: initialData.companyName || "",
         cnpj: initialData.cnpj || "",
-        paymentMethod: form.getValues('paymentMethod'), // Mantém o que já estava
+        paymentMethod: form.getValues('paymentMethod'),
         date: initialData.date || new Date().toISOString().split('T')[0],
         docNumber: initialData.docNumber || "",
         dueDate: initialData.date || new Date().toISOString().split('T')[0],
@@ -67,6 +67,8 @@ const ExpenseForm = ({ onAddExpense, initialData }: ExpenseFormProps) => {
       docNumber: values.docNumber,
       dueDate: values.dueDate,
       amount: Number(values.amount),
+      attachment: attachment?.base64,
+      attachmentName: attachment?.name,
     };
     
     onAddExpense(newExpense);
@@ -89,12 +91,20 @@ const ExpenseForm = ({ onAddExpense, initialData }: ExpenseFormProps) => {
           <PlusCircle className="h-5 w-5 text-primary" />
           Lançamento de Despesa
         </CardTitle>
-        {initialData && (
-          <div className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full animate-pulse">
-            <Sparkles className="h-3 w-3" />
-            Dados extraídos do PDF
-          </div>
-        )}
+        <div className="flex gap-2">
+          {attachment && (
+            <div className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100">
+              <FileCheck className="h-3 w-3" />
+              PDF Anexado
+            </div>
+          )}
+          {initialData && (
+            <div className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full animate-pulse">
+              <Sparkles className="h-3 w-3" />
+              Dados extraídos
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <Form {...form}>
