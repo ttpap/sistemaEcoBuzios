@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Sparkles } from "lucide-react";
 import { Expense } from '@/types/expense';
 import { showSuccess } from '@/utils/toast';
+import { ExtractedData } from '@/utils/pdf-extractor';
 
 const formSchema = z.object({
   companyName: z.string().min(2, "O nome do credor é obrigatório"),
@@ -24,9 +25,10 @@ const formSchema = z.object({
 
 interface ExpenseFormProps {
   onAddExpense: (expense: Expense) => void;
+  initialData?: ExtractedData | null;
 }
 
-const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
+const ExpenseForm = ({ onAddExpense, initialData }: ExpenseFormProps) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -39,6 +41,21 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
       amount: "",
     },
   });
+
+  // Atualiza o formulário quando novos dados são extraídos do PDF
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        companyName: initialData.companyName || "",
+        cnpj: initialData.cnpj || "",
+        paymentMethod: form.getValues('paymentMethod'), // Mantém o que já estava
+        date: initialData.date || new Date().toISOString().split('T')[0],
+        docNumber: initialData.docNumber || "",
+        dueDate: initialData.date || new Date().toISOString().split('T')[0],
+        amount: initialData.amount?.toString() || "",
+      });
+    }
+  }, [initialData, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newExpense: Expense = {
@@ -67,11 +84,17 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
 
   return (
     <Card className="mb-8 border-none shadow-sm">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-lg flex items-center gap-2">
           <PlusCircle className="h-5 w-5 text-primary" />
-          Novo Lançamento de Despesa
+          Lançamento de Despesa
         </CardTitle>
+        {initialData && (
+          <div className="flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full animate-pulse">
+            <Sparkles className="h-3 w-3" />
+            Dados extraídos do PDF
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <Form {...form}>

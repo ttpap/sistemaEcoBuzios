@@ -4,12 +4,15 @@ import React, { useState, useEffect } from 'react';
 import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
 import ExpenseSummary from '@/components/ExpenseSummary';
+import PDFUploader from '@/components/PDFUploader';
 import { Expense } from '@/types/expense';
+import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Wallet } from 'lucide-react';
 
 const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
 
   // Carregar dados do localStorage ao iniciar
   useEffect(() => {
@@ -30,10 +33,15 @@ const Index = () => {
 
   const handleAddExpense = (newExpense: Expense) => {
     setExpenses(prev => [newExpense, ...prev]);
+    setExtractedData(null); // Limpa os dados extraídos após salvar
   };
 
   const handleDeleteExpense = (id: string) => {
     setExpenses(prev => prev.filter(exp => exp.id !== id));
+  };
+
+  const handleDataExtracted = (data: ExtractedData) => {
+    setExtractedData(data);
   };
 
   const totalAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -49,7 +57,7 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Finanças Pro</h1>
-              <p className="text-sm text-muted-foreground">Prestação de Contas Simplificada</p>
+              <p className="text-sm text-muted-foreground">Prestação de Contas Inteligente</p>
             </div>
           </div>
         </div>
@@ -58,9 +66,21 @@ const Index = () => {
       <main className="container mx-auto px-4 max-w-6xl">
         <ExpenseSummary totalAmount={totalAmount} count={expenses.length} />
         
-        <div className="grid gap-8">
-          <ExpenseForm onAddExpense={handleAddExpense} />
-          <ExpenseList expenses={expenses} onDeleteExpense={handleDeleteExpense} />
+        <div className="grid gap-6">
+          <div className="grid gap-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Importação Automática</h2>
+            <PDFUploader onDataExtracted={handleDataExtracted} />
+          </div>
+
+          <div className="grid gap-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados do Registro</h2>
+            <ExpenseForm onAddExpense={handleAddExpense} initialData={extractedData} />
+          </div>
+
+          <div className="grid gap-4">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Histórico de Lançamentos</h2>
+            <ExpenseList expenses={expenses} onDeleteExpense={handleDeleteExpense} />
+          </div>
         </div>
       </main>
 
