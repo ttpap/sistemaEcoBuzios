@@ -65,13 +65,12 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       data.amount = parseFloat(valueStr);
     }
 
-    // 4. Buscar Número do Documento
-    const docRegex = /(?:N[º°]|DOC|NOTA|NÚMERO|NUMERO)\s*[:\s]*(\d+)/i;
+    // 4. Buscar Número do Documento (Adicionado suporte para NFS-e)
+    const docRegex = /(?:N[º°]|DOC|NOTA|NÚMERO|NUMERO|NFS-e|Número da NFS-e)\s*[:\s]*(\d+)/i;
     const docMatch = fullText.match(docRegex);
     if (docMatch) data.docNumber = docMatch[1];
 
     // 5. Nome da Empresa (Busca após "Nome / Nome Empresarial")
-    // Usamos uma regex que ignora espaços extras e busca o texto logo após o rótulo
     const nameLabelRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*([^0-9\n]{3,100})/i;
     const nameMatch = fullText.match(nameLabelRegex);
     
