@@ -37,7 +37,7 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
 
     const data: ExtractedData = {};
 
-    // 1. Buscar CNPJ (Emitente)
+    // 1. Buscar CNPJ do Emitente (Geralmente o primeiro que aparece)
     const cnpjRegex = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/;
     const cnpjMatch = fullText.match(cnpjRegex);
     if (cnpjMatch) data.cnpj = cnpjMatch[0];
@@ -57,39 +57,32 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       }
     }
 
-    // 3. Buscar Valor (Valor do Serviço ou Valor Líquido)
-    const amountRegex = /(?:Valor do Serviço|Valor Líquido|R\$)\s*[:\s]*([\d.]+,\d{2})/i;
+    // 3. Buscar Valor (Valor Líquido ou Valor do Serviço)
+    const amountRegex = /(?:Valor Líquido da NFS-e|Valor do Serviço|R\$)\s*[:\s]*([\d.]+,\d{2})/i;
     const amountMatch = fullText.match(amountRegex);
     if (amountMatch) {
       const valueStr = amountMatch[1].replace(/\./g, '').replace(',', '.');
       data.amount = parseFloat(valueStr);
     }
 
-    // 4. Buscar Número do Documento (Focado no Número da NFS-e)
-    // O regex abaixo procura especificamente por "Número da NFS-e" e pega o primeiro número que segue
-    const nfsSpecificRegex = /Número\s+da\s+NFS-e\s*[:\s]*(\d+)/i;
-    const nfsSpecificMatch = fullText.match(nfsSpecificRegex);
-    
-    if (nfsSpecificMatch) {
-      data.docNumber = nfsSpecificMatch[1];
-    } else {
-      // Fallback para outros formatos se o específico falhar
-      const docRegex = /(?:NFS-e|N[º°]|DOC|NOTA|NÚMERO|NUMERO)\s*[:\s]*(\d+)/i;
-      const docMatch = fullText.match(docRegex);
-      if (docMatch) data.docNumber = docMatch[1];
+    // 4. Buscar Número da NFS-e
+    const nfsRegex = /Número\s+da\s+NFS-e\s*[:\s]*(\d+)/i;
+    const nfsMatch = fullText.match(nfsRegex);
+    if (nfsMatch) {
+      data.docNumber = nfsMatch[1];
     }
 
-    // 5. Nome da Empresa (Emitente)
-    const nameLabelRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*([^0-9\n]{3,100})/i;
-    const nameMatch = fullText.match(nameLabelRegex);
+    // 5. Nome do Credor (Emitente / Prestador)
+    // Procuramos o texto entre "Nome / Nome Empresarial" e o próximo campo (geralmente "Endereço" ou "E-mail")
+    // Focando na primeira ocorrência que é a do Emitente
+    const nameSectionRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*(.*?)(?=Endereço|E-mail|Inscrição|CNPJ|$)/i;
+    const nameMatch = fullText.match(nameSectionRegex);
     
     if (nameMatch && nameMatch[1]) {
-      data.companyName = nameMatch[1].trim();
-    } else {
-      const lines = fullText.split(/\s{2,}/).filter(l => l.trim().length > 3);
-      if (lines.length > 0) {
-        data.companyName = lines[0].trim().substring(0, 60);
-      }
+      let name = nameMatch[1].trim();
+      // Remove números iniciais (comum em extrações de PDF onde o CNPJ ou parte dele vem antes do nome)
+      name = name.replace(/^[\d.\s/-]+/, '').trim();
+      data.companyName = name;
     }
 
     return data;
