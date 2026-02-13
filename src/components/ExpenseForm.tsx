@@ -13,10 +13,13 @@ import { Expense } from '@/types/expense';
 import { showSuccess } from '@/utils/toast';
 
 const formSchema = z.object({
-  cnpj: z.string().min(14, "CNPJ deve ter pelo menos 14 caracteres").max(18, "CNPJ muito longo"),
-  companyName: z.string().min(2, "O nome da empresa é obrigatório"),
+  companyName: z.string().min(2, "O nome do credor é obrigatório"),
+  cnpj: z.string().min(11, "CPF/CNPJ inválido"),
+  paymentMethod: z.string().min(1, "Informe a forma de pagamento"),
+  date: z.string().min(1, "A data de pagamento é obrigatória"),
+  docNumber: z.string().min(1, "O número do documento é obrigatório"),
+  dueDate: z.string().min(1, "A data de vencimento é obrigatória"),
   amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "O valor deve ser maior que zero"),
-  date: z.string().min(1, "A data é obrigatória"),
 });
 
 interface ExpenseFormProps {
@@ -27,28 +30,37 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      cnpj: "",
       companyName: "",
-      amount: "",
+      cnpj: "",
+      paymentMethod: "",
       date: new Date().toISOString().split('T')[0],
+      docNumber: "",
+      dueDate: new Date().toISOString().split('T')[0],
+      amount: "",
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newExpense: Expense = {
       id: crypto.randomUUID(),
-      cnpj: values.cnpj,
       companyName: values.companyName,
-      amount: Number(values.amount),
+      cnpj: values.cnpj,
+      paymentMethod: values.paymentMethod,
       date: values.date,
+      docNumber: values.docNumber,
+      dueDate: values.dueDate,
+      amount: Number(values.amount),
     };
     
     onAddExpense(newExpense);
     form.reset({
-      cnpj: "",
       companyName: "",
-      amount: "",
+      cnpj: "",
+      paymentMethod: "",
       date: new Date().toISOString().split('T')[0],
+      docNumber: "",
+      dueDate: new Date().toISOString().split('T')[0],
+      amount: "",
     });
     showSuccess("Registro adicionado com sucesso!");
   }
@@ -58,20 +70,20 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <PlusCircle className="h-5 w-5 text-primary" />
-          Novo Lançamento
+          Novo Lançamento de Despesa
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
             <FormField
               control={form.control}
               name="companyName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome da Empresa</FormLabel>
+                  <FormLabel>5 - CREDOR</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Posto de Combustível" {...field} />
+                    <Input placeholder="Nome da empresa ou pessoa" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -82,7 +94,7 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
               name="cnpj"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>CNPJ</FormLabel>
+                  <FormLabel>6 - C.N.P.J./C.P.F.</FormLabel>
                   <FormControl>
                     <Input placeholder="00.000.000/0000-00" {...field} />
                   </FormControl>
@@ -92,12 +104,12 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
             />
             <FormField
               control={form.control}
-              name="amount"
+              name="paymentMethod"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Valor (R$)</FormLabel>
+                  <FormLabel>7 - Forma de Pagto/Nº</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" placeholder="0,00" {...field} />
+                    <Input placeholder="Ex: PIX, Boleto, Dinheiro" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -108,7 +120,7 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Data da Nota</FormLabel>
+                  <FormLabel>8 - Data pagamento</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -116,7 +128,46 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
                 </FormItem>
               )}
             />
-            <div className="md:col-span-2 lg:col-span-4 flex justify-end">
+            <FormField
+              control={form.control}
+              name="docNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>9 - Doc. de Despesa/Nº</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Nº da Nota ou Recibo" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>10 - Data vencimento</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>11 - Valor (R$)</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" placeholder="0,00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="lg:col-span-2 flex justify-end">
               <Button type="submit" className="w-full md:w-auto px-8">
                 Salvar Registro
               </Button>
