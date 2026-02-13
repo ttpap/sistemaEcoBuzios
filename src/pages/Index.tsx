@@ -8,7 +8,7 @@ import PDFUploader from '@/components/PDFUploader';
 import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Wallet, Printer } from 'lucide-react';
+import { Wallet, Printer, LayoutDashboard } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
 import { printExpenseReport } from '@/utils/print-report';
@@ -56,58 +56,68 @@ const Index = () => {
   const totalAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
-      <header className="bg-white border-b mb-8">
-        <div className="container mx-auto px-4 py-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary p-2 rounded-lg">
-              <Wallet className="h-6 w-6 text-white" />
+    <div className="min-h-screen bg-[#f8fafc] pb-20">
+      {/* Header Elegante */}
+      <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="bg-slate-900 p-2.5 rounded-2xl shadow-lg shadow-slate-900/20">
+              <LayoutDashboard className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Finanças Pro</h1>
-              <p className="text-sm text-muted-foreground">Prestação de Contas Inteligente</p>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Finanças Pro</h1>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.2em]">Enterprise Edition</p>
             </div>
           </div>
           
-          {expenses.length > 0 && (
-            <Button 
-              onClick={() => printExpenseReport(expenses)}
-              variant="outline"
-              className="gap-2 border-primary text-primary hover:bg-primary/5"
-            >
-              <Printer className="h-4 w-4" />
-              Imprimir Relatório
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {expenses.length > 0 && (
+              <Button 
+                onClick={() => printExpenseReport(expenses)}
+                variant="outline"
+                className="rounded-full px-6 border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition-all active:scale-95"
+              >
+                <Printer className="h-4 w-4 mr-2" />
+                Relatório
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 max-w-6xl">
-        <ExpenseSummary totalAmount={totalAmount} count={expenses.length} />
+      <main className="container mx-auto px-6 max-w-6xl mt-10">
+        {/* Resumo com Cards Arrojados */}
+        <section className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <ExpenseSummary totalAmount={totalAmount} count={expenses.length} />
+        </section>
         
-        <div className="grid gap-6">
-          <div className="grid gap-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Importação Automática</h2>
-            <PDFUploader onDataExtracted={handleDataExtracted} />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Coluna Lateral: Upload e Formulário */}
+          <div className="lg:col-span-5 space-y-8">
+            <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-150">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Importação Inteligente</h2>
+              <PDFUploader onDataExtracted={handleDataExtracted} />
+            </div>
+
+            <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Novo Lançamento</h2>
+              <ExpenseForm 
+                onAddExpense={handleAddExpense} 
+                initialData={extractedData} 
+                attachment={currentAttachment}
+              />
+            </div>
           </div>
 
-          <div className="grid gap-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dados do Registro</h2>
-            <ExpenseForm 
-              onAddExpense={handleAddExpense} 
-              initialData={extractedData} 
-              attachment={currentAttachment}
-            />
-          </div>
-
-          <div className="grid gap-4">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Histórico de Lançamentos</h2>
+          {/* Coluna Principal: Lista */}
+          <div className="lg:col-span-7 animate-in fade-in slide-in-from-right-4 duration-700 delay-500">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Fluxo de Caixa</h2>
             <ExpenseList expenses={expenses} onDeleteExpense={handleDeleteExpense} />
           </div>
         </div>
       </main>
 
-      <footer className="mt-12">
+      <footer className="mt-20 opacity-50 hover:opacity-100 transition-opacity">
         <MadeWithDyad />
       </footer>
     </div>

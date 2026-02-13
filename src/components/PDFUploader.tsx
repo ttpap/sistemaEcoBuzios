@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { FileUp, Loader2 } from "lucide-react";
+import { FileUp, Loader2, Sparkles } from "lucide-react";
 import { extractDataFromPDF, ExtractedData } from '@/utils/pdf-extractor';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -35,7 +35,7 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
       const data = await extractDataFromPDF(file);
       const base64 = await fileToBase64(file);
       onDataExtracted(data, base64, file.name);
-      showSuccess("Dados extraídos e arquivo anexado!");
+      showSuccess("Inteligência artificial processou o documento!");
     } catch (error: any) {
       console.error("Erro ao processar PDF:", error);
       showError("Erro ao ler o PDF.");
@@ -46,22 +46,26 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
   };
 
   return (
-    <div className="mb-6">
-      <label className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-primary/30 rounded-xl bg-primary/5 hover:bg-primary/10 transition-all cursor-pointer group overflow-hidden">
-        <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+    <div className="group">
+      <label className="relative flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-slate-200 rounded-[2rem] bg-white hover:bg-slate-50 hover:border-slate-300 transition-all duration-500 cursor-pointer overflow-hidden shadow-sm hover:shadow-md">
+        <div className="flex flex-col items-center justify-center p-6 text-center">
           {isUploading ? (
-            <>
-              <Loader2 className="w-10 h-10 mb-3 text-primary animate-spin" />
-              <p className="text-sm text-primary font-semibold">Processando documento...</p>
-            </>
+            <div className="space-y-3">
+              <Loader2 className="w-10 h-10 text-slate-900 animate-spin mx-auto" />
+              <p className="text-sm text-slate-900 font-bold tracking-tight">Analisando estrutura do PDF...</p>
+            </div>
           ) : (
             <>
-              <div className="bg-primary/10 p-3 rounded-full mb-3 group-hover:scale-110 transition-transform">
-                <FileUp className="w-6 h-6 text-primary" />
+              <div className="bg-slate-900 p-4 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-500 shadow-lg shadow-slate-900/20">
+                <FileUp className="w-6 h-6 text-white" />
               </div>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-bold text-primary">Importar PDF</span> para preencher e anexar
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-slate-900">Arraste ou clique para importar</p>
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <Sparkles className="h-3 w-3 text-amber-400" />
+                  Extração Automática via IA
+                </div>
+              </div>
             </>
           )}
         </div>
