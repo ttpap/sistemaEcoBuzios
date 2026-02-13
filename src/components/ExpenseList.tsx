@@ -39,11 +39,23 @@ const ExpenseList = ({ expenses, onDeleteExpense }: ExpenseListProps) => {
   };
 
   const openAttachment = (base64: string) => {
-    const win = window.open();
-    if (win) {
-      win.document.write(
-        `<iframe src="${base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
-      );
+    try {
+      // Converte base64 para Blob para abertura mais segura
+      const byteString = atob(base64.split(',')[1]);
+      const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      const blob = new Blob([ab], { type: mimeString });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error("Erro ao abrir anexo:", error);
+      // Fallback simples
+      const win = window.open();
+      if (win) win.location.href = base64;
     }
   };
 

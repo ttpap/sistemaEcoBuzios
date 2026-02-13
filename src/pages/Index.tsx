@@ -9,6 +9,7 @@ import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
 import { Wallet } from 'lucide-react';
+import { showError } from '@/utils/toast';
 
 const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -27,7 +28,12 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('financial-expenses', JSON.stringify(expenses));
+    try {
+      localStorage.setItem('financial-expenses', JSON.stringify(expenses));
+    } catch (e) {
+      console.error("Erro ao salvar no localStorage:", e);
+      showError("Limite de armazenamento atingido. Tente remover registros antigos.");
+    }
   }, [expenses]);
 
   const handleAddExpense = (newExpense: Expense) => {
