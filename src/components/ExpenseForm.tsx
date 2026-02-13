@@ -13,10 +13,10 @@ import { Expense } from '@/types/expense';
 import { showSuccess } from '@/utils/toast';
 
 const formSchema = z.object({
-  cnpj: z.string().min(14, "CNPJ inválido").max(18),
-  companyName: z.string().min(2, "Nome da empresa é obrigatório"),
-  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Valor deve ser maior que zero"),
-  date: z.string().min(1, "Data é obrigatória"),
+  cnpj: z.string().min(14, "CNPJ deve ter pelo menos 14 caracteres").max(18, "CNPJ muito longo"),
+  companyName: z.string().min(2, "O nome da empresa é obrigatório"),
+  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "O valor deve ser maior que zero"),
+  date: z.string().min(1, "A data é obrigatória"),
 });
 
 interface ExpenseFormProps {
@@ -50,15 +50,15 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
       amount: "",
       date: new Date().toISOString().split('T')[0],
     });
-    showSuccess("Despesa registrada com sucesso!");
+    showSuccess("Registro adicionado com sucesso!");
   }
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 border-none shadow-sm">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <PlusCircle className="h-5 w-5 text-primary" />
-          Nova Prestação de Contas
+          Novo Lançamento
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -69,9 +69,9 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
               name="companyName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Empresa</FormLabel>
+                  <FormLabel>Nome da Empresa</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nome da empresa" {...field} />
+                    <Input placeholder="Ex: Posto de Combustível" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -108,7 +108,7 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
               name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Data</FormLabel>
+                  <FormLabel>Data da Nota</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
@@ -117,8 +117,8 @@ const ExpenseForm = ({ onAddExpense }: ExpenseFormProps) => {
               )}
             />
             <div className="md:col-span-2 lg:col-span-4 flex justify-end">
-              <Button type="submit" className="w-full md:w-auto">
-                Adicionar Registro
+              <Button type="submit" className="w-full md:w-auto px-8">
+                Salvar Registro
               </Button>
             </div>
           </form>
