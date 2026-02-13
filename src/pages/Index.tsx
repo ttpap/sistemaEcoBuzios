@@ -6,10 +6,11 @@ import ExpenseList from '@/components/ExpenseList';
 import ExpenseSummary from '@/components/ExpenseSummary';
 import PDFUploader from '@/components/PDFUploader';
 import BatchReviewDialog from '@/components/BatchReviewDialog';
+import EditExpenseDialog from '@/components/EditExpenseDialog';
 import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Printer, LayoutDashboard, AlertCircle } from 'lucide-react';
+import { Printer, LayoutDashboard } from 'lucide-react';
 import { showError, showSuccess } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
 import { printExpenseReport } from '@/utils/print-report';
@@ -19,6 +20,10 @@ const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  
+  // Estados para edição
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   
   // Para o formulário manual
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
@@ -44,8 +49,9 @@ const Index = () => {
     }
   }, [expenses]);
 
-  const isDuplicate = (data: ExtractedData | Expense) => {
+  const isDuplicate = (data: ExtractedData | Expense, excludeId?: string) => {
     return expenses.some(exp => 
+      exp.id !== excludeId &&
       exp.cnpj === data.cnpj && 
       exp.docNumber === data.docNumber && 
       exp.amount === data.amount
@@ -60,6 +66,11 @@ const Index = () => {
     setExpenses(prev => [newExpense, ...prev]);
     setExtractedData(null);
     setCurrentAttachment(null);
+  };
+
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    setExpenses(prev => prev.map(exp => exp.id === updatedExpense.id ? updatedExpense : exp));
+    showSuccess("Lançamento atualizado!");
   };
 
   const handleDataExtracted = (data: ExtractedData, base64: string, fileName: string) => {
@@ -153,7 +164,11 @@ const Index = () => {
 
           <div className="lg:col-span-7 animate-in fade-in slide-in-from-right-4 duration-700 delay-500">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Fluxo de Caixa</h2>
-            <ExpenseList expenses={expenses} onDeleteExpense={(id) => setExpenses(prev => prev.filter(e => e.id !== id))} />
+            <ExpenseList 
+              expenses={expenses} 
+              onDeleteExpense={(id) => setExpenses(prev => prev.filter(e => e.id !== id))} 
+              onEditExpense={(exp) => { setEditingExpense(exp); setIsEditOpen(true); }}
+            />
           </div>
         </div>
       </main>
@@ -164,6 +179,13 @@ const Index = () => {
         onConfirm={handleConfirmBatch}
         onCancel={() => { setPendingExpenses([]); setIsReviewOpen(false); }}
         onRemoveItem={handleRemovePending}
+      />
+
+      <EditExpenseDialog 
+        isOpen={isEditOpen}
+        expense={editingExpense}
+        onClose={() => { setIsEditOpen(false); setEditingExpense(null); }}
+        onSave={handleUpdateExpense}
       />
 
       <footer className="mt-20 opacity-50 hover:opacity-100 transition-opacity">

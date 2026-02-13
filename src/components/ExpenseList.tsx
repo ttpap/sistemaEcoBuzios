@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Expense } from '@/types/expense';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Trash2, FileText, Download, Eye, X } from 'lucide-react';
+import { Trash2, FileText, Download, Eye, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -21,15 +21,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 interface ExpenseListProps {
   expenses: Expense[];
   onDeleteExpense: (id: string) => void;
+  onEditExpense: (expense: Expense) => void;
 }
 
-const ExpenseList = ({ expenses, onDeleteExpense }: ExpenseListProps) => {
+const ExpenseList = ({ expenses, onDeleteExpense, onEditExpense }: ExpenseListProps) => {
   const [selectedAttachment, setSelectedAttachment] = useState<{ base64: string, name: string } | null>(null);
 
   const formatCurrency = (value: number) => {
@@ -75,7 +75,7 @@ const ExpenseList = ({ expenses, onDeleteExpense }: ExpenseListProps) => {
                   <TableHead>Credor / CNPJ</TableHead>
                   <TableHead className="hidden lg:table-cell">Doc. Nº</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -144,14 +144,24 @@ const ExpenseList = ({ expenses, onDeleteExpense }: ExpenseListProps) => {
                         {formatCurrency(expense.amount)}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => onDeleteExpense(expense.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-600 hover:text-primary hover:bg-primary/10"
+                            onClick={() => onEditExpense(expense)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => onDeleteExpense(expense.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
