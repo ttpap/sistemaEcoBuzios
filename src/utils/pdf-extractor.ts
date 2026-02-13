@@ -1,6 +1,5 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Usando uma versão específica do worker que coincide com a biblioteca instalada
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface ExtractedData {
@@ -10,6 +9,7 @@ export interface ExtractedData {
   date?: string;
   docNumber?: string;
   dueDate?: string;
+  isInvoice?: boolean;
 }
 
 export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => {
@@ -33,16 +33,22 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       fullText += pageText + ' ';
     }
 
-    console.log("Texto extraído do PDF:", fullText);
+    // Validação: Verificar se o texto contém termos de Nota Fiscal
+    const invoiceKeywords = [/NFS-e/i, /Nota Fiscal/i, /PREFEITURA/i, /TOMADOR/i, /PRESTADOR/i];
+    const isInvoice = invoiceKeywords.some(regex => regex.test(fullText));
 
-    const data: ExtractedData = {};
+    if (!isInvoice) {
+      throw new Error("O documento não parece ser uma Nota Fiscal de Serviço (NFS-e).");
+    }
 
-    // 1. Buscar CNPJ do Emitente (Geralmente o primeiro que aparece)
+    const data: ExtractedData = { isInvoice: true };
+
+    // CNPJ
     const cnpjRegex = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/;
     const cnpjMatch = fullText.match(cnpjRegex);
     if (cnpjMatch) data.cnpj = cnpjMatch[0];
 
-    // 2. Buscar Datas
+    // Datas
     const dateRegex = /(\d{2}\/\d{2}\/\d{4})/g;
     const dateMatches = fullText.match(dateRegex);
     if (dateMatches && dateMatches.length > 0) {
@@ -50,14 +56,11 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
         const [day, month, year] = d.split('/');
         return `${year}-${month}-${day}`;
       };
-      
       data.date = convertDate(dateMatches[0]);
-      if (dateMatches.length > 1) {
-        data.dueDate = convertDate(dateMatches[1]);
-      }
+      if (dateMatches.length > 1) data.dueDate = convertDate(dateMatches[1]);
     }
 
-    // 3. Buscar Valor (Valor Líquido ou Valor do Serviço)
+    // Valor
     const amountRegex = /(?:Valor Líquido da NFS-e|Valor do Serviço|R\$)\s*[:\s]*([\d.]+,\d{2})/i;
     const amountMatch = fullText.match(amountRegex);
     if (amountMatch) {
@@ -65,29 +68,20 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       data.amount = parseFloat(valueStr);
     }
 
-    // 4. Buscar Número da NFS-e
+    // Número
     const nfsRegex = /Número\s+da\s+NFS-e\s*[:\s]*(\d+)/i;
     const nfsMatch = fullText.match(nfsRegex);
-    if (nfsMatch) {
-      data.docNumber = nfsMatch[1];
-    }
+    if (nfsMatch) data.docNumber = nfsMatch[1];
 
-    // 5. Nome do Credor (Emitente / Prestador)
-    // Procuramos o texto entre "Nome / Nome Empresarial" e o próximo campo (geralmente "Endereço" ou "E-mail")
-    // Focando na primeira ocorrência que é a do Emitente
+    // Nome do Credor
     const nameSectionRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*(.*?)(?=Endereço|E-mail|Inscrição|CNPJ|$)/i;
     const nameMatch = fullText.match(nameSectionRegex);
-    
     if (nameMatch && nameMatch[1]) {
-      let name = nameMatch[1].trim();
-      // Remove números iniciais (comum em extrações de PDF onde o CNPJ ou parte dele vem antes do nome)
-      name = name.replace(/^[\d.\s/-]+/, '').trim();
-      data.companyName = name;
+      data.companyName = nameMatch[1].trim().replace(/^[\d.\s/-]+/, '').trim();
     }
 
     return data;
-  } catch (error) {
-    console.error("Erro detalhado no extrator:", error);
-    throw new Error("Falha ao processar o arquivo PDF.");
+  } catch (error: any) {
+    throw new Error(error.message || "Falha ao processar o arquivo PDF.");
   }
 };

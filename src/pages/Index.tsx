@@ -5,6 +5,7 @@ import ExpenseForm from '@/components/ExpenseForm';
 import ExpenseList from '@/components/ExpenseList';
 import ExpenseSummary from '@/components/ExpenseSummary';
 import PDFUploader from '@/components/PDFUploader';
+import BatchReviewDialog from '@/components/BatchReviewDialog';
 import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
@@ -16,6 +17,10 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  
+  // Para o formulário manual
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [currentAttachment, setCurrentAttachment] = useState<{ base64: string; name: string } | null>(null);
 
@@ -35,7 +40,7 @@ const Index = () => {
       localStorage.setItem('financial-expenses', JSON.stringify(expenses));
     } catch (e) {
       console.error("Erro ao salvar no localStorage:", e);
-      showError("Limite de armazenamento atingido. Tente remover registros antigos.");
+      showError("Limite de armazenamento atingido.");
     }
   }, [expenses]);
 
@@ -49,10 +54,7 @@ const Index = () => {
 
   const handleAddExpense = (newExpense: Expense) => {
     if (isDuplicate(newExpense)) {
-      toast.error("Esta nota já foi registrada anteriormente.", {
-        description: `Doc: ${newExpense.docNumber} - Valor: R$ ${newExpense.amount}`,
-        icon: <AlertCircle className="h-4 w-4 text-destructive" />
-      });
+      toast.error("Esta nota já foi registrada.");
       return;
     }
     setExpenses(prev => [newExpense, ...prev]);
@@ -60,26 +62,13 @@ const Index = () => {
     setCurrentAttachment(null);
   };
 
-  const handleDeleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(exp => exp.id !== id));
-  };
-
   const handleDataExtracted = (data: ExtractedData, base64: string, fileName: string) => {
-    // Se for duplicada, avisa e ignora
     if (isDuplicate(data)) {
-      toast.warning(`Nota duplicada ignorada: ${fileName}`, {
-        description: `CNPJ: ${data.cnpj} | Doc: ${data.docNumber}`,
-      });
+      toast.warning(`Nota duplicada ignorada: ${fileName}`);
       return;
     }
 
-    // Se tivermos muitos arquivos, podemos querer adicionar automaticamente
-    // Mas para manter a integridade (Item Orçamentário e Forma de Pagto), 
-    // vamos carregar no formulário a última nota processada e permitir que o usuário salve.
-    // Para uma experiência de "várias notas", vamos adicionar automaticamente com campos pendentes
-    // se o usuário estiver fazendo upload em lote.
-    
-    const autoExpense: Expense = {
+    const newPending: Expense = {
       id: crypto.randomUUID(),
       budgetItem: "Pendente",
       companyName: data.companyName || "Não identificado",
@@ -93,11 +82,20 @@ const Index = () => {
       attachmentName: fileName,
     };
 
-    setExpenses(prev => [autoExpense, ...prev]);
-    
-    // Também carrega no formulário para caso o usuário queira editar a última
-    setExtractedData(data);
-    setCurrentAttachment({ base64, name: fileName });
+    setPendingExpenses(prev => [...prev, newPending]);
+    setIsReviewOpen(true);
+  };
+
+  const handleConfirmBatch = (confirmed: Expense[]) => {
+    setExpenses(prev => [...confirmed, ...prev]);
+    setPendingExpenses([]);
+    setIsReviewOpen(false);
+    showSuccess(`${confirmed.length} notas salvas com sucesso!`);
+  };
+
+  const handleRemovePending = (id: string) => {
+    setPendingExpenses(prev => prev.filter(exp => exp.id !== id));
+    if (pendingExpenses.length <= 1) setIsReviewOpen(false);
   };
 
   const totalAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
@@ -155,10 +153,18 @@ const Index = () => {
 
           <div className="lg:col-span-7 animate-in fade-in slide-in-from-right-4 duration-700 delay-500">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Fluxo de Caixa</h2>
-            <ExpenseList expenses={expenses} onDeleteExpense={handleDeleteExpense} />
+            <ExpenseList expenses={expenses} onDeleteExpense={(id) => setExpenses(prev => prev.filter(e => e.id !== id))} />
           </div>
         </div>
       </main>
+
+      <BatchReviewDialog 
+        isOpen={isReviewOpen}
+        pendingExpenses={pendingExpenses}
+        onConfirm={handleConfirmBatch}
+        onCancel={() => { setPendingExpenses([]); setIsReviewOpen(false); }}
+        onRemoveItem={handleRemovePending}
+      />
 
       <footer className="mt-20 opacity-50 hover:opacity-100 transition-opacity">
         <MadeWithDyad />
