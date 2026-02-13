@@ -37,7 +37,7 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
 
     const data: ExtractedData = {};
 
-    // 1. Buscar CNPJ
+    // 1. Buscar CNPJ (Emitente)
     const cnpjRegex = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/;
     const cnpjMatch = fullText.match(cnpjRegex);
     if (cnpjMatch) data.cnpj = cnpjMatch[0];
@@ -57,35 +57,35 @@ export const extractDataFromPDF = async (file: File): Promise<ExtractedData> => 
       }
     }
 
-    // 3. Buscar Valor
-    const amountRegex = /(?:R\$|VALOR|TOTAL|PAGAR|VALOR TOTAL)\s*[:\s]*([\d.]+,\d{2})/i;
+    // 3. Buscar Valor (Valor do Serviço ou Valor Líquido)
+    const amountRegex = /(?:Valor do Serviço|Valor Líquido|R\$)\s*[:\s]*([\d.]+,\d{2})/i;
     const amountMatch = fullText.match(amountRegex);
     if (amountMatch) {
       const valueStr = amountMatch[1].replace(/\./g, '').replace(',', '.');
       data.amount = parseFloat(valueStr);
     }
 
-    // 4. Buscar Número do Documento (Melhorado para o padrão da imagem)
-    // Procura por "Número da NFS-e" seguido de qualquer espaço/caractere e então o número
-    const docRegex = /(?:Número da NFS-e|NFS-e|N[º°]|DOC|NOTA|NÚMERO|NUMERO)\s*[:\s]*(\d+)/i;
-    const docMatch = fullText.match(docRegex);
-    if (docMatch) {
-      data.docNumber = docMatch[1];
+    // 4. Buscar Número do Documento (Focado no Número da NFS-e)
+    // O regex abaixo procura especificamente por "Número da NFS-e" e pega o primeiro número que segue
+    const nfsSpecificRegex = /Número\s+da\s+NFS-e\s*[:\s]*(\d+)/i;
+    const nfsSpecificMatch = fullText.match(nfsSpecificRegex);
+    
+    if (nfsSpecificMatch) {
+      data.docNumber = nfsSpecificMatch[1];
     } else {
-      // Fallback específico para quando o número está em uma "linha" separada no texto extraído
-      const nfsRegex = /Número\s+da\s+NFS-e\s+(\d+)/i;
-      const nfsMatch = fullText.match(nfsRegex);
-      if (nfsMatch) data.docNumber = nfsMatch[1];
+      // Fallback para outros formatos se o específico falhar
+      const docRegex = /(?:NFS-e|N[º°]|DOC|NOTA|NÚMERO|NUMERO)\s*[:\s]*(\d+)/i;
+      const docMatch = fullText.match(docRegex);
+      if (docMatch) data.docNumber = docMatch[1];
     }
 
-    // 5. Nome da Empresa (Busca após "Nome / Nome Empresarial")
+    // 5. Nome da Empresa (Emitente)
     const nameLabelRegex = /Nome\s*\/\s*Nome\s*Empresarial\s*[:\s]*([^0-9\n]{3,100})/i;
     const nameMatch = fullText.match(nameLabelRegex);
     
     if (nameMatch && nameMatch[1]) {
       data.companyName = nameMatch[1].trim();
     } else {
-      // Fallback: tenta pegar a primeira linha se não encontrar o rótulo
       const lines = fullText.split(/\s{2,}/).filter(l => l.trim().length > 3);
       if (lines.length > 0) {
         data.companyName = lines[0].trim().substring(0, 60);
