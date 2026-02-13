@@ -11,6 +11,7 @@ interface PDFUploaderProps {
 
 const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -22,27 +23,42 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    if (file.type !== 'application/pdf') {
+    const pdfFiles = Array.from(files).filter(f => f.type === 'application/pdf');
+    
+    if (pdfFiles.length === 0) {
       showError("Por favor, selecione apenas arquivos PDF.");
       return;
     }
 
     setIsUploading(true);
-    try {
-      const data = await extractDataFromPDF(file);
-      const base64 = await fileToBase64(file);
-      onDataExtracted(data, base64, file.name);
-      showSuccess("Inteligência artificial processou o documento!");
-    } catch (error: any) {
-      console.error("Erro ao processar PDF:", error);
-      showError("Erro ao ler o PDF.");
-    } finally {
-      setIsUploading(false);
-      event.target.value = '';
+    setProgress({ current: 0, total: pdfFiles.length });
+
+    let successCount = 0;
+
+    for (let i = 0; i < pdfFiles.length; i++) {
+      const file = pdfFiles[i];
+      setProgress(prev => ({ ...prev, current: i + 1 }));
+      
+      try {
+        const data = await extractDataFromPDF(file);
+        const base64 = await fileToBase64(file);
+        onDataExtracted(data, base64, file.name);
+        successCount++;
+      } catch (error: any) {
+        console.error(`Erro ao processar ${file.name}:`, error);
+        showError(`Erro ao ler o arquivo: ${file.name}`);
+      }
     }
+
+    if (successCount > 0) {
+      showSuccess(`${successCount} documento(s) processado(s) com sucesso!`);
+    }
+
+    setIsUploading(false);
+    event.target.value = '';
   };
 
   return (
@@ -52,7 +68,9 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
           {isUploading ? (
             <div className="space-y-3">
               <Loader2 className="w-10 h-10 text-slate-900 animate-spin mx-auto" />
-              <p className="text-sm text-slate-900 font-bold tracking-tight">Analisando estrutura do PDF...</p>
+              <p className="text-sm text-slate-900 font-bold tracking-tight">
+                Processando {progress.current} de {progress.total}...
+              </p>
             </div>
           ) : (
             <>
@@ -60,10 +78,10 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
                 <FileUp className="w-6 h-6 text-white" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-bold text-slate-900">Arraste ou clique para importar</p>
+                <p className="text-sm font-bold text-slate-900">Importar múltiplas notas</p>
                 <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                   <Sparkles className="h-3 w-3 text-amber-400" />
-                  Extração Automática via IA
+                  Detecção de duplicatas ativa
                 </div>
               </div>
             </>
@@ -75,6 +93,7 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
           accept="application/pdf" 
           onChange={handleFileChange}
           disabled={isUploading}
+          multiple
         />
       </label>
     </div>
