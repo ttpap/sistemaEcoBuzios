@@ -10,7 +10,7 @@ import EditExpenseDialog from '@/components/EditExpenseDialog';
 import { Expense } from '@/types/expense';
 import { ExtractedData } from '@/utils/pdf-extractor';
 import { MadeWithDyad } from "@/components/made-with-dyad";
-import { Printer, LayoutDashboard } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { showError, showSuccess } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
 import { printExpenseReport } from '@/utils/print-report';
@@ -116,12 +116,16 @@ const Index = () => {
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="bg-slate-900 p-2.5 rounded-2xl shadow-lg shadow-slate-900/20">
-              <LayoutDashboard className="h-6 w-6 text-white" />
+            <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-100">
+              <img 
+                src="https://dyad.sh/api/v1/projects/current/files/pasted-image-2026-02-13T13-40-07-416Z.png" 
+                alt="EcoBúzios Logo" 
+                className="h-10 w-10 object-contain"
+              />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Finanças Pro</h1>
-              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.2em]">Enterprise Edition</p>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Balanço</h1>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.2em]">EcoBúzios Financeiro</p>
             </div>
           </div>
           
