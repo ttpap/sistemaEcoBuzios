@@ -14,14 +14,14 @@ import { showSuccess } from '@/utils/toast';
 import { ExtractedData } from '@/utils/pdf-extractor';
 
 const formSchema = z.object({
-  budgetItem: z.string().min(1, "O item orçamentário é obrigatório"),
-  companyName: z.string().min(2, "O nome do credor é obrigatório"),
-  cnpj: z.string().min(11, "CPF/CNPJ inválido"),
-  paymentMethod: z.string().min(1, "Informe a forma de pagamento"),
-  date: z.string().min(1, "A data de pagamento é obrigatória"),
-  docNumber: z.string().min(1, "O número do documento é obrigatório"),
-  dueDate: z.string().min(1, "A data de vencimento é obrigatória"),
-  amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "O valor deve ser maior que zero"),
+  budgetItem: z.string().default(""),
+  companyName: z.string().default(""),
+  cnpj: z.string().default(""),
+  paymentMethod: z.string().default(""),
+  date: z.string().default(""),
+  docNumber: z.string().default(""),
+  dueDate: z.string().default(""),
+  amount: z.string().default("0"),
 });
 
 interface ExpenseFormProps {
@@ -48,14 +48,14 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
   useEffect(() => {
     if (initialData) {
       form.reset({
-        budgetItem: form.getValues('budgetItem'),
+        budgetItem: form.getValues('budgetItem') || "Pendente",
         companyName: initialData.companyName || "",
         cnpj: initialData.cnpj || "",
-        paymentMethod: form.getValues('paymentMethod'),
+        paymentMethod: form.getValues('paymentMethod') || "A definir",
         date: initialData.date || new Date().toISOString().split('T')[0],
-        docNumber: initialData.docNumber || "",
-        dueDate: initialData.date || new Date().toISOString().split('T')[0],
-        amount: initialData.amount?.toString() || "",
+        docNumber: initialData.docNumber || "S/N",
+        dueDate: initialData.dueDate || initialData.date || new Date().toISOString().split('T')[0],
+        amount: initialData.amount?.toString() || "0",
       });
     }
   }, [initialData, form]);
@@ -63,14 +63,14 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
   function onSubmit(values: z.infer<typeof formSchema>) {
     const newExpense: Expense = {
       id: crypto.randomUUID(),
-      budgetItem: values.budgetItem,
-      companyName: values.companyName,
-      cnpj: values.cnpj,
-      paymentMethod: values.paymentMethod,
-      date: values.date,
-      docNumber: values.docNumber,
-      dueDate: values.dueDate,
-      amount: Number(values.amount),
+      budgetItem: values.budgetItem || "Não informado",
+      companyName: values.companyName || "Não informado",
+      cnpj: values.cnpj || "Não informado",
+      paymentMethod: values.paymentMethod || "Não informado",
+      date: values.date || new Date().toISOString().split('T')[0],
+      docNumber: values.docNumber || "S/N",
+      dueDate: values.dueDate || values.date || new Date().toISOString().split('T')[0],
+      amount: Number(values.amount) || 0,
       attachment: attachment?.base64,
       attachmentName: attachment?.name,
     };
@@ -86,7 +86,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
       dueDate: new Date().toISOString().split('T')[0],
       amount: "",
     });
-    showSuccess("Registro adicionado com sucesso!");
+    showSuccess("Registro salvo!");
   }
 
   return (
@@ -121,7 +121,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>4 - ITEM ORÇ</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: 1.1 Saída, 1.3 Campo" {...field} />
+                    <Input placeholder="Opcional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -134,7 +134,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>5 - CREDOR</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nome da empresa ou pessoa" {...field} />
+                    <Input placeholder="Opcional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -147,7 +147,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>6 - C.N.P.J./C.P.F.</FormLabel>
                   <FormControl>
-                    <Input placeholder="00.000.000/0000-00" {...field} />
+                    <Input placeholder="Opcional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -160,7 +160,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>7 - Forma de Pagto/Nº</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Pix" {...field} />
+                    <Input placeholder="Opcional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -186,7 +186,7 @@ const ExpenseForm = ({ onAddExpense, initialData, attachment }: ExpenseFormProps
                 <FormItem>
                   <FormLabel>9 - Doc. de Despesa/Nº</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nº da Nota ou Recibo" {...field} />
+                    <Input placeholder="Opcional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
