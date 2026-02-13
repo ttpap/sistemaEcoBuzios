@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 150 20% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -13,26 +13,26 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 162 80% 24%; /* Verde EcoBúzios */
+    --primary-foreground: 150 20% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 162 20% 94%;
+    --secondary-foreground: 162 80% 20%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 162 10% 94%;
+    --muted-foreground: 162 20% 40%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 162 40% 92%;
+    --accent-foreground: 162 80% 20%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 162 20% 90%;
+    --input: 162 20% 90%;
+    --ring: 162 80% 24%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
   }
 }
 
@@ -41,10 +41,10 @@
     @apply border-border;
   }
   body {
-    @apply bg-[#f8fafc] text-foreground antialiased;
+    @apply bg-[#f0f7f4] text-foreground antialiased;
   }
 }
 
 .glass-card {
-  @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl shadow-slate-200/50;
+  @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-xl shadow-emerald-900/5;
 }

@@ -21,11 +21,9 @@ const Index = () => {
   const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   
-  // Estados para edição
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   
-  // Para o formulário manual
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [currentAttachment, setCurrentAttachment] = useState<{ base64: string; name: string } | null>(null);
 
@@ -112,29 +110,31 @@ const Index = () => {
   const totalAmount = expenses.reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="bg-white p-1 rounded-xl shadow-sm border border-slate-100">
-              <img 
-                src="https://dyad.sh/api/v1/projects/current/files/pasted-image-2026-02-13T13-40-07-416Z.png" 
-                alt="EcoBúzios Logo" 
-                className="h-10 w-10 object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Balanço</h1>
-              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-[0.2em]">EcoBúzios Financeiro</p>
-            </div>
+    <div className="min-h-screen bg-[#f0f7f4] pb-20">
+      <header className="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-xl border-b border-emerald-100/50 shadow-sm">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between relative">
+          {/* Lado Esquerdo: Título */}
+          <div className="flex-1">
+            <h1 className="text-xl font-black text-emerald-900 tracking-tight">Balanço</h1>
+            <p className="text-[10px] font-bold text-emerald-600/60 uppercase tracking-[0.2em]">EcoBúzios Financeiro</p>
+          </div>
+
+          {/* Centro: Logo */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <img 
+              src="https://dyad.sh/api/v1/projects/current/files/pasted-image-2026-02-13T13-43-11-149Z.png" 
+              alt="EcoBúzios Logo" 
+              className="h-14 w-auto object-contain drop-shadow-sm"
+            />
           </div>
           
-          <div className="flex items-center gap-3">
+          {/* Lado Direito: Ações */}
+          <div className="flex-1 flex justify-end items-center gap-3">
             {expenses.length > 0 && (
               <Button 
                 onClick={() => printExpenseReport(expenses)}
                 variant="outline"
-                className="rounded-full px-6 border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition-all active:scale-95"
+                className="rounded-full px-6 border-emerald-200 hover:bg-emerald-50 text-emerald-700 font-bold transition-all active:scale-95 shadow-sm"
               >
                 <Printer className="h-4 w-4 mr-2" />
                 Relatório
@@ -152,12 +152,12 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-5 space-y-8">
             <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-150">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Importação em Lote</h2>
+              <h2 className="text-xs font-bold text-emerald-800/40 uppercase tracking-widest mb-4 ml-1">Importação em Lote</h2>
               <PDFUploader onDataExtracted={handleDataExtracted} />
             </div>
 
             <div className="animate-in fade-in slide-in-from-left-4 duration-700 delay-300">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Ajuste Manual</h2>
+              <h2 className="text-xs font-bold text-emerald-800/40 uppercase tracking-widest mb-4 ml-1">Ajuste Manual</h2>
               <ExpenseForm 
                 onAddExpense={handleAddExpense} 
                 initialData={extractedData} 
@@ -167,7 +167,7 @@ const Index = () => {
           </div>
 
           <div className="lg:col-span-7 animate-in fade-in slide-in-from-right-4 duration-700 delay-500">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Fluxo de Caixa</h2>
+            <h2 className="text-xs font-bold text-emerald-800/40 uppercase tracking-widest mb-4 ml-1">Fluxo de Caixa</h2>
             <ExpenseList 
               expenses={expenses} 
               onDeleteExpense={(id) => setExpenses(prev => prev.filter(e => e.id !== id))} 
