@@ -23,13 +23,13 @@ const Sidebar = () => {
   ];
 
   return (
-    <div className="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
+    <div className="w-64 bg-[#f5f0e6]/90 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
       <div className="p-6 pt-10">
         <Logo className="w-full" />
-        <div className="mt-6 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+        <div className="mt-6 h-px bg-gradient-to-r from-transparent via-slate-300/50 to-transparent" />
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 px-4 space-y-1 mt-4">
         {menuItems.map((item) => (
           <Link
             key={item.path}
@@ -37,17 +37,17 @@ const Sidebar = () => {
             className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300",
               location.pathname === item.path
-                ? "bg-primary text-white shadow-xl shadow-primary/30 scale-[1.02]"
-                : "text-slate-500 hover:bg-white hover:text-primary hover:shadow-sm"
+                ? "bg-[#008ca0] text-white shadow-xl shadow-[#008ca0]/30 scale-[1.02]"
+                : "text-slate-600 hover:bg-white/50 hover:text-[#008ca0] hover:shadow-sm"
             )}
           >
-            <item.icon className={cn("h-5 w-5", location.pathname === item.path ? "text-secondary" : "")} />
+            <item.icon className={cn("h-5 w-5", location.pathname === item.path ? "text-[#ffa534]" : "")} />
             {item.label}
           </Link>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-100">
+      <div className="p-4 border-t border-slate-200/50">
         <button className="flex items-center gap-3 px-4 py-3 w-full text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all">
           <LogOut className="h-5 w-5" />
           Sair
