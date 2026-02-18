@@ -11,29 +11,34 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, MoreHorizontal, GraduationCap, User } from "lucide-react";
+import { Plus, Search, GraduationCap, Eye, Edit2, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { StudentRegistration } from '@/types/student';
+import StudentDetailsDialog from '@/components/StudentDetailsDialog';
+import { showSuccess } from '@/utils/toast';
 
 const Students = () => {
   const navigate = useNavigate();
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
-    // Dados iniciais se estiver vazio
-    if (saved.length === 0) {
-      const initial = [
-        { id: '1', fullName: 'Ana Silva', registration: '2024001', class: '9º Ano A', status: 'Ativo' },
-        { id: '2', fullName: 'Bruno Costa', registration: '2024002', class: '8º Ano B', status: 'Ativo' },
-      ];
-      setStudents(initial);
-    } else {
-      setStudents(saved);
-    }
+    setStudents(saved);
   }, []);
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este aluno?")) {
+      const updated = students.filter(s => s.id !== id);
+      localStorage.setItem('ecobuzios_students', JSON.stringify(updated));
+      setStudents(updated);
+      showSuccess("Aluno removido com sucesso.");
+    }
+  };
 
   const filteredStudents = students.filter(s => 
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -74,15 +79,14 @@ const Students = () => {
             <TableRow className="hover:bg-transparent border-slate-100">
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Aluno</TableHead>
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Matrícula</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Turma</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Status</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Idade</TableHead>
               <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredStudents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-slate-400 font-medium">
+                <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
                   Nenhum aluno encontrado.
                 </TableCell>
               </TableRow>
@@ -102,22 +106,35 @@ const Students = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-slate-500 font-medium">{student.registration}</TableCell>
-                  <TableCell className="font-medium text-slate-600">{student.class}</TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant={student.status === 'Ativo' ? 'default' : 'secondary'} 
-                      className={cn(
-                        "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider",
-                        student.status === 'Ativo' ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-slate-100 text-slate-500 hover:bg-slate-100"
-                      )}
-                    >
-                      {student.status}
-                    </Badge>
-                  </TableCell>
+                  <TableCell className="font-medium text-slate-600">{student.age} anos</TableCell>
                   <TableCell className="text-right px-8">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary">
-                        <MoreHorizontal className="h-5 w-5" />
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-xl hover:bg-primary/10 hover:text-primary"
+                        onClick={() => {
+                          setSelectedStudent(student);
+                          setIsDetailsOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-xl hover:bg-emerald-50 hover:text-emerald-600"
+                        onClick={() => navigate(`/alunos/editar/${student.id}`)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-xl hover:bg-red-50 hover:text-red-600"
+                        onClick={() => handleDelete(student.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -127,6 +144,12 @@ const Students = () => {
           </TableBody>
         </Table>
       </div>
+
+      <StudentDetailsDialog 
+        student={selectedStudent} 
+        isOpen={isDetailsOpen} 
+        onClose={() => setIsDetailsOpen(false)} 
+      />
     </div>
   );
 };

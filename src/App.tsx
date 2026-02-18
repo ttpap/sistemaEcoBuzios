@@ -7,6 +7,7 @@ import Sidebar from "./components/layout/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import NewStudent from "./pages/NewStudent";
+import EditStudent from "./pages/EditStudent";
 import Teachers from "./pages/Teachers";
 import Classes from "./pages/Classes";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/" element={<Dashboard />} />
               <Route path="/alunos" element={<Students />} />
               <Route path="/alunos/novo" element={<NewStudent />} />
+              <Route path="/alunos/editar/:id" element={<EditStudent />} />
               <Route path="/professores" element={<Teachers />} />
               <Route path="/turmas" element={<Classes />} />
               <Route path="*" element={<NotFound />} />
