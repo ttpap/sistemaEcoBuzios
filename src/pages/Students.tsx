@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, MoreHorizontal, GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 const Students = () => {
   const navigate = useNavigate();
@@ -82,9 +83,11 @@ const Students = () => {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right px-8">
-                  <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
