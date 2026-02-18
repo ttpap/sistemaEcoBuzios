@@ -7,11 +7,10 @@ import {
   Users, 
   GraduationCap, 
   BookOpen, 
-  Settings,
-  LogOut,
-  Waves
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Logo from '../Logo';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -24,20 +23,13 @@ const Sidebar = () => {
   ];
 
   return (
-    <div className="w-64 bg-white/50 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
-      <div className="p-6 flex flex-col gap-1">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20">
-            <Waves className="text-white h-6 w-6" />
-          </div>
-          <h1 className="font-black text-2xl tracking-tighter text-primary">
-            ECO<span className="text-secondary">BÚZIOS</span>
-          </h1>
-        </div>
-        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] pl-1">Gestão Educacional</p>
+    <div className="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
+      <div className="p-8">
+        <Logo className="w-full" />
+        <div className="mt-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 mt-4">
+      <nav className="flex-1 px-4 space-y-1">
         {menuItems.map((item) => (
           <Link
             key={item.path}

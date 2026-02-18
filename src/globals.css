@@ -13,24 +13,24 @@
     --popover: 0 0% 100%;
     --popover-foreground: 187 100% 15%;
 
-    --primary: 187 100% 30%; /* Azul-petróleo da logo */
+    --primary: 187 100% 31%; /* Azul-petróleo exato (#008ca0) */
     --primary-foreground: 40 30% 98%;
 
-    --secondary: 35 100% 55%; /* Laranja da logo */
+    --secondary: 34 100% 60%; /* Laranja exato (#ffa534) */
     --secondary-foreground: 187 100% 10%;
 
     --muted: 187 20% 90%;
     --muted-foreground: 187 20% 40%;
 
-    --accent: 35 100% 92%;
-    --accent-foreground: 35 100% 30%;
+    --accent: 34 100% 92%;
+    --accent-foreground: 34 100% 30%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 187 20% 85%;
     --input: 187 20% 85%;
-    --ring: 187 100% 30%;
+    --ring: 187 100% 31%;
 
     --radius: 1.25rem;
   }
@@ -43,8 +43,4 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
-}
-
-.glass-card {
-  @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-xl shadow-cyan-900/5;
 }
