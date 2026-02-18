@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
+import Teachers from "./pages/Teachers";
+import Classes from "./pages/Classes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,7 +24,8 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/alunos" element={<Students />} />
-              {/* Adicionaremos Professores e Turmas em seguida */}
+              <Route path="/professores" element={<Teachers />} />
+              <Route path="/turmas" element={<Classes />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
