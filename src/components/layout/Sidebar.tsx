@@ -24,9 +24,9 @@ const Sidebar = () => {
 
   return (
     <div className="w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
-      <div className="p-8">
+      <div className="p-6 pt-10">
         <Logo className="w-full" />
-        <div className="mt-4 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+        <div className="mt-6 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
       </div>
 
       <nav className="flex-1 px-4 space-y-1">
