@@ -1,5 +1,5 @@
 export interface StudentRegistration {
-  // 1. Dados Gerais
+  id: string;
   fullName: string;
   socialName?: string;
   preferredName?: string;
@@ -7,12 +7,13 @@ export interface StudentRegistration {
   cpf?: string;
   rg?: string;
   birthDate: string;
-  age: string;
+  age: number;
   phone: string;
   cellPhone: string;
   gender: string;
   genderOther?: string;
   race: string;
+  photo?: string; // Base64 da foto
 
   // 2. Responsável
   guardianName?: string;
@@ -20,7 +21,7 @@ export interface StudentRegistration {
   guardianPhone?: string;
 
   // 3. Escola
-  schoolType: 'municipal' | 'state' | 'private' | 'higher' | '';
+  schoolType: string;
   schoolName: string;
   schoolOther?: string;
 
@@ -51,8 +52,9 @@ export interface StudentRegistration {
   observations?: string;
 
   // 6. Imagem
-  imageAuthorization: 'authorized' | 'not_authorized' | '';
+  imageAuthorization: string;
 
   // 7. Documentos
   docsDelivered: string[];
+  registrationDate: string;
 }

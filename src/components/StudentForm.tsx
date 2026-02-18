@@ -1,12 +1,12 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
   User, ShieldAlert, School, MapPin, HeartPulse, Camera, FileText, 
-  CheckCircle2, ArrowLeft, Save
+  CheckCircle2, ArrowLeft, Save, Upload, Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { showSuccess } from '@/utils/toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
+import { differenceInYears, parseISO } from 'date-fns';
 
 const formSchema = z.object({
   fullName: z.string().min(3, "Nome muito curto"),
@@ -27,12 +29,13 @@ const formSchema = z.object({
   cpf: z.string().optional(),
   rg: z.string().optional(),
   birthDate: z.string().min(1, "Obrigatório"),
-  age: z.string().min(1, "Obrigatório"),
+  age: z.number().min(0),
   phone: z.string().min(1, "Obrigatório"),
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.string().min(1, "Selecione o gênero"),
   genderOther: z.string().optional(),
   race: z.string().min(1, "Selecione a cor/raça"),
+  photo: z.string().optional(),
   
   guardianName: z.string().optional(),
   guardianKinship: z.string().optional(),
@@ -72,6 +75,8 @@ const formSchema = z.object({
 
 const StudentForm = () => {
   const navigate = useNavigate();
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -79,11 +84,76 @@ const StudentForm = () => {
       uf: "RJ",
       healthProblems: [],
       docsDelivered: [],
+      age: 0,
     },
   });
 
+  const birthDate = form.watch('birthDate');
+  const cep = form.watch('cep');
+  const age = form.watch('age');
+
+  // Cálculo automático de idade
+  useEffect(() => {
+    if (birthDate) {
+      try {
+        const calculatedAge = differenceInYears(new Date(), parseISO(birthDate));
+        form.setValue('age', calculatedAge);
+      } catch (e) {
+        console.error("Erro ao calcular idade");
+      }
+    }
+  }, [birthDate, form]);
+
+  // Busca automática de CEP
+  useEffect(() => {
+    const fetchCep = async () => {
+      const cleanCep = cep?.replace(/\D/g, '');
+      if (cleanCep?.length === 8) {
+        try {
+          const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+          const data = await response.json();
+          if (!data.erro) {
+            form.setValue('street', data.logradouro);
+            form.setValue('neighborhood', data.bairro);
+            form.setValue('city', data.localidade);
+            form.setValue('uf', data.uf);
+            showSuccess("Endereço localizado!");
+          }
+        } catch (e) {
+          console.error("Erro ao buscar CEP");
+        }
+      }
+    };
+    fetchCep();
+  }, [cep, form]);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setPhotoPreview(base64);
+        form.setValue('photo', base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
+    const newStudent = {
+      ...values,
+      id: crypto.randomUUID(),
+      registrationDate: new Date().toISOString(),
+      registration: `2024${Math.floor(1000 + Math.random() * 9000)}`,
+      status: 'Ativo',
+      class: 'A definir'
+    };
+
+    // Salvar no localStorage para consulta imediata
+    const existingStudents = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
+    localStorage.setItem('ecobuzios_students', JSON.stringify([...existingStudents, newStudent]));
+
     showSuccess("Inscrição realizada com sucesso!");
     navigate('/alunos');
   }
@@ -104,6 +174,24 @@ const StudentForm = () => {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 max-w-5xl mx-auto pb-20">
         
+        {/* UPLOAD DE FOTO */}
+        <div className="flex flex-col items-center justify-center mb-8">
+          <div className="relative group">
+            <div className="w-32 h-32 rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <User className="h-12 w-12 text-slate-300" />
+              )}
+            </div>
+            <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-xl cursor-pointer shadow-lg hover:scale-110 transition-transform">
+              <Camera className="h-4 w-4" />
+              <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+            </label>
+          </div>
+          <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-widest">Foto do Aluno</p>
+        </div>
+
         {/* 1. DADOS GERAIS */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
           <CardContent className="p-8">
@@ -189,8 +277,8 @@ const StudentForm = () => {
                 name="age"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold text-slate-700">Idade *</FormLabel>
-                    <FormControl><Input type="number" {...field} className="rounded-xl" /></FormControl>
+                    <FormLabel className="font-bold text-slate-700">Idade (Calculada)</FormLabel>
+                    <FormControl><Input type="number" {...field} disabled className="rounded-xl bg-slate-50 font-bold text-primary" /></FormControl>
                   </FormItem>
                 )}
               />
@@ -233,9 +321,6 @@ const StudentForm = () => {
                         ))}
                       </RadioGroup>
                     </FormControl>
-                    {field.value === 'Outro' && (
-                      <Input placeholder="Especifique..." className="mt-2 rounded-xl" onChange={(e) => form.setValue('genderOther', e.target.value)} />
-                    )}
                   </FormItem>
                 )}
               />
@@ -263,48 +348,50 @@ const StudentForm = () => {
           </CardContent>
         </Card>
 
-        {/* 2. DADOS DO RESPONSÁVEL */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
-          <CardContent className="p-8">
-            <SectionHeader 
-              icon={ShieldAlert} 
-              title="2. Dados do Responsável" 
-              subtitle="Obrigatório para menores de 18 anos" 
-            />
-            <div className="grid gap-6 md:grid-cols-3">
-              <FormField
-                control={form.control}
-                name="guardianName"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel className="font-bold text-slate-700">Nome Completo do Responsável</FormLabel>
-                    <FormControl><Input {...field} className="rounded-xl" /></FormControl>
-                  </FormItem>
-                )}
+        {/* 2. DADOS DO RESPONSÁVEL (Condicional) */}
+        {age < 18 && (
+          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+            <CardContent className="p-8">
+              <SectionHeader 
+                icon={ShieldAlert} 
+                title="2. Dados do Responsável" 
+                subtitle="Obrigatório para menores de 18 anos" 
               />
-              <FormField
-                control={form.control}
-                name="guardianKinship"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-bold text-slate-700">Parentesco</FormLabel>
-                    <FormControl><Input placeholder="Ex: Pai, Mãe, Avô..." {...field} className="rounded-xl" /></FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="guardianPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-bold text-slate-700">Telefone do Responsável</FormLabel>
-                    <FormControl><Input {...field} className="rounded-xl" /></FormControl>
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </Card>
+              <div className="grid gap-6 md:grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="guardianName"
+                  render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel className="font-bold text-slate-700">Nome Completo do Responsável *</FormLabel>
+                      <FormControl><Input {...field} className="rounded-xl" /></FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guardianKinship"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold text-slate-700">Parentesco *</FormLabel>
+                      <FormControl><Input placeholder="Ex: Pai, Mãe, Avô..." {...field} className="rounded-xl" /></FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="guardianPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-bold text-slate-700">Telefone do Responsável *</FormLabel>
+                      <FormControl><Input {...field} className="rounded-xl" /></FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 3. ESCOLA */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
@@ -381,30 +468,17 @@ const StudentForm = () => {
                   </FormItem>
                 )}
               />
-
-              {(form.watch('schoolName')?.includes('outra') || form.watch('schoolName') === 'universidade') && (
-                <FormField
-                  control={form.control}
-                  name="schoolOther"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel className="font-bold text-slate-700">Qual unidade?</FormLabel>
-                      <FormControl><Input {...field} className="rounded-xl" /></FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* 4. ENDEREÇO */}
+        {/* 4. ENDEREÇO (Com busca de CEP) */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
           <CardContent className="p-8">
             <SectionHeader 
               icon={MapPin} 
               title="4. Endereço" 
-              subtitle="Local de residência" 
+              subtitle="Local de residência (Preenchimento automático via CEP)" 
             />
             <div className="grid gap-6 md:grid-cols-4">
               <FormField
@@ -412,8 +486,8 @@ const StudentForm = () => {
                 name="cep"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold text-slate-700">CEP</FormLabel>
-                    <FormControl><Input placeholder="00000-000" {...field} className="rounded-xl" /></FormControl>
+                    <FormLabel className="font-bold text-slate-700">CEP *</FormLabel>
+                    <FormControl><Input placeholder="00000-000" {...field} className="rounded-xl border-primary/30" /></FormControl>
                   </FormItem>
                 )}
               />
@@ -422,7 +496,7 @@ const StudentForm = () => {
                 name="street"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel className="font-bold text-slate-700">Logradouro</FormLabel>
+                    <FormLabel className="font-bold text-slate-700">Logradouro *</FormLabel>
                     <FormControl><Input {...field} className="rounded-xl" /></FormControl>
                   </FormItem>
                 )}
@@ -432,7 +506,7 @@ const StudentForm = () => {
                 name="number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold text-slate-700">Número</FormLabel>
+                    <FormLabel className="font-bold text-slate-700">Número *</FormLabel>
                     <FormControl><Input {...field} className="rounded-xl" /></FormControl>
                   </FormItem>
                 )}
@@ -452,7 +526,7 @@ const StudentForm = () => {
                 name="neighborhood"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold text-slate-700">Bairro</FormLabel>
+                    <FormLabel className="font-bold text-slate-700">Bairro *</FormLabel>
                     <FormControl><Input {...field} className="rounded-xl" /></FormControl>
                   </FormItem>
                 )}
@@ -460,11 +534,11 @@ const StudentForm = () => {
               <div className="grid grid-cols-2 gap-4">
                 <FormItem>
                   <FormLabel className="font-bold text-slate-700">Cidade</FormLabel>
-                  <Input value="Armação dos Búzios" disabled className="rounded-xl bg-slate-50" />
+                  <Input value={form.watch('city')} disabled className="rounded-xl bg-slate-50" />
                 </FormItem>
                 <FormItem>
                   <FormLabel className="font-bold text-slate-700">UF</FormLabel>
-                  <Input value="RJ" disabled className="rounded-xl bg-slate-50" />
+                  <Input value={form.watch('uf')} disabled className="rounded-xl bg-slate-50" />
                 </FormItem>
               </div>
             </div>
@@ -538,22 +612,6 @@ const StudentForm = () => {
                 </div>
               ))}
 
-              <FormField
-                control={form.control}
-                name="familyHeartHistory"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <FormLabel className="font-bold text-slate-700">Histórico de doença cardíaca na família?</FormLabel>
-                    <FormControl>
-                      <RadioGroup onValueChange={(v) => field.onChange(v === 'true')} className="flex gap-4">
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="false" id="heart-no" /><label htmlFor="heart-no" className="text-sm">Não</label></div>
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="true" id="heart-yes" /><label htmlFor="heart-yes" className="text-sm">Sim</label></div>
-                      </RadioGroup>
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
               <div className="md:col-span-2 space-y-4">
                 <FormLabel className="font-bold text-slate-700">Problemas de saúde:</FormLabel>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -580,16 +638,6 @@ const StudentForm = () => {
                     />
                   ))}
                 </div>
-                <FormField
-                  control={form.control}
-                  name="healthProblemsOther"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-slate-500">Outras condições:</FormLabel>
-                      <FormControl><Input {...field} className="rounded-xl" /></FormControl>
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <FormField
@@ -609,11 +657,31 @@ const StudentForm = () => {
         {/* 6. AUTORIZAÇÃO DE IMAGEM */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem] overflow-hidden">
           <CardContent className="p-8">
-            <SectionHeader 
-              icon={Camera} 
-              title="6. Autorização de Uso de Imagem" 
-              subtitle="Termo de consentimento institucional" 
-            />
+            <div className="flex items-center justify-between mb-6">
+              <SectionHeader 
+                icon={Camera} 
+                title="6. Autorização de Uso de Imagem" 
+                subtitle="Termo de consentimento institucional" 
+              />
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-xl gap-2">
+                    <Info className="h-4 w-4" />
+                    Ver Termo Completo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Termo de Autorização de Uso de Imagem e Voz</DialogTitle>
+                  </DialogHeader>
+                  <div className="text-sm text-slate-600 space-y-4 max-h-[60vh] overflow-y-auto p-4">
+                    <p>Pelo presente instrumento, eu autorizo a <strong>EcoBúzios</strong> a utilizar, a título gratuito, a imagem e voz do aluno acima identificado, em todo e qualquer material entre fotos, vídeos e documentos, para fins de divulgação institucional, pedagógica e promocional do projeto.</p>
+                    <p>A presente autorização é concedida a título gratuito, abrangendo o uso da imagem e voz em todo o território nacional e no exterior, em todas as suas modalidades e, em destaque, das seguintes formas: (I) out-door; (II) bus-door; (III) folhetos em geral; (IV) anúncios em revistas e jornais; (V) home page; (VI) redes sociais; (VII) cartazes; (VIII) back-light; (IX) mídia eletrônica (painéis, vídeo-tapes, televisão, cinema, programa para rádio, entre outros).</p>
+                    <p>Por esta ser a expressão da minha vontade, declaro que nada terei a reclamar a título de direitos conexos à minha imagem e voz ou do menor sob minha responsabilidade.</p>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
             <FormField
               control={form.control}
               name="imageAuthorization"
