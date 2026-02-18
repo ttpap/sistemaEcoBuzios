@@ -1,11 +1,11 @@
 export interface StudentRegistration {
   id: string;
+  registration: string;
   fullName: string;
   socialName?: string;
   preferredName?: string;
   email?: string;
   cpf?: string;
-  rg?: string;
   birthDate: string;
   age: number;
   phone: string;
@@ -13,7 +13,7 @@ export interface StudentRegistration {
   gender: string;
   genderOther?: string;
   race: string;
-  photo?: string; // Base64 da foto
+  photo?: string;
 
   // 2. Responsável
   guardianName?: string;
@@ -57,4 +57,6 @@ export interface StudentRegistration {
   // 7. Documentos
   docsDelivered: string[];
   registrationDate: string;
+  status: string;
+  class: string;
 }

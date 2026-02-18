@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { StudentRegistration } from '@/types/student';
-import { User, MapPin, HeartPulse, School, ShieldAlert, FileText, Camera } from 'lucide-react';
+import { User, MapPin, HeartPulse, School, ShieldAlert, FileText, Camera, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -21,8 +21,8 @@ interface StudentDetailsDialogProps {
 const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialogProps) => {
   if (!student) return null;
 
-  const InfoRow = ({ label, value }: { label: string, value?: string | number | boolean }) => (
-    <div className="py-2 border-b border-slate-50 last:border-0">
+  const InfoRow = ({ label, value, fullWidth = false }: { label: string, value?: string | number | boolean, fullWidth?: boolean }) => (
+    <div className={`py-2 border-b border-slate-50 last:border-0 ${fullWidth ? 'md:col-span-2' : ''}`}>
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
       <p className="text-sm font-bold text-slate-700">{value?.toString() || '---'}</p>
     </div>
@@ -70,52 +70,57 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
         <ScrollArea className="h-full max-h-[calc(90vh-160px)] p-8">
           <div className="space-y-6">
-            <Section icon={User} title="Dados Pessoais">
+            <Section icon={User} title="1. Dados Pessoais">
               <InfoRow label="Nome Social" value={student.socialName} />
               <InfoRow label="Nome Preferido" value={student.preferredName} />
               <InfoRow label="CPF" value={student.cpf} />
-              <InfoRow label="RG" value={student.rg} />
               <InfoRow label="Data de Nasc." value={student.birthDate.split('-').reverse().join('/')} />
               <InfoRow label="Gênero" value={student.gender} />
               <InfoRow label="Raça/Cor" value={student.race} />
               <InfoRow label="E-mail" value={student.email} />
+              <InfoRow label="Telefone" value={student.phone} />
+              <InfoRow label="Celular" value={student.cellPhone} />
             </Section>
 
             {student.guardianName && (
-              <Section icon={ShieldAlert} title="Responsável">
+              <Section icon={ShieldAlert} title="2. Responsável">
                 <InfoRow label="Nome" value={student.guardianName} />
                 <InfoRow label="Parentesco" value={student.guardianKinship} />
                 <InfoRow label="Telefone" value={student.guardianPhone} />
               </Section>
             )}
 
-            <Section icon={School} title="Escolaridade">
+            <Section icon={School} title="3. Escolaridade">
               <InfoRow label="Rede" value={student.schoolType} />
               <InfoRow label="Unidade" value={student.schoolName} />
             </Section>
 
-            <Section icon={MapPin} title="Endereço">
+            <Section icon={MapPin} title="4. Endereço">
               <InfoRow label="CEP" value={student.cep} />
               <InfoRow label="Bairro" value={student.neighborhood} />
-              <div className="md:col-span-2">
-                <InfoRow label="Logradouro" value={`${student.street}, ${student.number} ${student.complement ? `- ${student.complement}` : ''}`} />
-              </div>
+              <InfoRow label="Logradouro" value={student.street} />
+              <InfoRow label="Número" value={student.number} />
+              <InfoRow label="Complemento" value={student.complement} />
+              <InfoRow label="Cidade/UF" value={`${student.city} - ${student.uf}`} />
             </Section>
 
-            <Section icon={HeartPulse} title="Saúde">
+            <Section icon={HeartPulse} title="5. Saúde">
               <InfoRow label="Tipo Sanguíneo" value={student.bloodType} />
               <InfoRow label="Alergias" value={student.hasAllergy ? student.allergyDetail : 'Não'} />
               <InfoRow label="Nec. Especiais" value={student.hasSpecialNeeds ? student.specialNeedsDetail : 'Não'} />
               <InfoRow label="Medicamentos" value={student.usesMedication ? student.medicationDetail : 'Não'} />
               <InfoRow label="Restrição Física" value={student.hasPhysicalRestriction ? student.physicalRestrictionDetail : 'Não'} />
+              <InfoRow label="Praticou Atividade?" value={student.practicedActivity ? student.practicedActivityDetail : 'Não'} />
               <InfoRow label="Histórico Cardíaco" value={student.familyHeartHistory ? 'Sim' : 'Não'} />
+              <InfoRow label="Problemas de Saúde" value={student.healthProblems.length > 0 ? student.healthProblems.join(', ') : 'Nenhum'} fullWidth />
+              <InfoRow label="Observações" value={student.observations} fullWidth />
             </Section>
 
-            <Section icon={Camera} title="Autorizações">
+            <Section icon={Camera} title="6. Autorizações">
               <InfoRow label="Uso de Imagem" value={student.imageAuthorization === 'authorized' ? 'Autorizado' : 'Não Autorizado'} />
             </Section>
 
-            <Section icon={FileText} title="Documentação">
+            <Section icon={FileText} title="7. Documentação">
               <div className="md:col-span-2 flex flex-wrap gap-2 mt-2">
                 {student.docsDelivered.map(doc => (
                   <Badge key={doc} variant="outline" className="rounded-lg border-primary/20 text-primary font-bold">
@@ -124,6 +129,12 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 ))}
                 {student.docsDelivered.length === 0 && <p className="text-sm text-slate-400">Nenhum documento registrado.</p>}
               </div>
+            </Section>
+
+            <Section icon={Info} title="Sistema">
+              <InfoRow label="Data de Cadastro" value={new Date(student.registrationDate).toLocaleString('pt-BR')} />
+              <InfoRow label="Status" value={student.status} />
+              <InfoRow label="Turma" value={student.class} />
             </Section>
           </div>
         </ScrollArea>

@@ -28,7 +28,6 @@ const formSchema = z.object({
   preferredName: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   cpf: z.string().optional(),
-  rg: z.string().optional(),
   birthDate: z.string().min(1, "Obrigatório"),
   age: z.number().min(0),
   phone: z.string().min(1, "Obrigatório"),
@@ -213,9 +212,6 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
               )} />
               <FormField control={form.control} name="cpf" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">CPF</FormLabel><FormControl><Input placeholder="000.000.000-00" {...field} className="rounded-xl" /></FormControl></FormItem>
-              )} />
-              <FormField control={form.control} name="rg" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">RG</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="birthDate" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><Input type="date" {...field} className="rounded-xl" /></FormControl></FormItem>
