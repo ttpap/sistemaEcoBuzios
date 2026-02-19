@@ -58,6 +58,7 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Outra"
   ],
   private: [
+    "Colégio Dominus",
     "Colégio Integral",
     "Instituto de Educação de Búzios (IEB)",
     "Colégio Objetivo Búzios",
@@ -533,7 +534,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
               <SectionHeader icon={Camera} title="6. Imagem" subtitle="Autorização de Uso" />
               <Dialog>
                 <DialogTrigger asChild><Button variant="outline" size="sm" className="rounded-xl gap-2 font-bold"><Info className="h-4 w-4" /> Ler Termo</Button></DialogTrigger>
-                <DialogContent className="rounded-[2rem]"><DialogHeader><DialogTitle className="font-black">Termo de Autorização de Uso de Imagem</DialogTitle></DialogHeader><div className="text-sm text-slate-600 leading-relaxed p-4">Autorizo a EcoBúzios a utilizar, de forma gratuita, a imagem e voz do aluno para fins institucionais, pedagógicos e de divulgação em redes sociais, sites e materiais impressos da institution.</div></DialogContent>
+                <DialogContent className="rounded-[2rem]"><DialogHeader><DialogTitle className="font-black">Termo de Autorização de Uso de Imagem</DialogTitle></DialogHeader><div className="text-sm text-slate-600 leading-relaxed p-4">Autorizo a EcoBúzios a utilizar, de forma gratuita, a imagem e voz do aluno para fins institucionais, pedagógicos e de divulgação em redes sociais, sites e materiais impressos da instituição.</div></DialogContent>
               </Dialog>
             </div>
             <FormField control={form.control} name="imageAuthorization" render={({ field }) => (
