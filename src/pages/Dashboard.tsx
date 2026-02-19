@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   BarChart,
   Bar,
@@ -19,6 +20,7 @@ import {
   BookOpen,
   CalendarDays,
   ClipboardCheck,
+  Gift,
   GraduationCap,
   MapPinned,
   School,
@@ -120,6 +122,26 @@ export default function Dashboard() {
       });
   }, [attendanceThisMonth]);
 
+  const birthdaysThisMonth = useMemo(() => {
+    const m = today.getMonth() + 1;
+    const month = String(m).padStart(2, "0");
+    const currentYear = today.getFullYear();
+
+    return activeStudentsInClasses
+      .filter((s) => {
+        const parts = (s.birthDate || "").split("-");
+        if (parts.length !== 3) return false;
+        return parts[1] === month;
+      })
+      .map((s) => {
+        const [y, mo, d] = s.birthDate.split("-");
+        const day = Number(d);
+        const turning = Number.isFinite(Number(y)) ? currentYear - Number(y) : undefined;
+        return { student: s, day, month: mo, turning };
+      })
+      .sort((a, b) => a.day - b.day);
+  }, [activeStudentsInClasses, today]);
+
   const kpis: KPI[] = useMemo(
     () => [
       {
@@ -200,7 +222,10 @@ export default function Dashboard() {
       .sort((a, b) => b.value - a.value);
   }, [activeStudentsInClasses]);
 
-  const neighborhoodsData = useMemo(() => neighborhoodsFullData.slice(0, 10), [neighborhoodsFullData]);
+  const neighborhoodsData = useMemo(
+    () => neighborhoodsFullData.slice(0, 10),
+    [neighborhoodsFullData],
+  );
 
   const calendarMonthLabel = useMemo(
     () => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(today),
@@ -236,7 +261,10 @@ export default function Dashboard() {
                   : "bg-amber-500/10 text-amber-700 border-amber-500/15";
 
           return (
-            <Card key={k.label} className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2rem]">
+            <Card
+              key={k.label}
+              className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2rem]"
+            >
               <CardContent className="p-6">
                 <div className={"w-12 h-12 rounded-2xl flex items-center justify-center mb-4 border " + tone}>
                   {k.icon}
@@ -251,40 +279,109 @@ export default function Dashboard() {
         })}
       </div>
 
-      {/* Calendar */}
+      {/* Calendar + Birthdays + School */}
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="p-6 md:p-8 pb-4">
-            <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" /> Calendário do mês
-            </CardTitle>
-            <p className="text-slate-500 font-medium mt-1">
-              Dias com chamada ficam marcados.
-            </p>
-          </CardHeader>
-          <CardContent className="p-6 md:p-8 pt-2">
-            <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-3">
-              <Calendar
-                mode="single"
-                month={today}
-                selected={undefined}
-                onSelect={() => {}}
-                modifiers={{ attendance: attendanceDatesThisMonth }}
-                modifiersClassNames={{
-                  attendance:
-                    "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
-                }}
-                className="rounded-2xl"
-              />
-            </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                {attendanceDatesThisMonth.length} dia(s) com chamada
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-4">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <CalendarDays className="h-5 w-5" /> Calendário do mês
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Dias com chamada ficam marcados.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-2">
+              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-3">
+                <Calendar
+                  mode="single"
+                  month={today}
+                  selected={undefined}
+                  onSelect={() => {}}
+                  modifiers={{ attendance: attendanceDatesThisMonth }}
+                  modifiersClassNames={{
+                    attendance:
+                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
+                  }}
+                  className="rounded-2xl"
+                />
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  {attendanceDatesThisMonth.length} dia(s) com chamada
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-3">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Gift className="h-5 w-5" /> Aniversariantes do mês
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">
+                Considera apenas alunos vinculados às turmas ativas.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-3">
+              {birthdaysThisMonth.length === 0 ? (
+                <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+                  <p className="text-sm font-bold text-slate-500">Nenhum aniversariante neste mês.</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[260px] pr-3">
+                  <div className="space-y-3">
+                    {birthdaysThisMonth.map(({ student: s, day, turning }) => {
+                      const isToday = day === today.getDate();
+                      const displayName = s.socialName || s.preferredName || s.fullName;
+
+                      return (
+                        <div
+                          key={s.id}
+                          className={
+                            "flex items-center justify-between gap-3 rounded-[1.75rem] border p-4 " +
+                            (isToday
+                              ? "border-primary/30 bg-primary/5"
+                              : "border-slate-100 bg-white")
+                          }
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-12 w-12 rounded-2xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-primary font-black shrink-0">
+                              {s.photo ? (
+                                <img src={s.photo} alt={s.fullName} className="h-full w-full object-cover" />
+                              ) : (
+                                (displayName || "A").charAt(0)
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-primary truncate">{displayName}</p>
+                              <p className="text-xs font-bold text-slate-500 truncate">{s.fullName}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {typeof turning === "number" && (
+                              <span className="hidden sm:inline-flex rounded-full bg-secondary/15 text-primary border border-secondary/25 px-3 py-1 text-xs font-black">
+                                {turning} anos
+                              </span>
+                            )}
+                            <span className={
+                              "rounded-2xl px-3 py-2 text-sm font-black border " +
+                              (isToday
+                                ? "bg-primary text-white border-primary"
+                                : "bg-slate-50 text-slate-700 border-slate-200")
+                            }>
+                              {String(day).padStart(2, "0")}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
           <CardHeader className="p-6 md:p-8 pb-2">
