@@ -2,13 +2,14 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
+import {
+  LayoutDashboard,
+  Users,
+  GraduationCap,
+  BookOpen,
   LogOut,
-  BarChart3
+  BarChart3,
+  FolderPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -17,6 +18,7 @@ const Sidebar = () => {
   const location = useLocation();
 
   const menuItems = [
+    { icon: FolderPlus, label: 'Criar projeto', path: '/projetos' },
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
     { icon: Users, label: 'Professores', path: '/professores' },

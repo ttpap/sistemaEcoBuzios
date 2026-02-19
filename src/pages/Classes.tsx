@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle, Eye } from "lucide-react";
+import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { showSuccess } from '@/utils/toast';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -16,20 +17,20 @@ const Classes = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
+    const saved = readScoped<SchoolClass[]>('classes', []);
     setClasses(saved);
   }, []);
 
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir esta turma?")) {
       const updated = classes.filter(c => c.id !== id);
-      localStorage.setItem('ecobuzios_classes', JSON.stringify(updated));
+      writeScoped('classes', updated);
       setClasses(updated);
       showSuccess("Turma removida com sucesso.");
     }
   };
 
-  const filtered = classes.filter(c => 
+  const filtered = classes.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -40,7 +41,7 @@ const Classes = () => {
           <h1 className="text-3xl font-black text-primary tracking-tight">Turmas</h1>
           <p className="text-slate-500 font-medium">Organização das salas e horários escolares.</p>
         </div>
-        <Button 
+        <Button
           className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
           onClick={() => navigate('/turmas/nova')}
         >
@@ -52,9 +53,9 @@ const Classes = () => {
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-          <Input 
-            placeholder="Buscar turma por nome..." 
-            className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50" 
+          <Input
+            placeholder="Buscar turma por nome..."
+            className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -69,8 +70,8 @@ const Classes = () => {
           </div>
         ) : (
           filtered.map((cls) => (
-            <Card 
-              key={cls.id} 
+            <Card
+              key={cls.id}
               className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer"
               onClick={() => navigate(`/turmas/${cls.id}`)}
             >
@@ -100,19 +101,19 @@ const Classes = () => {
                   <AlertCircle className="h-4 w-4 text-secondary" />
                   Limite de {cls.absenceLimit} faltas
                 </div>
-                
+
                 <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1 rounded-xl gap-2 font-bold border-slate-100 hover:bg-primary hover:text-white transition-all"
                     onClick={() => navigate(`/turmas/editar/${cls.id}`)}
                   >
                     <Edit2 className="h-4 w-4" />
                     Editar
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
                     onClick={() => handleDelete(cls.id)}
                   >

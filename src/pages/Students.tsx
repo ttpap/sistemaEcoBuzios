@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { StudentRegistration } from '@/types/student';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const Students = () => {
   const navigate = useNavigate();
@@ -27,13 +28,13 @@ const Students = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
-    
+    const saved = readScoped<StudentRegistration[]>('students', []);
+
     // Migração de matrículas antigas para o novo padrão sequencial formatado (YYYY-XXXX)
     let changed = false;
     const migrated = saved.map((s: any, index: number) => {
       const needsMigration = !s.registration || !s.registration.includes('-') || s.registration.length < 9;
-      
+
       if (needsMigration) {
         const year = new Date(s.registrationDate || Date.now()).getFullYear();
         // Se já tinha um número mas sem hífen, tenta preservar o final
@@ -46,7 +47,7 @@ const Students = () => {
     });
 
     if (changed) {
-      localStorage.setItem('ecobuzios_students', JSON.stringify(migrated));
+      writeScoped('students', migrated);
       setStudents(migrated);
     } else {
       setStudents(saved);
@@ -56,14 +57,14 @@ const Students = () => {
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este aluno?")) {
       const updated = students.filter(s => s.id !== id);
-      localStorage.setItem('ecobuzios_students', JSON.stringify(updated));
+      writeScoped('students', updated);
       setStudents(updated);
       showSuccess("Aluno removido com sucesso.");
     }
   };
 
   const seedTestStudents = () => {
-    const existing = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]') as StudentRegistration[];
+    const existing = readScoped<StudentRegistration[]>('students', []);
 
     if (existing.length > 0) {
       const ok = window.confirm(
@@ -114,94 +115,89 @@ const Students = () => {
     const seeded: StudentRegistration[] = samples.map((s, index) => {
       const n = (index + 1).toString().padStart(4, '0');
       return {
+        // Required
         id: makeId(),
         registration: `${year}-${n}`,
+        registrationDate,
         fullName: s.fullName,
-        preferredName: s.preferredName,
-        socialName: s.socialName,
-        email: `${s.fullName.toLowerCase().replace(/[^a-z\s]/g, "").trim().replace(/\s+/g, ".")}${base.emailDomain}`,
-        cpf: undefined,
         birthDate: s.birthDate,
         age: s.age,
-        phone: undefined,
+        phone: "(22) 0000-0000",
         cellPhone: s.cellPhone,
         gender: s.gender,
-        genderOther: undefined,
         race: s.race,
-        photo: undefined,
+        status: "Ativo",
 
-        guardianName: "Responsável de " + s.fullName.split(" ")[0],
-        guardianKinship: "Mãe/Pai",
-        guardianPhone: "(22) 99900-0000",
+        // Optional-ish (depends on schema)
+        preferredName: s.preferredName,
+        email: `${s.fullName.split(' ')[0].toLowerCase()}${index + 1}${base.emailDomain}`,
+        cpf: "",
 
-        schoolType: base.schoolType,
-        schoolName: base.schoolName,
-        schoolOther: undefined,
-
+        // Address
         cep: base.cep,
         street: base.street,
-        number: (100 + index).toString(),
-        complement: index % 3 === 0 ? "Apto 101" : undefined,
+        number: String(100 + index),
+        complement: "",
         neighborhood: base.neighborhood,
         city: base.city,
         uf: base.uf,
 
-        bloodType: undefined,
-        hasAllergy: index % 4 === 0,
-        allergyDetail: index % 4 === 0 ? "Rinite alérgica" : undefined,
-        hasSpecialNeeds: index === 7,
-        specialNeedsDetail: index === 7 ? "TDAH (acompanha com profissional)" : undefined,
-        usesMedication: index % 5 === 0,
-        medicationDetail: index % 5 === 0 ? "Antialérgico (se necessário)" : undefined,
-        hasPhysicalRestriction: false,
-        physicalRestrictionDetail: undefined,
-        practicedActivity: true,
-        practicedActivityDetail: index % 2 === 0 ? "Futebol" : "Dança",
-        familyHeartHistory: index % 6 === 0,
+        // School
+        schoolType: base.schoolType as any,
+        schoolName: base.schoolName,
+        schoolOther: "",
+        class: "",
+
+        // Health / Docs
         healthProblems: base.healthProblems,
-        healthProblemsOther: undefined,
-        observations: index % 3 === 0 ? "Prefere sentar mais à frente na sala." : undefined,
+        imageAuthorization: base.imageAuthorization as any,
+        docsDelivered: base.docsDelivered as any,
 
-        imageAuthorization: base.imageAuthorization,
-
-        docsDelivered: base.docsDelivered,
-        registrationDate,
-        status: base.status,
-        class: base.class,
-      };
+        // Contacts
+        guardianName: "",
+        guardianKinship: "",
+        guardianPhone: "",
+      } as StudentRegistration;
     });
 
-    try {
-      localStorage.setItem('ecobuzios_students', JSON.stringify(seeded));
-      setStudents(seeded);
-      showSuccess("10 alunos de teste criados com sucesso.");
-    } catch {
-      showError("Não foi possível criar os alunos de teste.");
-    }
+    writeScoped('students', seeded);
+    setStudents(seeded);
+    showSuccess("10 alunos de teste criados!");
   };
 
-  const filteredStudents = students.filter(s => 
-    s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.registration?.includes(searchTerm)
+  const filtered = students.filter(s =>
+    s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.registration || "").includes(searchTerm)
   );
+
+  const openDetails = (student: StudentRegistration) => {
+    setSelectedStudent(student);
+    setIsDetailsOpen(true);
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <StudentDetailsDialog
+        student={selectedStudent}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+      />
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Alunos</h1>
-          <p className="text-slate-500 font-medium">Gerencie as matrículas e informações dos estudantes.</p>
+          <p className="text-slate-500 font-medium">Cadastros e fichas de inscrição.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button 
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
             variant="outline"
-            className="rounded-2xl gap-2 h-12 px-6 font-extrabold border-slate-200 bg-white hover:bg-slate-50"
+            className="rounded-2xl gap-2 h-12 px-5 font-black border-slate-200 bg-white hover:bg-slate-50"
             onClick={seedTestStudents}
           >
-            <Sparkles className="h-5 w-5" />
+            <Sparkles className="h-5 w-5 text-secondary" />
             Criar 10 alunos (teste)
           </Button>
-          <Button 
+          <Button
             className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
             onClick={() => navigate('/alunos/novo')}
           >
@@ -214,9 +210,9 @@ const Students = () => {
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-          <Input 
-            placeholder="Buscar aluno por nome ou matrícula..." 
-            className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50" 
+          <Input
+            placeholder="Buscar por nome ou matrícula..."
+            className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -229,19 +225,19 @@ const Students = () => {
             <TableRow className="hover:bg-transparent border-slate-100">
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Aluno</TableHead>
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Matrícula</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Idade</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Status</TableHead>
               <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredStudents.length === 0 ? (
+            {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
                   Nenhum aluno encontrado.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStudents.map((student) => (
+              filtered.map((student) => (
                 <TableRow key={student.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors">
                   <TableCell className="font-bold px-8 py-4">
                     <div className="flex items-center gap-4">
@@ -252,36 +248,49 @@ const Students = () => {
                           <GraduationCap className="h-5 w-5" />
                         )}
                       </div>
-                      <span className="text-slate-700">{student.fullName}</span>
+                      <div className="min-w-0">
+                        <div className="text-slate-700 truncate">{student.fullName}</div>
+                        {(student.socialName || student.preferredName) && (
+                          <div className="text-xs font-bold text-slate-400 truncate">
+                            {student.socialName || student.preferredName}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-slate-500 font-black tracking-tighter">{student.registration}</TableCell>
-                  <TableCell className="font-medium text-slate-600">{student.age} anos</TableCell>
+                  <TableCell className="text-slate-500 font-medium">{student.registration}</TableCell>
+                  <TableCell>
+                    <Badge className={cn(
+                      "rounded-full border-none font-black px-3",
+                      student.status === 'Ativo'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-slate-100 text-slate-500'
+                    )}>
+                      {student.status}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right px-8">
                     <div className="flex items-center justify-end gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-xl hover:bg-primary/10 hover:text-primary"
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setIsDetailsOpen(true);
-                        }}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10"
+                        onClick={() => openDetails(student)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-xl hover:bg-emerald-50 hover:text-emerald-600"
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10"
                         onClick={() => navigate(`/alunos/editar/${student.id}`)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-xl hover:bg-red-50 hover:text-red-600"
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={() => handleDelete(student.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -294,12 +303,6 @@ const Students = () => {
           </TableBody>
         </Table>
       </div>
-
-      <StudentDetailsDialog 
-        student={selectedStudent} 
-        isOpen={isDetailsOpen} 
-        onClose={() => setIsDetailsOpen(false)} 
-      />
     </div>
   );
 };

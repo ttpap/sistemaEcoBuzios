@@ -1,6 +1,5 @@
 import { AttendanceSession, AttendanceStatus } from "@/types/attendance";
-
-const STORAGE_KEY = "ecobuzios_attendance";
+import { readScoped, writeScoped } from "@/utils/storage";
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -11,11 +10,21 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 }
 
 export function getAllAttendance(): AttendanceSession[] {
-  return safeParse<AttendanceSession[]>(localStorage.getItem(STORAGE_KEY), []);
+  // Project-scoped
+  try {
+    return readScoped<AttendanceSession[]>("attendance", []);
+  } catch {
+    // fallback for safety (should be gated by project)
+    return safeParse<AttendanceSession[]>(localStorage.getItem("ecobuzios_attendance"), []);
+  }
 }
 
 export function saveAllAttendance(sessions: AttendanceSession[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  try {
+    writeScoped("attendance", sessions);
+  } catch {
+    localStorage.setItem("ecobuzios_attendance", JSON.stringify(sessions));
+  }
 }
 
 export function getAttendanceForClass(classId: string): AttendanceSession[] {

@@ -36,6 +36,7 @@ import {
   printSchoolTypeReport,
 } from "@/utils/dashboard-reports";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
+import { readScoped } from "@/utils/storage";
 
 type KPI = {
   label: string;
@@ -65,14 +66,6 @@ function normalizeSchoolType(student: StudentRegistration): "pública" | "privad
   return "outros";
 }
 
-function safeParse<T>(raw: string | null, fallback: T): T {
-  try {
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function Dashboard() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
@@ -85,9 +78,10 @@ export default function Dashboard() {
   const thisMonth = monthKey(today);
 
   useEffect(() => {
-    setClasses(safeParse(localStorage.getItem("ecobuzios_classes"), []));
-    setStudents(safeParse(localStorage.getItem("ecobuzios_students"), []));
-    setTeachers(safeParse(localStorage.getItem("ecobuzios_teachers"), []));
+    // Project-scoped
+    setClasses(readScoped("classes", []));
+    setStudents(readScoped("students", []));
+    setTeachers(readScoped("teachers", []));
   }, []);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
