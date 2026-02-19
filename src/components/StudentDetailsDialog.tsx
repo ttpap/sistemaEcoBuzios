@@ -112,13 +112,13 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={
-          "p-0 overflow-hidden border-none shadow-2xl flex flex-col " +
+          "p-0 overflow-hidden border-none shadow-2xl flex flex-col min-h-0 " +
           "rounded-[2.25rem] sm:rounded-[2.75rem] " +
           "w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] md:max-w-5xl " +
-          "max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
+          "h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-2rem)]"
         }
       >
-        <DialogHeader className="p-6 sm:p-8 bg-primary text-white">
+        <DialogHeader className="p-6 sm:p-8 bg-primary text-white shrink-0">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-5 sm:gap-6">
               <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center">
@@ -268,7 +268,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                       <iframe
                         title={`Mapa - ${student.fullName}`}
                         src={maps.embedUrl}
-                        className="h-[320px] w-full"
+                        className="h-[clamp(220px,40vh,420px)] w-full"
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
                       />
