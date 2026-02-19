@@ -5,16 +5,33 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
-  User, MapPin, Camera, Save, ArrowLeft, Landmark, Phone, Mail, CreditCard
+  User, MapPin, Camera, Save, ArrowLeft, Landmark, Mail, CreditCard, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
+
+const BRAZILIAN_BANKS = [
+  "001 - Banco do Brasil",
+  "033 - Santander",
+  "104 - Caixa Econômica Federal",
+  "237 - Bradesco",
+  "341 - Itaú Unibanco",
+  "077 - Banco Inter",
+  "260 - Nubank",
+  "336 - C6 Bank",
+  "290 - PagBank",
+  "422 - Banco Safra",
+  "748 - Sicredi",
+  "041 - Banrisul",
+  "070 - BRB",
+];
 
 const formSchema = z.object({
   fullName: z.string().min(3, "Obrigatório"),
@@ -22,7 +39,6 @@ const formSchema = z.object({
   rg: z.string().optional(),
   cnpj: z.string().optional(),
   email: z.string().email("E-mail inválido"),
-  phone: z.string().optional(),
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.enum(['Feminino', 'Masculino', 'Outro']),
   photo: z.string().optional(),
@@ -36,6 +52,7 @@ const formSchema = z.object({
   uf: z.string().default("RJ"),
 
   bank: z.string().min(1, "Obrigatório"),
+  customBank: z.string().optional(),
   agency: z.string().min(1, "Obrigatório"),
   account: z.string().min(1, "Obrigatório"),
   pixKey: z.string().min(1, "Obrigatório"),
@@ -48,17 +65,28 @@ interface TeacherFormProps {
 const TeacherForm = ({ initialData }: TeacherFormProps) => {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
+  const [isCustomBank, setIsCustomBank] = useState(false);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      ...initialData,
+      bank: BRAZILIAN_BANKS.includes(initialData.bank) ? initialData.bank : "outro",
+      customBank: BRAZILIAN_BANKS.includes(initialData.bank) ? "" : initialData.bank,
+    } : {
       city: "Armação dos Búzios",
       uf: "RJ",
       gender: 'Feminino',
+      bank: "",
     },
   });
 
   const cep = form.watch('cep');
+  const selectedBank = form.watch('bank');
+
+  useEffect(() => {
+    setIsCustomBank(selectedBank === "outro");
+  }, [selectedBank]);
 
   useEffect(() => {
     const fetchCep = async () => {
@@ -95,13 +123,21 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
   function onSubmit(values: z.infer<typeof formSchema>) {
     const existing = JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]');
     
+    const finalBank = values.bank === "outro" ? values.customBank : values.bank;
+
+    const teacherData = {
+      ...values,
+      bank: finalBank,
+    };
+    delete (teacherData as any).customBank;
+
     if (initialData) {
-      const updated = existing.map((t: any) => t.id === initialData.id ? { ...t, ...values } : t);
+      const updated = existing.map((t: any) => t.id === initialData.id ? { ...t, ...teacherData } : t);
       localStorage.setItem('ecobuzios_teachers', JSON.stringify(updated));
       showSuccess("Cadastro atualizado!");
     } else {
       const newTeacher = {
-        ...values,
+        ...teacherData,
         id: crypto.randomUUID(),
         registrationDate: new Date().toISOString(),
         status: 'Ativo'
@@ -161,14 +197,9 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">E-mail *</FormLabel><FormControl><Input type="email" {...field} className="rounded-xl" /></FormControl></FormItem>
               )} />
-              <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="phone" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Telefone</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="cellPhone" render={({ field }) => (
-                  <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
-                )} />
-              </div>
+              <FormField control={form.control} name="cellPhone" render={({ field }) => (
+                <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="(00) 00000-0000" {...field} className="rounded-xl" /></FormControl></FormItem>
+              )} />
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem className="md:col-span-3"><FormLabel className="font-bold">Gênero *</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-8 mt-2"><div className="flex items-center space-x-2"><RadioGroupItem value="Feminino" id="f" /><label htmlFor="f">Feminino</label></div><div className="flex items-center space-x-2"><RadioGroupItem value="Masculino" id="m" /><label htmlFor="m">Masculino</label></div></RadioGroup></FormControl></FormItem>
               )} />
@@ -181,7 +212,7 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
             <SectionHeader icon={MapPin} title="2. Endereço" />
             <div className="grid gap-6 md:grid-cols-4">
               <FormField control={form.control} name="cep" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">CEP *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
+                <FormItem><FormLabel className="font-bold">CEP *</FormLabel><FormControl><Input placeholder="00000-000" {...field} className="rounded-xl" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="street" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Logradouro *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
@@ -202,11 +233,40 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
 
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem]">
           <CardContent className="p-8">
-            <SectionHeader icon={Landmark} title="3. Dados Bancários" />
+            <SectionHeader icon={Landmark} title="3. Dados Bancários *" />
             <div className="grid gap-6 md:grid-cols-2">
               <FormField control={form.control} name="bank" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Banco *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Banco *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Selecione o banco" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BRAZILIAN_BANKS.map(bank => (
+                        <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                      ))}
+                      <SelectItem value="outro" className="font-bold text-primary">+ Outro (Digitar manualmente)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
+
+              {isCustomBank && (
+                <FormField control={form.control} name="customBank" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Digite o nome do Banco *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Banco Digital X" {...field} className="rounded-xl border-primary/30" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              )}
+
               <FormField control={form.control} name="agency" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Agência *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
               )} />

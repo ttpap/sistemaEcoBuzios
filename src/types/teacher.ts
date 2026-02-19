@@ -5,7 +5,6 @@ export interface TeacherRegistration {
   rg?: string;
   cnpj?: string;
   email: string;
-  phone: string;
   cellPhone: string;
   gender: 'Feminino' | 'Masculino' | 'Outro';
   photo?: string;

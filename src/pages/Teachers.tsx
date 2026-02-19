@@ -11,16 +11,19 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Users, Edit2, Trash2 } from "lucide-react";
+import { Plus, Search, Users, Edit2, Trash2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { showSuccess } from '@/utils/toast';
+import TeacherDetailsDialog from '@/components/TeacherDetailsDialog';
 
 const Teachers = () => {
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTeacher, setSelectedTeacher] = useState<TeacherRegistration | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]');
@@ -28,11 +31,11 @@ const Teachers = () => {
   }, []);
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Excluir este cadastro?")) {
+    if (window.confirm("Tem certeza que deseja excluir este cadastro?")) {
       const updated = teachers.filter(t => t.id !== id);
       localStorage.setItem('ecobuzios_teachers', JSON.stringify(updated));
       setTeachers(updated);
-      showSuccess("Cadastro removido.");
+      showSuccess("Cadastro removido com sucesso.");
     }
   };
 
@@ -109,6 +112,17 @@ const Teachers = () => {
                       <Button 
                         variant="ghost" 
                         size="icon" 
+                        className="rounded-xl hover:bg-primary/10 hover:text-primary"
+                        onClick={() => {
+                          setSelectedTeacher(teacher);
+                          setIsDetailsOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
                         className="rounded-xl hover:bg-emerald-50 hover:text-emerald-600"
                         onClick={() => navigate(`/professores/editar/${teacher.id}`)}
                       >
@@ -130,6 +144,12 @@ const Teachers = () => {
           </TableBody>
         </Table>
       </div>
+
+      <TeacherDetailsDialog 
+        teacher={selectedTeacher} 
+        isOpen={isDetailsOpen} 
+        onClose={() => setIsDetailsOpen(false)} 
+      />
     </div>
   );
 };
