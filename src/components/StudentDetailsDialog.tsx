@@ -110,11 +110,18 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-[2.75rem] border-none shadow-2xl">
-        <DialogHeader className="p-8 bg-primary text-white">
+      <DialogContent
+        className={
+          "p-0 overflow-hidden border-none shadow-2xl flex flex-col " +
+          "rounded-[2.25rem] sm:rounded-[2.75rem] " +
+          "w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] md:max-w-5xl " +
+          "max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)]"
+        }
+      >
+        <DialogHeader className="p-6 sm:p-8 bg-primary text-white">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-6">
-              <div className="h-24 w-24 overflow-hidden rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center">
+            <div className="flex items-center gap-5 sm:gap-6">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center">
                 {student.photo ? (
                   <img
                     src={student.photo}
@@ -152,8 +159,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[calc(90vh-180px)]">
-          <div className="p-6 md:p-8">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="p-5 sm:p-6 md:p-8">
             <Tabs defaultValue="pessoais" className="w-full">
               <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">
