@@ -86,7 +86,9 @@ const Classes = () => {
                   </div>
                   <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-2xl">
                     <Users className="h-4 w-4 text-primary" />
-                    <span className="font-bold">{cls.capacity} Vagas</span>
+                    <span className="font-bold">
+                      {cls.capacity === 0 ? 'Ilimitado' : `${cls.capacity} Vagas`}
+                    </span>
                   </div>
                 </div>
 

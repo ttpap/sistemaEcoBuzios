@@ -146,6 +146,7 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="0" className="font-bold text-primary">Ilimitado</SelectItem>
                       {[10, 15, 20, 25, 30, 35, 40, 50].map(n => (
                         <SelectItem key={n} value={n.toString()}>{n} vagas</SelectItem>
                       ))}
