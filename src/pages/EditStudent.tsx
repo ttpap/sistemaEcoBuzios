@@ -6,7 +6,7 @@ import StudentForm from '@/components/StudentForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { StudentRegistration } from '@/types/student';
-import { readScoped } from '@/utils/storage';
+import { readGlobalStudents } from '@/utils/storage';
 
 const EditStudent = () => {
   const { id } = useParams();
@@ -14,7 +14,7 @@ const EditStudent = () => {
   const [student, setStudent] = useState<StudentRegistration | null>(null);
 
   useEffect(() => {
-    const saved = readScoped<StudentRegistration[]>('students', []);
+    const saved = readGlobalStudents<StudentRegistration[]>([]);
     const found = saved.find((s: any) => s.id === id);
     if (found) {
       setStudent(found);
