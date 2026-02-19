@@ -3,7 +3,7 @@ import { AttendanceSession } from "@/types/attendance";
 type Pair = { name: string; value: number };
 
 const BRAND = {
-  logoUrl: "https://files.dyad.sh/pasted-image-2026-02-18T17-34-12-789Z.png",
+  logoUrl: "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png",
   primary: "#008ca0",
   accent: "#ffa534",
   slate: "#0f172a",
@@ -18,11 +18,11 @@ function formatMonthLabel(monthKey: string) {
 
 function escapeHtml(input: string) {
   return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function openPrintWindow(title: string, subtitle: string, bodyHtml: string) {
@@ -99,7 +99,6 @@ function openPrintWindow(title: string, subtitle: string, bodyHtml: string) {
           color: var(--primary);
         }
 
-        .grid2 { display:grid; grid-template-columns: 1.05fr 1fr; gap: 12px; }
         .pad { padding: 14px; }
 
         table { width: 100%; border-collapse: collapse; }
@@ -296,7 +295,7 @@ export function printSchoolTypeReport(params: {
     <div class="section card">
       <div class="card-head">
         <div class="card-title">Resumo visual</div>
-        <div class="badge">Clique no ícone do navegador para imprimir</div>
+        <div class="badge">Top</div>
       </div>
       <div class="pad">
         ${renderDonutSchoolType(params.rows)}

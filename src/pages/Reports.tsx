@@ -3,7 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,7 +20,16 @@ import { getAttendanceForClass } from "@/utils/attendance";
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { showError } from "@/utils/toast";
-import { BarChart3, CalendarDays, FileDown, Printer, ClipboardCheck, ArrowLeft } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  FileDown,
+  Printer,
+  ClipboardCheck,
+  ArrowLeft,
+  Layers,
+  Users,
+} from "lucide-react";
 
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
@@ -135,7 +150,8 @@ export default function Reports() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
 
-  const [classId, setClassId] = useState<string>("");
+  const ALL = "__all__";
+  const [classId, setClassId] = useState<string>(ALL);
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -146,11 +162,34 @@ export default function Reports() {
     setStudents(JSON.parse(localStorage.getItem("ecobuzios_students") || "[]"));
   }, []);
 
-  useEffect(() => {
-    if (!classId && classes.length > 0) setClassId(classes[0].id);
-  }, [classes, classId]);
+  const monthParts = month.split("-");
+  const selectedYear = monthParts[0] || String(now.getFullYear());
+  const selectedMonthPart = monthParts[1] || String(now.getMonth() + 1).padStart(2, "0");
+
+  const classesWithCounts = useMemo(() => {
+    return classes
+      .map((c) => ensureStudentEnrollments(c))
+      .map((c) => {
+        const enrolled = c.studentIds?.length || 0;
+        const sessionsInMonth = getAttendanceForClass(c.id).filter((s) => s.date.startsWith(month));
+        const dates = Array.from(new Set(sessionsInMonth.map((s) => s.date))).sort((a, b) => a.localeCompare(b));
+        return {
+          cls: c,
+          studentsCount: enrolled,
+          callDaysCount: dates.length,
+        };
+      })
+      .sort((a, b) => a.cls.name.localeCompare(b.cls.name, "pt-BR"));
+  }, [classes, month]);
+
+  const totalStudentsInClasses = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
+    return ids.size;
+  }, [classes]);
 
   const selectedClass = useMemo(() => {
+    if (classId === ALL) return null;
     const c = classes.find((x) => x.id === classId);
     return c ? ensureStudentEnrollments(c) : null;
   }, [classes, classId]);
@@ -160,16 +199,16 @@ export default function Reports() {
 
     const sessions = getAttendanceForClass(selectedClass.id).filter((s) => s.date.startsWith(month));
     const dates = Array.from(new Set(sessions.map((s) => s.date))).sort((a, b) => a.localeCompare(b));
-    if (dates.length === 0) return {
-      className: selectedClass.name,
-      month,
-      dates: [],
-      students: [],
-      statusByStudentByDate: {},
-      membershipByStudentByDate: {},
-    };
+    if (dates.length === 0)
+      return {
+        className: selectedClass.name,
+        month,
+        dates: [],
+        students: [],
+        statusByStudentByDate: {},
+        membershipByStudentByDate: {},
+      };
 
-    // students ever in class (enrollment history) OR current ids
     const everIds = new Set<string>([
       ...(selectedClass.studentEnrollments || []).map((e) => e.studentId),
       ...(selectedClass.studentIds || []),
@@ -198,7 +237,6 @@ export default function Reports() {
       }
     }
 
-    // only include students who were enrolled in at least one day of the report
     const studentsInMonth = allStudents
       .filter((st) => dates.some((d) => membershipByStudentByDate[st.id]?.[d]))
       .sort((a, b) => displaySocialName(a).localeCompare(displaySocialName(b), "pt-BR"));
@@ -227,14 +265,13 @@ export default function Reports() {
     () =>
       Array.from({ length: 12 }).map((_, i) => {
         const m = String(i + 1).padStart(2, "0");
-        return { value: m, label: new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(2020, i, 1)) };
+        return {
+          value: m,
+          label: new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(2020, i, 1)),
+        };
       }),
-    []
+    [],
   );
-
-  const monthParts = month.split("-");
-  const selectedYear = monthParts[0] || String(now.getFullYear());
-  const selectedMonthPart = monthParts[1] || String(now.getMonth() + 1).padStart(2, "0");
 
   return (
     <div className="space-y-6">
@@ -299,7 +336,9 @@ export default function Reports() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
                   <p className="text-2xl font-black text-primary mt-1">Chamada</p>
-                  <p className="text-slate-500 font-medium mt-1">Selecione turma e mês.</p>
+                  <p className="text-slate-500 font-medium mt-1">
+                    Primeiro você pode ver o resumo de todas as turmas. Se quiser, escolha uma turma específica.
+                  </p>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -310,6 +349,7 @@ export default function Reports() {
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={ALL}>Todas as turmas</SelectItem>
                         {classes.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
@@ -321,10 +361,7 @@ export default function Reports() {
 
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mês</p>
-                    <Select
-                      value={selectedMonthPart}
-                      onValueChange={(m) => setMonth(`${selectedYear}-${m}`)}
-                    >
+                    <Select value={selectedMonthPart} onValueChange={(m) => setMonth(`${selectedYear}-${m}`)}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
                         <SelectValue placeholder="Mês" />
                       </SelectTrigger>
@@ -340,10 +377,7 @@ export default function Reports() {
 
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ano</p>
-                    <Select
-                      value={selectedYear}
-                      onValueChange={(y) => setMonth(`${y}-${selectedMonthPart}`)}
-                    >
+                    <Select value={selectedYear} onValueChange={(y) => setMonth(`${y}-${selectedMonthPart}`)}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
                         <SelectValue placeholder="Ano" />
                       </SelectTrigger>
@@ -366,6 +400,13 @@ export default function Reports() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
+                    <Users className="h-4 w-4 mr-2" />
+                    {classId === ALL
+                      ? `Alunos (geral nas turmas): ${totalStudentsInClasses}`
+                      : `Alunos na turma: ${selectedClass?.studentIds?.length || 0}`}
+                  </Badge>
+
                   <Button
                     variant="outline"
                     className="rounded-2xl gap-2 h-11 font-black border-slate-200"
@@ -398,7 +439,82 @@ export default function Reports() {
             </div>
 
             <div className="p-0">
-              {!matrix ? (
+              {classId === ALL ? (
+                <div className="p-6 md:p-8">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm">
+                      <div className="p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo</p>
+                        <p className="text-xl font-black text-primary mt-1">Todas as turmas</p>
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Turmas cadastradas</span>
+                            <span className="text-sm font-black text-slate-900">{classes.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Alunos (únicos) nas turmas</span>
+                            <span className="text-sm font-black text-slate-900">{totalStudentsInClasses}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Mês</span>
+                            <span className="text-sm font-black text-slate-900">{monthLabel(month)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2 lg:col-span-2">
+                      <div className="p-5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</p>
+                          <p className="text-xl font-black text-primary mt-1">Escolha uma turma</p>
+                          <p className="text-sm font-bold text-slate-500 mt-1">Clique em qualquer turma abaixo para ver o relatório detalhado.</p>
+                        </div>
+                        <div className="h-12 w-12 rounded-2xl bg-secondary/10 text-primary flex items-center justify-center border border-secondary/20">
+                          <Layers className="h-6 w-6" />
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Turmas</p>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {classesWithCounts.map(({ cls, studentsCount, callDaysCount }) => (
+                        <button
+                          key={cls.id}
+                          onClick={() => setClassId(cls.id)}
+                          className="text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:border-primary/25 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-base font-black text-primary truncate">{cls.name}</p>
+                              <p className="text-xs font-bold text-slate-500 mt-1">
+                                {cls.period} • {cls.startTime}–{cls.endTime}
+                              </p>
+                            </div>
+                            <Badge className={cn(
+                              "rounded-full border-none font-black",
+                              cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
+                            )}>
+                              {cls.status}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
+                              <Users className="h-3.5 w-3.5 mr-1" /> {studentsCount} aluno(s)
+                            </Badge>
+                            <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
+                              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> {callDaysCount} dia(s) com chamada
+                            </Badge>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : !matrix ? (
                 <div className="p-10 text-center bg-white">
                   <BarChart3 className="h-12 w-12 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">Selecione turma e mês.</p>
@@ -407,17 +523,23 @@ export default function Reports() {
                 <div className="p-10 text-center bg-white">
                   <ClipboardCheck className="h-12 w-12 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">Nenhuma chamada registrada neste mês.</p>
-                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba “Chamada” da turma.</p>
+                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : (
                 <ScrollArea className="max-h-[70vh]">
                   <div className="min-w-[900px]">
-                    <div className="grid" style={{ gridTemplateColumns: `360px repeat(${matrix.dates.length}, minmax(64px, 1fr))` }}>
+                    <div
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: `360px repeat(${matrix.dates.length}, minmax(64px, 1fr))`,
+                      }}
+                    >
                       {/* Header */}
                       <div className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
                         <p className="text-base font-black text-primary mt-1 truncate">{matrix.className}</p>
                         <p className="text-xs font-bold text-slate-500 mt-1">{monthLabel(matrix.month)}</p>
+                        <p className="text-xs font-black text-slate-700 mt-1">{matrix.students.length} aluno(s) no relatório</p>
                       </div>
                       {matrix.dates.map((d) => (
                         <div key={d} className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4 text-center">
@@ -430,20 +552,25 @@ export default function Reports() {
                       {matrix.students.map((st) => (
                         <React.Fragment key={st.id}>
                           <div className="border-b border-slate-100 p-4 bg-slate-50/30">
-                            <p className="text-base font-black text-primary leading-tight">{st.socialName || st.preferredName || st.fullName}</p>
+                            <p className="text-base font-black text-primary leading-tight">
+                              {st.socialName || st.preferredName || st.fullName}
+                            </p>
                             <p className="text-sm font-bold text-slate-600 mt-1">{st.fullName}</p>
                           </div>
                           {matrix.dates.map((d) => {
                             const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
                             if (!isMember) {
-                              return <div key={`${st.id}-${d}`} className="border-b border-slate-100 p-4 text-center bg-white" />;
+                              return (
+                                <div
+                                  key={`${st.id}-${d}`}
+                                  className="border-b border-slate-100 p-4 text-center bg-white"
+                                />
+                              );
                             }
                             const s = matrix.statusByStudentByDate[st.id]?.[d];
                             return (
                               <div key={`${st.id}-${d}`} className="border-b border-slate-100 p-4 text-center bg-white">
-                                {statusPill(s) || (
-                                  <span className="text-xs font-bold text-slate-300">—</span>
-                                )}
+                                {statusPill(s) || <span className="text-xs font-bold text-slate-300">—</span>}
                               </div>
                             );
                           })}
