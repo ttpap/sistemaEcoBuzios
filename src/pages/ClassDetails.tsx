@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2, 
-  Save, Search, UserPlus, BookOpen, Clock, X
+  Save, Search, UserPlus, BookOpen, Clock, X, Eye
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { showSuccess } from '@/utils/toast';
 import { Input } from '@/components/ui/input';
+import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -27,6 +28,8 @@ const ClassDetails = () => {
   const [allStudents, setAllStudents] = useState<StudentRegistration[]>([]);
   const [info, setInfo] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
+  const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
 
   useEffect(() => {
     const classes = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
@@ -85,6 +88,11 @@ const ClassDetails = () => {
       studentIds: (schoolClass.studentIds || []).filter(sid => sid !== studentId) 
     };
     saveClass(updated);
+  };
+
+  const openStudentDetails = (student: StudentRegistration) => {
+    setSelectedStudent(student);
+    setIsStudentDetailsOpen(true);
   };
 
   const saveInfo = () => {
@@ -269,23 +277,40 @@ const ClassDetails = () => {
               ) : (
                 classStudents.map(s => (
                   <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-bold text-xs">
+                    <button
+                      className="flex items-center gap-3 text-left flex-1 min-w-0"
+                      onClick={() => openStudentDetails(s)}
+                      title="Ver ficha do aluno"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
                         {s.fullName.charAt(0)}
                       </div>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-700">{s.fullName}</span>
-                        <span className="text-[10px] font-black text-primary tracking-tighter">MATRÍCULA: {s.registration}</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-slate-700 truncate">{s.fullName}</span>
+                        <span className="text-[10px] font-black text-primary tracking-tighter truncate">MATRÍCULA: {s.registration}</span>
                       </div>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => openStudentDetails(s)}
+                        title="Ver ficha"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeStudent(s.id)}
+                        title="Remover da turma"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => removeStudent(s.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
                   </div>
                 ))
               )}
@@ -315,6 +340,12 @@ const ClassDetails = () => {
           </CardContent>
         </Card>
       </div>
+
+      <StudentDetailsDialog
+        student={selectedStudent}
+        isOpen={isStudentDetailsOpen}
+        onClose={() => setIsStudentDetailsOpen(false)}
+      />
     </div>
   );
 };
