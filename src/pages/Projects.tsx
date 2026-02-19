@@ -11,6 +11,18 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { showError, showSuccess } from "@/utils/toast";
 import {
   createProject,
@@ -34,6 +46,8 @@ import {
   Search,
   Save,
   X,
+  MapPin,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -191,6 +205,46 @@ export default function Projects() {
     refresh();
     showSuccess("Projeto atualizado.");
   };
+
+  const allEnrolledStudentIds = useMemo(() => {
+    const ids = new Set<string>();
+
+    for (const p of projects) {
+      const classesKey = getProjectScopedKey(p.id, "classes");
+      const classes = safeParse<SchoolClass[]>(localStorage.getItem(classesKey), []);
+      for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
+    }
+
+    return ids;
+  }, [projects]);
+
+  const studentsInAnyProject = useMemo(() => {
+    if (allEnrolledStudentIds.size === 0) return [];
+    return students.filter((s) => allEnrolledStudentIds.has(s.id));
+  }, [students, allEnrolledStudentIds]);
+
+  const enrollmentPieData = useMemo(() => {
+    const enrolled = studentsInAnyProject.length;
+    const notEnrolled = Math.max(0, students.length - enrolled);
+    return [
+      { name: "Em turmas (projetos)", value: enrolled },
+      { name: "Sem turma", value: notEnrolled },
+    ];
+  }, [studentsInAnyProject.length, students.length]);
+
+  const neighborhoodsData = useMemo(() => {
+    const map = new Map<string, number>();
+
+    for (const s of studentsInAnyProject) {
+      const key = (s.neighborhood || "").toString().trim() || "Não informado";
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12);
+  }, [studentsInAnyProject]);
 
   const perProjectCounts = useMemo(() => {
     return projects
@@ -552,6 +606,116 @@ export default function Projects() {
                 <p className="mt-2 text-xs font-bold text-slate-500">
                   Você está na visão geral (admin) para ver alunos e contagem por projeto.
                 </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="p-6 md:p-8 pb-2">
+                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                  <PieChartIcon className="h-5 w-5" /> Alunos em turmas (todos os projetos)
+                </CardTitle>
+                <p className="text-slate-500 font-medium mt-1">
+                  Total de alunos que estão vinculados a alguma turma em qualquer projeto.
+                </p>
+              </CardHeader>
+              <CardContent className="p-6 md:p-8 pt-4">
+                <div className="grid gap-4 sm:grid-cols-2 sm:items-center">
+                  <div className="space-y-2">
+                    <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                        Em turmas (projetos)
+                      </p>
+                      <p className="mt-2 text-4xl font-black text-primary tracking-tight">
+                        {studentsInAnyProject.length}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.75rem] border border-slate-100 bg-white p-4">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sem turma</p>
+                      <p className="mt-2 text-2xl font-black text-slate-800">
+                        {Math.max(0, students.length - studentsInAnyProject.length)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="h-[240px] rounded-[2rem] border border-slate-100 bg-white p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={enrollmentPieData}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={55}
+                          outerRadius={85}
+                          paddingAngle={2}
+                        >
+                          {enrollmentPieData.map((_, idx) => (
+                            <Cell key={idx} fill={idx === 0 ? "#008ca0" : "#cbd5e1"} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: 16,
+                            border: "1px solid rgba(226,232,240,1)",
+                            boxShadow: "0 20px 50px rgba(15,23,42,0.10)",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="p-6 md:p-8 pb-2">
+                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                  <MapPin className="h-5 w-5" /> Bairros (alunos em turmas)
+                </CardTitle>
+                <p className="text-slate-500 font-medium mt-1">
+                  Top 12 bairros entre os alunos que estão em turmas dos projetos.
+                </p>
+              </CardHeader>
+              <CardContent className="p-6 md:p-8 pt-4">
+                <div className="h-[320px] rounded-[2rem] border border-slate-100 bg-white p-4">
+                  {neighborhoodsData.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-sm font-bold text-slate-500">
+                      Nenhum aluno vinculado a turmas ainda.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={neighborhoodsData} margin={{ left: 20, right: 12, top: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis
+                          dataKey="name"
+                          tickLine={false}
+                          axisLine={false}
+                          interval={0}
+                          height={60}
+                          tick={{ fontSize: 11, fill: "#475569", fontWeight: 800 }}
+                          angle={-18}
+                          textAnchor="end"
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          width={30}
+                          tick={{ fontSize: 12, fill: "#475569", fontWeight: 800 }}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(2,132,199,0.08)" }}
+                          contentStyle={{
+                            borderRadius: 16,
+                            border: "1px solid rgba(226,232,240,1)",
+                            boxShadow: "0 20px 50px rgba(15,23,42,0.10)",
+                          }}
+                        />
+                        <Bar dataKey="value" radius={[14, 14, 0, 0]} fill="#ffa534" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
