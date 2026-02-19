@@ -26,6 +26,7 @@ const ClassDetails = () => {
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
   const [allStudents, setAllStudents] = useState<StudentRegistration[]>([]);
   const [info, setInfo] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
 
   useEffect(() => {
     const classes = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
@@ -96,6 +97,13 @@ const ClassDetails = () => {
 
   const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
   const classStudents = allStudents.filter(s => schoolClass.studentIds?.includes(s.id));
+
+  const filteredAvailableStudents = allStudents
+    .filter(s => !schoolClass.studentIds?.includes(s.id))
+    .filter(s => 
+      s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) || 
+      s.registration?.includes(studentSearch)
+    );
 
   return (
     <div className="space-y-8 pb-20">
@@ -183,18 +191,35 @@ const ClassDetails = () => {
               <DialogTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-2"><UserPlus className="h-4 w-4" /> Matricular</Button>
               </DialogTrigger>
-              <DialogContent className="rounded-[2rem] max-h-[80vh] overflow-y-auto">
+              <DialogContent className="rounded-[2rem] max-h-[80vh] flex flex-col">
                 <DialogHeader><DialogTitle>Matricular Aluno</DialogTitle></DialogHeader>
-                <div className="space-y-2 mt-4">
-                  {allStudents.filter(s => !schoolClass.studentIds?.includes(s.id)).map(s => (
-                    <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                      <div className="flex flex-col">
-                        <span className="font-bold text-sm">{s.fullName}</span>
-                        <span className="text-[10px] text-slate-400">Matrícula: {s.registration}</span>
+                
+                <div className="relative mt-4 mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input 
+                    placeholder="Buscar por nome ou matrícula..." 
+                    className="pl-10 h-10 rounded-xl border-slate-100 bg-slate-50"
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {filteredAvailableStudents.length === 0 ? (
+                    <p className="text-center py-8 text-slate-400 text-sm">Nenhum aluno disponível.</p>
+                  ) : (
+                    filteredAvailableStudents.map(s => (
+                      <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm text-slate-700">{s.fullName}</span>
+                          <span className="text-[10px] font-black text-primary tracking-tighter">MATRÍCULA: {s.registration}</span>
+                        </div>
+                        <Button size="sm" variant="ghost" className="hover:bg-primary hover:text-white rounded-lg" onClick={() => addStudent(s.id)}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => addStudent(s.id)}><Plus className="h-4 w-4" /></Button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -212,7 +237,7 @@ const ClassDetails = () => {
                       </div>
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-700">{s.fullName}</span>
-                        <span className="text-[10px] text-slate-400">Matrícula: {s.registration}</span>
+                        <span className="text-[10px] font-black text-primary tracking-tighter">MATRÍCULA: {s.registration}</span>
                       </div>
                     </div>
                     <Button 

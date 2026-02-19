@@ -147,11 +147,16 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       localStorage.setItem('ecobuzios_students', JSON.stringify(updated));
       showSuccess("Dados atualizados!");
     } else {
+      const year = new Date().getFullYear();
+      const yearStudents = existingStudents.filter((s: any) => s.registration?.startsWith(year.toString()));
+      const nextNumber = yearStudents.length + 1;
+      const registration = `${year}${nextNumber.toString().padStart(4, '0')}`;
+
       const newStudent = {
         ...values,
         id: crypto.randomUUID(),
         registrationDate: new Date().toISOString(),
-        registration: `2024${Math.floor(1000 + Math.random() * 9000)}`,
+        registration: registration,
         status: 'Ativo',
         class: 'A definir'
       };

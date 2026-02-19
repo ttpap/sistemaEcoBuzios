@@ -28,7 +28,25 @@ const Students = () => {
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
-    setStudents(saved);
+    
+    // Migração de matrículas antigas para o novo padrão sequencial
+    let changed = false;
+    const migrated = saved.map((s: any, index: number) => {
+      if (!s.registration || s.registration.length !== 8 || s.registration.includes('2024') && s.registration.length < 8) {
+        const year = new Date(s.registrationDate || Date.now()).getFullYear();
+        const reg = `${year}${(index + 1).toString().padStart(4, '0')}`;
+        changed = true;
+        return { ...s, registration: reg };
+      }
+      return s;
+    });
+
+    if (changed) {
+      localStorage.setItem('ecobuzios_students', JSON.stringify(migrated));
+      setStudents(migrated);
+    } else {
+      setStudents(saved);
+    }
   }, []);
 
   const handleDelete = (id: string) => {
@@ -105,7 +123,7 @@ const Students = () => {
                       <span className="text-slate-700">{student.fullName}</span>
                     </div>
                   </TableCell>
-                  <TableCell className="text-slate-500 font-medium">{student.registration}</TableCell>
+                  <TableCell className="text-slate-500 font-black tracking-tighter">{student.registration}</TableCell>
                   <TableCell className="font-medium text-slate-600">{student.age} anos</TableCell>
                   <TableCell className="text-right px-8">
                     <div className="flex items-center justify-end gap-2">
