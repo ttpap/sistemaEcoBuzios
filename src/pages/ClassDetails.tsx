@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2, 
-  Save, Search, UserPlus, BookOpen, Clock
+  Save, Search, UserPlus, BookOpen, Clock, X
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -98,16 +98,24 @@ const ClassDetails = () => {
   const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
   const classStudents = allStudents.filter(s => schoolClass.studentIds?.includes(s.id));
 
-  // Lógica de filtragem direta no render para máxima reatividade
-  const searchLower = studentSearch.toLowerCase().trim();
-  const filteredAvailableStudents = allStudents
-    .filter(s => !schoolClass.studentIds?.includes(s.id))
-    .filter(s => {
-      if (!searchLower) return true;
-      const nameMatch = s.fullName?.toLowerCase().includes(searchLower);
-      const regMatch = s.registration?.toLowerCase().includes(searchLower);
-      return nameMatch || regMatch;
-    });
+  // LÓGICA DE FILTRAGEM DINÂMICA (Executada a cada renderização)
+  const enrolledIds = schoolClass.studentIds || [];
+  const searchNormalized = studentSearch.toLowerCase().trim();
+  
+  const filteredAvailableStudents = allStudents.filter(student => {
+    // 1. Remove quem já está na turma
+    const isNotEnrolled = !enrolledIds.includes(student.id);
+    if (!isNotEnrolled) return false;
+
+    // 2. Se não houver busca, mostra todos os disponíveis
+    if (!searchNormalized) return true;
+
+    // 3. Filtra por nome ou matrícula
+    const nameMatch = student.fullName.toLowerCase().includes(searchNormalized);
+    const regMatch = student.registration?.toLowerCase().includes(searchNormalized);
+    
+    return nameMatch || regMatch;
+  });
 
   return (
     <div className="space-y-8 pb-20">
@@ -209,6 +217,14 @@ const ClassDetails = () => {
                       onChange={(e) => setStudentSearch(e.target.value)}
                       autoFocus
                     />
+                    {studentSearch && (
+                      <button 
+                        onClick={() => setStudentSearch("")}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full text-slate-400"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </DialogHeader>
 
@@ -217,7 +233,7 @@ const ClassDetails = () => {
                     <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
                       <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                       <p className="text-slate-400 font-bold">
-                        {studentSearch ? "Nenhum aluno encontrado." : "Todos os alunos já matriculados."}
+                        {studentSearch ? "Nenhum aluno encontrado para esta busca." : "Todos os alunos já estão matriculados."}
                       </p>
                     </div>
                   ) : (
