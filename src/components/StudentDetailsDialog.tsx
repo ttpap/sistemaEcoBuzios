@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -23,11 +24,12 @@ import {
   Info,
   ExternalLink,
   Clock,
+  Edit2,
 } from "lucide-react";
-
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
 import { readScoped } from "@/utils/storage";
+import { Button } from "@/components/ui/button";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -85,6 +87,8 @@ const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
 );
 
 const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialogProps) => {
+  const navigate = useNavigate();
+
   const classesForStudent = useMemo(() => {
     if (!student) return [] as SchoolClass[];
     try {
@@ -110,6 +114,11 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   }, [student, isOpen]);
 
   if (!student) return null;
+
+  const onEdit = () => {
+    onClose();
+    navigate(`/alunos/editar/${student.id}`);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -153,11 +162,22 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
               </div>
             </div>
 
-            <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 border border-white/15">
-              <Layers className="h-4 w-4 text-white/80" />
-              <span className="text-sm font-bold text-white/90">
-                Turmas: {classesForStudent.length}
-              </span>
+            <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 border border-white/15">
+                <Layers className="h-4 w-4 text-white/80" />
+                <span className="text-sm font-bold text-white/90">
+                  Turmas: {classesForStudent.length}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                onClick={onEdit}
+                className="rounded-2xl bg-white text-primary hover:bg-white/90 font-black gap-2"
+              >
+                <Edit2 className="h-4 w-4" />
+                Editar aluno
+              </Button>
             </div>
           </div>
         </DialogHeader>
