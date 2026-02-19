@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showError, showSuccess } from "@/utils/toast";
 import {
   createProject,
@@ -19,6 +20,7 @@ import {
   migrateLegacyProjectDataToProjectIfNeeded,
   migrateLegacyStudentsToGlobalIfNeeded,
   setActiveProjectId,
+  updateProject,
 } from "@/utils/projects";
 import { readGlobalStudents } from "@/utils/storage";
 import {
@@ -30,6 +32,8 @@ import {
   Shield,
   Users,
   Search,
+  Save,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -60,6 +64,12 @@ export default function Projects() {
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState<string>("");
   const [imageFileName, setImageFileName] = useState<string>("");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editProjectId, setEditProjectId] = useState<string>("");
+  const [editName, setEditName] = useState<string>("");
+  const [editImageUrl, setEditImageUrl] = useState<string>("");
+  const [editImageFileName, setEditImageFileName] = useState<string>("");
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [studentsSearch, setStudentsSearch] = useState("");
@@ -129,6 +139,59 @@ export default function Projects() {
     reader.readAsDataURL(file);
   };
 
+  const openEdit = (p: Project) => {
+    setEditProjectId(p.id);
+    setEditName(p.name);
+    setEditImageUrl(p.imageUrl || "");
+    setEditImageFileName("");
+    setEditOpen(true);
+  };
+
+  const onPickEditFile = (file: File | null) => {
+    if (!file) {
+      setEditImageUrl("");
+      setEditImageFileName("");
+      return;
+    }
+
+    const okTypes = ["image/png", "image/jpeg", "application/pdf"];
+    if (!okTypes.includes(file.type)) {
+      showError("Arquivo inválido. Envie PNG, JPG ou PDF.");
+      return;
+    }
+
+    setEditImageFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || "");
+      setEditImageUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onSaveEdit = () => {
+    const n = editName.trim();
+    if (!n) {
+      showError("Informe o nome do projeto.");
+      return;
+    }
+
+    const updated = updateProject(editProjectId, {
+      name: n,
+      imageUrl: editImageUrl.trim() ? editImageUrl : null,
+    });
+
+    if (!updated) {
+      showError("Projeto não encontrado.");
+      return;
+    }
+
+    setEditOpen(false);
+    refresh();
+    showSuccess("Projeto atualizado.");
+  };
+
   const perProjectCounts = useMemo(() => {
     return projects
       .map((p) => {
@@ -153,14 +216,107 @@ export default function Projects() {
     if (!q) return students;
 
     return students.filter((s) => {
-      const name = (s.fullName || "").toLowerCase();
+      const nm = (s.fullName || "").toLowerCase();
       const reg = (s.registration || "").toLowerCase();
-      return name.includes(q) || reg.includes(q);
+      return nm.includes(q) || reg.includes(q);
     });
   }, [students, studentsSearch]);
 
   return (
     <div className="space-y-8">
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="border-none p-0 overflow-hidden rounded-[2.5rem] bg-white shadow-2xl w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-xl">
+          <DialogHeader className="p-6 md:p-8 bg-primary text-white">
+            <DialogTitle className="text-xl font-black tracking-tight">Editar projeto</DialogTitle>
+            <p className="mt-1 text-white/80 text-sm font-bold">
+              Você pode alterar o nome e o arquivo (PNG/JPG/PDF).
+            </p>
+          </DialogHeader>
+
+          <div className="p-6 md:p-8 space-y-5">
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Nome do projeto
+              </Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                Arquivo (PNG / JPG / PDF)
+              </Label>
+              <Input
+                type="file"
+                accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                onChange={(e) => onPickEditFile(e.target.files?.[0] || null)}
+                className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
+              <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+                {editImageUrl && !isPdfDataUrl(editImageUrl) && isImageDataUrl(editImageUrl) ? (
+                  <img src={editImageUrl} alt="Prévia" className="h-full w-full object-cover" />
+                ) : editImageUrl && isPdfDataUrl(editImageUrl) ? (
+                  <FileText className="h-5 w-5 text-primary" />
+                ) : (
+                  <ImageIcon className="h-5 w-5" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-black text-slate-800 truncate">
+                  {editName.trim() || "Nome do projeto"}
+                </p>
+                <p className="text-xs font-bold text-slate-500 truncate">
+                  {editImageFileName
+                    ? editImageFileName
+                    : editImageUrl.trim()
+                      ? "Arquivo definido"
+                      : "Sem arquivo"}
+                </p>
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-2xl font-black border-slate-200"
+                  onClick={() => {
+                    setEditImageUrl("");
+                    setEditImageFileName("");
+                  }}
+                >
+                  Remover
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 rounded-2xl font-black border-slate-200"
+                onClick={() => setEditOpen(false)}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
+                onClick={onSaveEdit}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar alterações
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Projetos</h1>
@@ -283,55 +439,71 @@ export default function Projects() {
                       const isPdf = isPdfDataUrl(p.imageUrl);
 
                       return (
-                        <button
+                        <div
                           key={p.id}
-                          type="button"
-                          onClick={() => onSelect(p)}
                           className={cn(
-                            "w-full text-left rounded-[2rem] border p-4 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30",
-                            isActive
-                              ? "border-primary/25 bg-primary/5"
-                              : "border-slate-100 bg-white hover:bg-slate-50",
+                            "w-full rounded-[2rem] border transition-colors",
+                            isActive ? "border-primary/25 bg-primary/5" : "border-slate-100 bg-white",
                           )}
-                          title="Selecionar projeto"
                         >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
-                                {p.imageUrl && !isPdf ? (
-                                  <img
-                                    src={p.imageUrl}
-                                    alt={p.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : p.imageUrl && isPdf ? (
-                                  <FileText className="h-5 w-5 text-primary" />
-                                ) : (
-                                  <span className="text-primary font-black">{p.name.charAt(0)}</span>
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-black text-slate-900 truncate">{p.name}</p>
-                                <p className="text-xs font-bold text-slate-500 truncate">
-                                  Criado em {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                                </p>
-                              </div>
-                            </div>
+                          <div className="flex items-stretch">
+                            <button
+                              type="button"
+                              onClick={() => onSelect(p)}
+                              className="flex-1 text-left p-4 rounded-[2rem] hover:bg-slate-50/70 transition-colors"
+                              title="Selecionar projeto"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
+                                    {p.imageUrl && !isPdf ? (
+                                      <img
+                                        src={p.imageUrl}
+                                        alt={p.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : p.imageUrl && isPdf ? (
+                                      <FileText className="h-5 w-5 text-primary" />
+                                    ) : (
+                                      <span className="text-primary font-black">{p.name.charAt(0)}</span>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-black text-slate-900 truncate">{p.name}</p>
+                                    <p className="text-xs font-bold text-slate-500 truncate">
+                                      Criado em {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                                    </p>
+                                  </div>
+                                </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              {p.imageUrl && isPdf && (
-                                <Badge className="rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-black">
-                                  PDF
-                                </Badge>
-                              )}
-                              {isActive && (
-                                <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
-                                  Ativo
-                                </Badge>
-                              )}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {p.imageUrl && isPdf && (
+                                    <Badge className="rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-black">
+                                      PDF
+                                    </Badge>
+                                  )}
+                                  {isActive && (
+                                    <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
+                                      Ativo
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+
+                            <div className="p-4 pr-4 flex items-center">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-11 w-11 rounded-2xl p-0 border-slate-200 bg-white hover:bg-slate-50"
+                                onClick={() => openEdit(p)}
+                                title="Editar projeto"
+                              >
+                                <Pencil className="h-4 w-4 text-primary" />
+                              </Button>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>

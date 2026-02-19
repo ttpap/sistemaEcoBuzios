@@ -40,6 +40,26 @@ export function createProject(input: { name: string; imageUrl?: string }) {
   return next;
 }
 
+export function updateProject(projectId: string, patch: { name?: string; imageUrl?: string | null }) {
+  const projects = getProjects();
+  const current = projects.find((p) => p.id === projectId);
+  if (!current) return null;
+
+  const next: Project = {
+    ...current,
+    name: patch.name !== undefined ? patch.name.trim() : current.name,
+    imageUrl:
+      patch.imageUrl === undefined
+        ? current.imageUrl
+        : patch.imageUrl === null
+          ? undefined
+          : patch.imageUrl.trim() || undefined,
+  };
+
+  saveProjects(projects.map((p) => (p.id === projectId ? next : p)));
+  return next;
+}
+
 export function getActiveProjectId(): string | null {
   return localStorage.getItem(ACTIVE_PROJECT_KEY);
 }
