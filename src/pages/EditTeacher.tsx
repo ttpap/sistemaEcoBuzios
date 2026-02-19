@@ -6,6 +6,7 @@ import TeacherForm from '@/components/TeacherForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { TeacherRegistration } from '@/types/teacher';
+import { readScoped } from '@/utils/storage';
 
 const EditTeacher = () => {
   const { id } = useParams();
@@ -13,7 +14,7 @@ const EditTeacher = () => {
   const [teacher, setTeacher] = useState<TeacherRegistration | null>(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]');
+    const saved = readScoped<TeacherRegistration[]>('teachers', []);
     const found = saved.find((t: any) => t.id === id);
     if (found) {
       setTeacher(found);

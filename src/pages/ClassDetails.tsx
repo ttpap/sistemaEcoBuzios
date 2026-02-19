@@ -22,6 +22,7 @@ import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -35,14 +36,14 @@ const ClassDetails = () => {
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const classes = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
+    const classes = readScoped<SchoolClass[]>('classes', []);
     const found = classes.find((c: any) => c.id === id);
     if (found) {
       const normalized = ensureStudentEnrollments(found);
       // ensure persist if it was missing
       if (!found.studentEnrollments) {
-        const newClasses = classes.map((c: any) => c.id === id ? normalized : c);
-        localStorage.setItem('ecobuzios_classes', JSON.stringify(newClasses));
+        const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
+        writeScoped('classes', newClasses);
       }
       setSchoolClass(normalized);
       setInfo(normalized.complementaryInfo || "");
@@ -50,14 +51,14 @@ const ClassDetails = () => {
       navigate('/turmas');
     }
 
-    setAllTeachers(JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]'));
-    setAllStudents(JSON.parse(localStorage.getItem('ecobuzios_students') || '[]'));
+    setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
+    setAllStudents(readScoped<StudentRegistration[]>('students', []));
   }, [id, navigate]);
 
   const saveClass = (updatedClass: SchoolClass) => {
-    const classes = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
-    const newClasses = classes.map((c: any) => c.id === id ? updatedClass : c);
-    localStorage.setItem('ecobuzios_classes', JSON.stringify(newClasses));
+    const classes = readScoped<SchoolClass[]>('classes', []);
+    const newClasses = classes.map((c: any) => (c.id === id ? updatedClass : c));
+    writeScoped('classes', newClasses);
     setSchoolClass(updatedClass);
   };
 

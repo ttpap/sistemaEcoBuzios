@@ -6,6 +6,7 @@ import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
+import { readScoped } from '@/utils/storage';
 
 const EditClass = () => {
   const { id } = useParams();
@@ -13,7 +14,7 @@ const EditClass = () => {
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
+    const saved = readScoped<SchoolClass[]>('classes', []);
     const found = saved.find((c: any) => c.id === id);
     if (found) {
       setSchoolClass(found);

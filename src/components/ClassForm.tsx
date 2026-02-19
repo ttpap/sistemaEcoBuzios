@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome da turma é obrigatório"),
@@ -49,8 +50,8 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existing = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
-    
+    const existing = readScoped<SchoolClass[]>('classes', []);
+
     const classData = {
       ...values,
       capacity: parseInt(values.capacity),
@@ -58,8 +59,10 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
     };
 
     if (initialData) {
-      const updated = existing.map((c: any) => c.id === initialData.id ? { ...c, ...classData } : c);
-      localStorage.setItem('ecobuzios_classes', JSON.stringify(updated));
+      const updated = existing.map((c: any) =>
+        c.id === initialData.id ? { ...c, ...classData } : c,
+      );
+      writeScoped('classes', updated);
       showSuccess("Turma atualizada!");
     } else {
       const newClass = {
@@ -68,7 +71,7 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
         registrationDate: new Date().toISOString(),
         status: 'Ativo'
       };
-      localStorage.setItem('ecobuzios_classes', JSON.stringify([...existing, newClass]));
+      writeScoped('classes', [...existing, newClass]);
       showSuccess("Turma criada com sucesso!");
     }
     navigate('/turmas');

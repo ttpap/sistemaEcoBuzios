@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -121,8 +122,8 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existing = JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]');
-    
+    const existing = readScoped<TeacherRegistration[]>('teachers', []);
+
     const finalBank = values.bank === "outro" ? values.customBank : values.bank;
 
     const teacherData = {
@@ -132,8 +133,8 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
     delete (teacherData as any).customBank;
 
     if (initialData) {
-      const updated = existing.map((t: any) => t.id === initialData.id ? { ...t, ...teacherData } : t);
-      localStorage.setItem('ecobuzios_teachers', JSON.stringify(updated));
+      const updated = existing.map((t: any) => (t.id === initialData.id ? { ...t, ...teacherData } : t));
+      writeScoped('teachers', updated);
       showSuccess("Cadastro atualizado!");
     } else {
       const newTeacher = {
@@ -142,7 +143,7 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
         registrationDate: new Date().toISOString(),
         status: 'Ativo'
       };
-      localStorage.setItem('ecobuzios_teachers', JSON.stringify([...existing, newTeacher]));
+      writeScoped('teachers', [...existing, newTeacher]);
       showSuccess("Cadastro realizado!");
     }
     navigate('/professores');

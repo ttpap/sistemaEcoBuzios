@@ -21,6 +21,7 @@ import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
@@ -223,8 +224,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existingStudents = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
-    
+    const existingStudents = readScoped<StudentRegistration[]>('students', []);
+
     const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
 
     const studentData = {
@@ -233,10 +234,10 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
     };
 
     if (initialData) {
-      const updated = existingStudents.map((s: any) => 
+      const updated = existingStudents.map((s: any) =>
         s.id === initialData.id ? { ...s, ...studentData } : s
       );
-      localStorage.setItem('ecobuzios_students', JSON.stringify(updated));
+      writeScoped('students', updated);
       showSuccess("Dados atualizados!");
     } else {
       const year = new Date().getFullYear();
@@ -252,7 +253,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
         status: 'Ativo',
         class: 'A definir'
       };
-      localStorage.setItem('ecobuzios_students', JSON.stringify([...existingStudents, newStudent]));
+      writeScoped('students', [...existingStudents, newStudent]);
       showSuccess("Inscrição realizada!");
     }
     navigate('/alunos');

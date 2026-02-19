@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { showSuccess } from '@/utils/toast';
 import TeacherDetailsDialog from '@/components/TeacherDetailsDialog';
+import { readScoped, writeScoped } from '@/utils/storage';
 
 const Teachers = () => {
   const navigate = useNavigate();
@@ -26,16 +27,17 @@ const Teachers = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('ecobuzios_teachers') || '[]');
+    const saved = readScoped<TeacherRegistration[]>('teachers', []);
     setTeachers(saved);
   }, []);
 
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este cadastro?")) {
       const updated = teachers.filter(t => t.id !== id);
-      localStorage.setItem('ecobuzios_teachers', JSON.stringify(updated));
+      writeScoped('teachers', updated);
       setTeachers(updated);
       showSuccess("Cadastro removido com sucesso.");
+
     }
   };
 

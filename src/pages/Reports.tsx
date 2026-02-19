@@ -20,6 +20,8 @@ import { getAttendanceForClass } from "@/utils/attendance";
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { showError } from "@/utils/toast";
+import { readScoped } from "@/utils/storage";
+
 import {
   BarChart3,
   CalendarDays,
@@ -158,8 +160,8 @@ export default function Reports() {
   const [month, setMonth] = useState<string>(defaultMonth);
 
   useEffect(() => {
-    setClasses(JSON.parse(localStorage.getItem("ecobuzios_classes") || "[]"));
-    setStudents(JSON.parse(localStorage.getItem("ecobuzios_students") || "[]"));
+    setClasses(readScoped<SchoolClass[]>('classes', []));
+    setStudents(readScoped<StudentRegistration[]>('students', []));
   }, []);
 
   const monthParts = month.split("-");

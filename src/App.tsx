@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
@@ -18,15 +18,9 @@ import ClassDetails from "./pages/ClassDetails";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
-import { getActiveProjectId } from "@/utils/projects";
+import ActiveProjectGate from "@/components/ActiveProjectGate";
 
 const queryClient = new QueryClient();
-
-const RequireProject = ({ children }: { children: React.ReactNode }) => {
-  const active = getActiveProjectId();
-  if (!active) return <Navigate to="/projetos" replace />;
-  return <>{children}</>;
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -43,97 +37,97 @@ const App = () => (
               <Route
                 path="/"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <Dashboard />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/alunos"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <Students />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/alunos/novo"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <NewStudent />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/alunos/editar/:id"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <EditStudent />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/professores"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <Teachers />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/professores/novo"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <NewTeacher />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/professores/editar/:id"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <EditTeacher />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/turmas"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <Classes />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/turmas/nova"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <NewClass />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/turmas/editar/:id"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <EditClass />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/turmas/:id"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <ClassDetails />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route
                 path="/relatorios"
                 element={
-                  <RequireProject>
+                  <ActiveProjectGate>
                     <Reports />
-                  </RequireProject>
+                  </ActiveProjectGate>
                 }
               />
               <Route path="*" element={<NotFound />} />
