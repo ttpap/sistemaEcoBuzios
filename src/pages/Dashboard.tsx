@@ -28,6 +28,11 @@ import { SchoolClass } from "@/types/class";
 import { TeacherRegistration } from "@/types/teacher";
 import { StudentRegistration } from "@/types/student";
 import { getAllAttendance } from "@/utils/attendance";
+import {
+  printInstitutionsReport,
+  printNeighborhoodsReport,
+  printSchoolTypeReport,
+} from "@/utils/dashboard-reports";
 
 type KPI = {
   label: string;
@@ -43,7 +48,12 @@ function monthKey(d: Date) {
 function normalizeSchoolType(student: StudentRegistration): "pública" | "privada" | "outros" {
   const raw = `${student.schoolType || ""} ${student.schoolName || ""} ${student.schoolOther || ""}`.toLowerCase();
 
-  if (raw.includes("municipal") || raw.includes("state") || raw.includes("pública") || raw.includes("publica")) {
+  if (
+    raw.includes("municipal") ||
+    raw.includes("state") ||
+    raw.includes("pública") ||
+    raw.includes("publica")
+  ) {
     return "pública";
   }
   if (raw.includes("private") || raw.includes("priv") || raw.includes("particular")) {
@@ -86,7 +96,9 @@ export default function Dashboard() {
 
   const activeStudentsInClasses = useMemo(() => {
     // status no cadastro do aluno é string; tratamos "Ativo" como ativo.
-    return students.filter((s) => enrolledStudentIds.has(s.id) && (s.status || "").toLowerCase() !== "inativo");
+    return students.filter(
+      (s) => enrolledStudentIds.has(s.id) && (s.status || "").toLowerCase() !== "inativo",
+    );
   }, [students, enrolledStudentIds]);
 
   const activeTeachers = useMemo(() => teachers.filter((t) => t.status === "Ativo"), [teachers]);
@@ -135,57 +147,65 @@ export default function Dashboard() {
         tone: "amber",
       },
     ],
-    [activeStudentsInClasses.length, activeClasses.length, activeTeachers.length, attendanceThisMonth.length]
+    [
+      activeStudentsInClasses.length,
+      activeClasses.length,
+      activeTeachers.length,
+      attendanceThisMonth.length,
+    ],
   );
 
-  const schoolTypeData = useMemo(() => {
+  const schoolTypeCounts = useMemo(() => {
     const counts = { pública: 0, privada: 0, outros: 0 };
     for (const s of activeStudentsInClasses) counts[normalizeSchoolType(s)] += 1;
-
-    return [
-      { name: "Pública", value: counts["pública"], color: "hsl(var(--primary))" },
-      { name: "Privada", value: counts["privada"], color: "hsl(var(--secondary))" },
-      { name: "Outros", value: counts["outros"], color: "#60a5fa" },
-    ].filter((x) => x.value > 0);
+    return counts;
   }, [activeStudentsInClasses]);
 
-  const institutionsData = useMemo(() => {
+  const schoolTypeData = useMemo(() => {
+    return [
+      { name: "Pública", value: schoolTypeCounts["pública"], color: "hsl(var(--primary))" },
+      { name: "Privada", value: schoolTypeCounts["privada"], color: "hsl(var(--secondary))" },
+      { name: "Outros", value: schoolTypeCounts["outros"], color: "#60a5fa" },
+    ].filter((x) => x.value > 0);
+  }, [schoolTypeCounts]);
+
+  const institutionsFullData = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of activeStudentsInClasses) {
       const name = (s.schoolName || s.schoolOther || "Não informado").trim() || "Não informado";
       map.set(name, (map.get(name) || 0) + 1);
     }
 
-    const list = Array.from(map.entries())
+    return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-
-    const top = list.slice(0, 8);
-    const rest = list.slice(8);
-    const restSum = rest.reduce((acc, cur) => acc + cur.value, 0);
-
-    return restSum > 0 ? [...top, { name: "Outras", value: restSum }] : top;
   }, [activeStudentsInClasses]);
 
-  const neighborhoodsData = useMemo(() => {
+  const institutionsData = useMemo(() => {
+    const top = institutionsFullData.slice(0, 8);
+    const rest = institutionsFullData.slice(8);
+    const restSum = rest.reduce((acc, cur) => acc + cur.value, 0);
+    return restSum > 0 ? [...top, { name: "Outras", value: restSum }] : top;
+  }, [institutionsFullData]);
+
+  const neighborhoodsFullData = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of activeStudentsInClasses) {
       const name = (s.neighborhood || "Não informado").trim() || "Não informado";
       map.set(name, (map.get(name) || 0) + 1);
     }
 
-    const list = Array.from(map.entries())
+    return Array.from(map.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
-
-    const top = list.slice(0, 10);
-    return top;
   }, [activeStudentsInClasses]);
+
+  const neighborhoodsData = useMemo(() => neighborhoodsFullData.slice(0, 10), [neighborhoodsFullData]);
 
   const calendarMonthLabel = useMemo(
     () => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(today),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [thisMonth]
+    [thisMonth],
   );
 
   return (
@@ -272,16 +292,34 @@ export default function Dashboard() {
               <School className="h-5 w-5" /> Escolaridade / Instituições
             </CardTitle>
             <p className="text-slate-500 font-medium mt-1">
-              Considera apenas alunos ativos vinculados às turmas ativas.
+              Clique nos gráficos para imprimir o relatório.
             </p>
           </CardHeader>
           <CardContent className="p-6 md:p-8 pt-4 grid gap-6 lg:grid-cols-[280px_1fr]">
-            <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Tipo de escola</p>
+            <button
+              type="button"
+              className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-4 text-left hover:bg-slate-50 transition-colors"
+              onClick={() =>
+                printSchoolTypeReport({
+                  monthKey: thisMonth,
+                  classCount: activeClasses.length,
+                  teacherCount: activeTeachers.length,
+                  studentCount: activeStudentsInClasses.length,
+                  rows: [
+                    { name: "Pública", value: schoolTypeCounts["pública"] },
+                    { name: "Privada", value: schoolTypeCounts["privada"] },
+                    { name: "Outros", value: schoolTypeCounts["outros"] },
+                  ].filter((r) => r.value > 0),
+                })
+              }
+              title="Imprimir relatório de tipo de escola"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de escola</p>
+                <span className="text-[10px] font-black text-primary/80">Imprimir</span>
+              </div>
               {schoolTypeData.length === 0 ? (
-                <div className="py-10 text-center text-sm font-bold text-slate-400">
-                  Sem dados.
-                </div>
+                <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
               ) : (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -320,10 +358,26 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-            </div>
+            </button>
 
-            <div className="rounded-[2rem] border border-slate-100 bg-white p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Instituições (top)</p>
+            <button
+              type="button"
+              className="rounded-[2rem] border border-slate-100 bg-white p-4 text-left hover:bg-slate-50 transition-colors"
+              onClick={() =>
+                printInstitutionsReport({
+                  monthKey: thisMonth,
+                  classCount: activeClasses.length,
+                  teacherCount: activeTeachers.length,
+                  studentCount: activeStudentsInClasses.length,
+                  rows: institutionsFullData,
+                })
+              }
+              title="Imprimir relatório de instituições"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Instituições</p>
+                <span className="text-[10px] font-black text-primary/80">Imprimir</span>
+              </div>
               {institutionsData.length === 0 ? (
                 <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
               ) : (
@@ -331,7 +385,12 @@ export default function Dashboard() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={institutionsData} layout="vertical" margin={{ left: 40, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef2f7" />
-                      <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 800 }} />
+                      <XAxis
+                        type="number"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 800 }}
+                      />
                       <YAxis
                         type="category"
                         dataKey="name"
@@ -361,61 +420,88 @@ export default function Dashboard() {
                   </ResponsiveContainer>
                 </div>
               )}
-            </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-500">Total instituições: {institutionsFullData.length}</span>
+                <span className="text-xs font-black text-slate-700">Clique para ver a lista completa</span>
+              </div>
+            </button>
           </CardContent>
         </Card>
       </div>
 
       {/* Neighborhoods */}
-      <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="p-6 md:p-8 pb-2">
-          <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-            <MapPinned className="h-5 w-5" /> Bairros
-          </CardTitle>
-          <p className="text-slate-500 font-medium mt-1">
-            Distribuição dos alunos por bairro (top 10).
-          </p>
-        </CardHeader>
-        <CardContent className="p-6 md:p-8 pt-4">
-          {neighborhoodsData.length === 0 ? (
-            <div className="py-12 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-          ) : (
-            <div className="h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={neighborhoodsData} margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    interval={0}
-                    tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }}
-                    tickFormatter={(v: string) => (v.length > 10 ? v.slice(0, 10) + "…" : v)}
-                  />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                  <Tooltip
-                    cursor={{ fill: "#f8fafc" }}
-                    contentStyle={{
-                      borderRadius: 16,
-                      border: "1px solid #e2e8f0",
-                      boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[14, 14, 8, 8]}>
-                    {neighborhoodsData.map((_, index) => (
-                      <Cell
-                        key={index}
-                        fill={index % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"}
-                        opacity={0.9}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() =>
+          printNeighborhoodsReport({
+            monthKey: thisMonth,
+            classCount: activeClasses.length,
+            teacherCount: activeTeachers.length,
+            studentCount: activeStudentsInClasses.length,
+            rows: neighborhoodsFullData,
+          })
+        }
+        title="Imprimir relatório de bairros"
+      >
+        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden hover:bg-slate-50/50 transition-colors">
+          <CardHeader className="p-6 md:p-8 pb-2">
+            <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+              <MapPinned className="h-5 w-5" /> Bairros
+            </CardTitle>
+            <p className="text-slate-500 font-medium mt-1">
+              Clique no gráfico para imprimir o relatório completo.
+            </p>
+          </CardHeader>
+          <CardContent className="p-6 md:p-8 pt-4">
+            {neighborhoodsData.length === 0 ? (
+              <div className="py-12 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+            ) : (
+              <div className="h-[320px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={neighborhoodsData} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      interval={0}
+                      tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }}
+                      tickFormatter={(v: string) => (v.length > 10 ? v.slice(0, 10) + "…" : v)}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "#f8fafc" }}
+                      contentStyle={{
+                        borderRadius: 16,
+                        border: "1px solid #e2e8f0",
+                        boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                      {neighborhoodsData.map((_, index) => (
+                        <Cell
+                          key={index}
+                          fill={index % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"}
+                          opacity={0.9}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-500">Total bairros: {neighborhoodsFullData.length}</span>
+              <span className="text-xs font-black text-slate-700">Clique para ver a lista completa</span>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </button>
     </div>
   );
 }
