@@ -12,6 +12,8 @@ import Teachers from "./pages/Teachers";
 import NewTeacher from "./pages/NewTeacher";
 import EditTeacher from "./pages/EditTeacher";
 import Classes from "./pages/Classes";
+import NewClass from "./pages/NewClass";
+import EditClass from "./pages/EditClass";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
               <Route path="/professores/novo" element={<NewTeacher />} />
               <Route path="/professores/editar/:id" element={<EditTeacher />} />
               <Route path="/turmas" element={<Classes />} />
+              <Route path="/turmas/nova" element={<NewClass />} />
+              <Route path="/turmas/editar/:id" element={<EditClass />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
