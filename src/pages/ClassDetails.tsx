@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -93,24 +93,21 @@ const ClassDetails = () => {
     showSuccess("Informações salvas!");
   };
 
-  // Filtro otimizado de alunos disponíveis
-  const filteredAvailableStudents = useMemo(() => {
-    if (!schoolClass) return [];
-    
-    return allStudents
-      .filter(s => !schoolClass.studentIds?.includes(s.id))
-      .filter(s => {
-        const search = studentSearch.toLowerCase();
-        const nameMatch = s.fullName.toLowerCase().includes(search);
-        const regMatch = s.registration?.toLowerCase().includes(search);
-        return nameMatch || regMatch;
-      });
-  }, [allStudents, schoolClass, studentSearch]);
-
   if (!schoolClass) return null;
 
   const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
   const classStudents = allStudents.filter(s => schoolClass.studentIds?.includes(s.id));
+
+  // Lógica de filtragem direta no render para máxima reatividade
+  const searchLower = studentSearch.toLowerCase().trim();
+  const filteredAvailableStudents = allStudents
+    .filter(s => !schoolClass.studentIds?.includes(s.id))
+    .filter(s => {
+      if (!searchLower) return true;
+      const nameMatch = s.fullName?.toLowerCase().includes(searchLower);
+      const regMatch = s.registration?.toLowerCase().includes(searchLower);
+      return nameMatch || regMatch;
+    });
 
   return (
     <div className="space-y-8 pb-20">
@@ -194,18 +191,20 @@ const ClassDetails = () => {
             <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
               <GraduationCap className="h-5 w-5" /> Alunos ({classStudents.length})
             </CardTitle>
-            <Dialog onOpenChange={(open) => !open && setStudentSearch("")}>
+            <Dialog onOpenChange={(open) => {
+              if (!open) setStudentSearch("");
+            }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-2"><UserPlus className="h-4 w-4" /> Matricular</Button>
               </DialogTrigger>
               <DialogContent className="rounded-[2rem] max-h-[85vh] flex flex-col p-0 overflow-hidden">
-                <DialogHeader className="p-6 pb-2">
-                  <DialogTitle>Matricular Aluno</DialogTitle>
-                  <div className="relative mt-4">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <DialogHeader className="p-8 pb-4">
+                  <DialogTitle className="text-xl font-black text-primary">Matricular Aluno</DialogTitle>
+                  <div className="relative mt-6">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                     <Input 
                       placeholder="Digite nome ou matrícula (ex: 2026-0001)..." 
-                      className="pl-10 h-12 rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all"
+                      className="pl-12 h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-base font-medium"
                       value={studentSearch}
                       onChange={(e) => setStudentSearch(e.target.value)}
                       autoFocus
@@ -213,27 +212,32 @@ const ClassDetails = () => {
                   </div>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-2">
+                <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-3">
                   {filteredAvailableStudents.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-slate-400 text-sm font-medium">
-                        {studentSearch ? "Nenhum aluno encontrado para esta busca." : "Todos os alunos já estão matriculados."}
+                    <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
+                      <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                      <p className="text-slate-400 font-bold">
+                        {studentSearch ? "Nenhum aluno encontrado." : "Todos os alunos já matriculados."}
                       </p>
                     </div>
                   ) : (
                     filteredAvailableStudents.map(s => (
-                      <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 hover:border-primary/20 transition-all group">
+                      <div key={s.id} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all group">
                         <div className="flex flex-col">
-                          <span className="font-bold text-sm text-slate-700 group-hover:text-primary transition-colors">{s.fullName}</span>
-                          <span className="text-[10px] font-black text-primary tracking-tighter mt-0.5">MATRÍCULA: {s.registration}</span>
+                          <span className="font-black text-slate-700 group-hover:text-primary transition-colors">{s.fullName}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-md tracking-tighter">
+                              MATRÍCULA: {s.registration}
+                            </span>
+                            {s.age && <span className="text-[10px] font-bold text-slate-400 uppercase">{s.age} anos</span>}
+                          </div>
                         </div>
                         <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="hover:bg-primary hover:text-white rounded-xl h-10 w-10 p-0" 
+                          size="icon" 
+                          className="rounded-xl h-12 w-12 shadow-md hover:scale-110 transition-transform" 
                           onClick={() => addStudent(s.id)}
                         >
-                          <Plus className="h-5 w-5" />
+                          <Plus className="h-6 w-6" />
                         </Button>
                       </div>
                     ))
