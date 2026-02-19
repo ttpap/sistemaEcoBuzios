@@ -19,7 +19,18 @@ import {
   upsertAttendanceSession,
 } from "@/utils/attendance";
 import { StudentRegistration } from "@/types/student";
-import { CalendarDays, CheckCircle2, Clock4, FileCheck2, Plus, XCircle } from "lucide-react";
+import { showSuccess } from "@/utils/toast";
+import StudentDetailsDialog from "@/components/StudentDetailsDialog";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock4,
+  Eye,
+  FileCheck2,
+  Plus,
+  Save,
+  XCircle,
+} from "lucide-react";
 
 function makeId() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,22 +106,42 @@ export default function ClassAttendance({
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
+  // Draft state (only persists when user clicks "Salvar")
+  const [draftRecords, setDraftRecords] = useState<Record<string, AttendanceStatus> | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Student details from attendance screen
+  const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
+  const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
+
   useEffect(() => {
     const list = getAttendanceForClass(classId);
     setSessions(list);
     setSelectedId((prev) => prev || list[0]?.id || null);
   }, [classId]);
 
-  const selectedSession = useMemo(() => sessions.find((s) => s.id === selectedId) || null, [sessions, selectedId]);
+  const selectedSession = useMemo(
+    () => sessions.find((s) => s.id === selectedId) || null,
+    [sessions, selectedId]
+  );
 
   // Keep records in sync with enrolled students (e.g., if new students are added after a session is created)
   useEffect(() => {
-    if (!selectedSession) return;
-    const synced = ensureStudentRecords(selectedSession, studentIds, "presente");
-    if (synced === selectedSession) return;
+    if (!selectedSession) {
+      setDraftRecords(null);
+      setIsDirty(false);
+      return;
+    }
 
-    upsertAttendanceSession(synced);
-    setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
+    const synced = ensureStudentRecords(selectedSession, studentIds, "presente");
+    if (synced !== selectedSession) {
+      upsertAttendanceSession(synced);
+      setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
+    }
+
+    setDraftRecords({ ...(synced.records || {}) });
+    setIsDirty(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSession?.id, studentIds.join(",")]);
 
   const monthKey = selectedSession ? monthKeyFromYmd(selectedSession.date) : null;
@@ -134,7 +165,7 @@ export default function ClassAttendance({
   }, [classId, monthKey, sessions.length]);
 
   const summary = useMemo(() => {
-    if (!selectedSession) return null;
+    if (!selectedSession || !draftRecords) return null;
     const counts: Record<AttendanceStatus, number> = {
       presente: 0,
       falta: 0,
@@ -142,11 +173,11 @@ export default function ClassAttendance({
       justificada: 0,
     };
     for (const sid of studentIds) {
-      const st = selectedSession.records?.[sid] || "presente";
+      const st = draftRecords[sid] || "presente";
       counts[st] += 1;
     }
     return counts;
-  }, [selectedSession?.id, studentIds.join(",")]);
+  }, [selectedSession?.id, studentIds.join(","), draftRecords, isDirty]);
 
   const createSession = () => {
     if (!selectedDate) return;
@@ -179,20 +210,36 @@ export default function ClassAttendance({
     setSessions(list);
     setSelectedId(session.id);
     setCreateOpen(false);
+    setSelectedDate(undefined);
+    showSuccess("Chamada criada. Marque os status e clique em Salvar.");
   };
 
   const updateStudentStatus = (studentId: string, status: AttendanceStatus) => {
     if (!selectedSession) return;
+    setDraftRecords((prev) => {
+      const base = prev || { ...(selectedSession.records || {}) };
+      return { ...base, [studentId]: status };
+    });
+    setIsDirty(true);
+  };
+
+  const saveSession = () => {
+    if (!selectedSession || !draftRecords) return;
+
     const next: AttendanceSession = {
       ...selectedSession,
-      records: {
-        ...(selectedSession.records || {}),
-        [studentId]: status,
-      },
+      records: { ...draftRecords },
     };
 
     upsertAttendanceSession(next);
     setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
+    setIsDirty(false);
+    showSuccess("Chamada salva com sucesso.");
+  };
+
+  const openStudentDetails = (student: StudentRegistration) => {
+    setSelectedStudent(student);
+    setIsStudentDetailsOpen(true);
   };
 
   return (
@@ -258,7 +305,7 @@ export default function ClassAttendance({
                 <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center">
                   <CalendarDays className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">Nenhuma chamada criada.</p>
-                  <p className="text-xs text-slate-400 mt-1">Clique em “Nova chamada”.</p>
+                  <p className="text-xs text-slate-400 mt-1">Clique em "Nova chamada".</p>
                 </div>
               ) : (
                 sessions.map((s) => {
@@ -290,7 +337,12 @@ export default function ClassAttendance({
                           >
                             <div className="leading-none text-center">
                               <div className="text-base">{day}</div>
-                              <div className={cn("text-[10px] uppercase tracking-widest", isActive ? "text-white/80" : "text-slate-400")}>
+                              <div
+                                className={cn(
+                                  "text-[10px] uppercase tracking-widest",
+                                  isActive ? "text-white/80" : "text-slate-400"
+                                )}
+                              >
                                 {mon}
                               </div>
                             </div>
@@ -318,26 +370,54 @@ export default function ClassAttendance({
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada do dia</p>
-                <p className="text-xl font-black text-primary mt-1">
-                  {selectedSession ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
-                </p>
-              </div>
-              {selectedSession && summary && (
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="rounded-full border-none bg-emerald-600 text-white font-black">
-                    {summary.presente} presente(s)
-                  </Badge>
-                  <Badge className="rounded-full border-none bg-rose-600 text-white font-black">
-                    {summary.falta} falta(s)
-                  </Badge>
-                  <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
-                    {summary.atrasado} atrasado(s)
-                  </Badge>
-                  <Badge className="rounded-full border-none bg-sky-600 text-white font-black">
-                    {summary.justificada} justificada(s)
-                  </Badge>
+                <div className="flex flex-wrap items-center gap-3 mt-1">
+                  <p className="text-xl font-black text-primary">
+                    {selectedSession
+                      ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR")
+                      : "—"}
+                  </p>
+                  {selectedSession && (
+                    <Badge
+                      className={cn(
+                        "rounded-full border-none font-black",
+                        isDirty ? "bg-amber-600 text-white" : "bg-emerald-600 text-white"
+                      )}
+                    >
+                      {isDirty ? "Alterações não salvas" : "Salvo"}
+                    </Badge>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div className="flex flex-col gap-2 md:items-end">
+                {selectedSession && (
+                  <Button
+                    className="rounded-2xl font-black gap-2"
+                    onClick={saveSession}
+                    disabled={!isDirty}
+                  >
+                    <Save className="h-4 w-4" />
+                    Salvar chamada
+                  </Button>
+                )}
+
+                {selectedSession && summary && (
+                  <div className="flex flex-wrap gap-2 justify-start md:justify-end">
+                    <Badge className="rounded-full border-none bg-emerald-600 text-white font-black">
+                      {summary.presente} presente(s)
+                    </Badge>
+                    <Badge className="rounded-full border-none bg-rose-600 text-white font-black">
+                      {summary.falta} falta(s)
+                    </Badge>
+                    <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
+                      {summary.atrasado} atrasado(s)
+                    </Badge>
+                    <Badge className="rounded-full border-none bg-sky-600 text-white font-black">
+                      {summary.justificada} justificada(s)
+                    </Badge>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -355,7 +435,7 @@ export default function ClassAttendance({
                   </div>
                 ) : (
                   students.map((st) => {
-                    const status = selectedSession.records?.[st.id] || "presente";
+                    const status = draftRecords?.[st.id] || selectedSession.records?.[st.id] || "presente";
                     const abs = monthlyAbsencesByStudent.get(st.id) || 0;
 
                     return (
@@ -365,17 +445,32 @@ export default function ClassAttendance({
                       >
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                           <div className="flex items-center gap-4 min-w-0">
-                            <div className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0">
+                            <button
+                              className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0"
+                              onClick={() => openStudentDetails(st)}
+                              title="Abrir ficha do aluno"
+                            >
                               {st.photo ? (
                                 <img src={st.photo} alt={st.fullName} className="w-full h-full object-cover" />
                               ) : (
                                 st.fullName.charAt(0)
                               )}
-                            </div>
+                            </button>
                             <div className="min-w-0">
-                              <p className="text-base font-black text-primary truncate">
-                                {displaySocialName(st)}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-base font-black text-primary truncate">
+                                  {displaySocialName(st)}
+                                </p>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary shrink-0"
+                                  onClick={() => openStudentDetails(st)}
+                                  title="Ver ficha"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </div>
                               <p className="text-sm font-bold text-slate-600 truncate">{st.fullName}</p>
                               <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <Badge variant="outline" className="rounded-full border-slate-200 text-slate-600 font-bold">
@@ -414,11 +509,11 @@ export default function ClassAttendance({
                                     <span className="hidden sm:inline">{m.label}</span>
                                     <span className="sm:hidden">
                                       {m.value === "presente"
-                                        ? "Pres." 
+                                        ? "Pres."
                                         : m.value === "falta"
                                           ? "Falta"
                                           : m.value === "atrasado"
-                                            ? "Atr." 
+                                            ? "Atr."
                                             : "Just."}
                                     </span>
                                   </span>
@@ -436,6 +531,12 @@ export default function ClassAttendance({
           )}
         </Card>
       </div>
+
+      <StudentDetailsDialog
+        student={selectedStudent}
+        isOpen={isStudentDetailsOpen}
+        onClose={() => setIsStudentDetailsOpen(false)}
+      />
     </div>
   );
 }
