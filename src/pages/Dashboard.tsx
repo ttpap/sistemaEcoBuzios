@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { GraduationCap, Users, BookOpen, TrendingUp, Star, Database, Loader2 } from "lucide-react";
+import { GraduationCap, Users, BookOpen, TrendingUp, Star } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Button } from '@/components/ui/button';
-import { showSuccess } from '@/utils/toast';
 
 const data = [
   { name: 'Jan', alunos: 400 },
@@ -18,76 +16,11 @@ const data = [
 
 const Dashboard = () => {
   const [studentCount, setStudentCount] = useState(0);
-  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
     setStudentCount(saved.length);
   }, []);
-
-  const seedTestData = () => {
-    setIsSeeding(true);
-    
-    const mockNames = [
-      "Lucas Silva", "Maria Oliveira", "João Santos", "Ana Costa", "Pedro Souza",
-      "Julia Ferreira", "Gabriel Pereira", "Beatriz Rodrigues", "Matheus Almeida", "Larissa Nascimento",
-      "Thiago Lima", "Camila Gomes", "Vinicius Rocha", "Isabella Carvalho", "Felipe Araujo",
-      "Manuela Melo", "Gustavo Barbosa", "Helena Castro", "Rodrigo Martins", "Alice Guimarães"
-    ];
-
-    const neighborhoods = ["Centro", "Geribá", "Rasa", "Manguinhos", "Ferradura", "Ossos", "Cem Braças"];
-    const schools = ["Colégio Dominus", "E. M. Paulo Freire", "C. E. João de Oliveira Botas", "Colégio Integral"];
-
-    const newStudents = mockNames.map((name, index) => {
-      const year = 2024;
-      const regNumber = (index + 1).toString().padStart(4, '0');
-      const age = Math.floor(Math.random() * (18 - 6 + 1)) + 6;
-      
-      return {
-        id: crypto.randomUUID(),
-        registration: `${year}-${regNumber}`,
-        fullName: name,
-        email: `${name.toLowerCase().replace(' ', '.')}@email.com`,
-        cpf: `${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 90 + 10)}`,
-        birthDate: `${2024 - age}-05-15`,
-        age: age,
-        cellPhone: "(22) 99" + Math.floor(Math.random() * 90000000 + 10000000),
-        phone: "(22) 26" + Math.floor(Math.random() * 9000000 + 1000000),
-        gender: index % 2 === 0 ? 'Homem cis' : 'Mulher cis',
-        race: ['Branca', 'Parda', 'Preta'][Math.floor(Math.random() * 3)],
-        schoolType: index % 3 === 0 ? 'private' : 'municipal',
-        schoolName: schools[Math.floor(Math.random() * schools.length)],
-        cep: "28950-000",
-        street: "Avenida José Bento Ribeiro Dantas",
-        number: (index * 10 + 5).toString(),
-        neighborhood: neighborhoods[Math.floor(Math.random() * neighborhoods.length)],
-        city: "Armação dos Búzios",
-        uf: "RJ",
-        hasAllergy: index % 5 === 0,
-        allergyDetail: index % 5 === 0 ? "Lactose" : "",
-        hasSpecialNeeds: false,
-        usesMedication: false,
-        hasPhysicalRestriction: false,
-        practicedActivity: true,
-        familyHeartHistory: false,
-        healthProblems: [],
-        imageAuthorization: 'authorized',
-        docsDelivered: ["RG do Aluno", "CPF do Aluno", "Comprovante de Residência"],
-        registrationDate: new Date().toISOString(),
-        status: 'Ativo',
-        class: 'A definir'
-      };
-    });
-
-    const existing = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
-    localStorage.setItem('ecobuzios_students', JSON.stringify([...existing, ...newStudents]));
-    
-    setTimeout(() => {
-      setStudentCount(existing.length + 20);
-      setIsSeeding(false);
-      showSuccess("20 alunos de teste gerados com sucesso!");
-    }, 1000);
-  };
 
   return (
     <div className="space-y-8">
@@ -97,17 +30,6 @@ const Dashboard = () => {
           <p className="text-slate-500 font-medium">Bem-vindo à gestão centralizada EcoBúzios.</p>
         </div>
         <div className="flex gap-3">
-          {studentCount < 5 && (
-            <Button 
-              variant="outline" 
-              className="rounded-2xl gap-2 border-dashed border-primary/30 text-primary hover:bg-primary/5 font-bold"
-              onClick={seedTestData}
-              disabled={isSeeding}
-            >
-              {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-              Gerar Dados de Teste
-            </Button>
-          )}
           <div className="bg-secondary/10 text-secondary px-4 py-2 rounded-2xl flex items-center gap-2 text-sm font-bold border border-secondary/20">
             <Star className="h-4 w-4 fill-secondary" />
             Ano Letivo 2024
