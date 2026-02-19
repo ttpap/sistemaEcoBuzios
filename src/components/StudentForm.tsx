@@ -66,6 +66,10 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Escola Mágico de Oz",
     "Centro Educacional Búzios (CEB)",
     "Escola Waldorf Búzios",
+    "Colégio Pensi",
+    "Colégio Ph",
+    "Escola Terra Viva",
+    "Centro Educacional Souza Amorim",
     "Outra"
   ],
   higher: [
@@ -79,6 +83,9 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Cruzeiro do Sul Virtual",
     "UNIP",
     "Outra"
+  ],
+  none: [
+    "Não estuda no momento"
   ]
 };
 
@@ -353,7 +360,17 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
               <FormField control={form.control} name="schoolType" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-bold">Rede de Ensino *</FormLabel>
-                  <Select onValueChange={(v) => { field.onChange(v); form.setValue('schoolName', ''); }} defaultValue={field.value}>
+                  <Select 
+                    onValueChange={(v) => { 
+                      field.onChange(v); 
+                      if (v === 'none') {
+                        form.setValue('schoolName', 'Não estuda no momento');
+                      } else {
+                        form.setValue('schoolName', ''); 
+                      }
+                    }} 
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
                         <SelectValue placeholder="Selecione a rede" />
@@ -364,6 +381,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
                       <SelectItem value="state">Estadual</SelectItem>
                       <SelectItem value="private">Particular</SelectItem>
                       <SelectItem value="higher">Ensino Superior</SelectItem>
+                      <SelectItem value="none" className="font-bold text-red-500">Não estuda</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -372,10 +390,10 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
               <FormField control={form.control} name="schoolName" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-bold">Unidade Escolar *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!schoolType}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!schoolType || schoolType === 'none'}>
                     <FormControl>
                       <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
-                        <SelectValue placeholder={schoolType ? "Selecione a escola" : "Selecione a rede primeiro"} />
+                        <SelectValue placeholder={schoolType ? (schoolType === 'none' ? "Não estuda" : "Selecione a escola") : "Selecione a rede primeiro"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -515,7 +533,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
               <SectionHeader icon={Camera} title="6. Imagem" subtitle="Autorização de Uso" />
               <Dialog>
                 <DialogTrigger asChild><Button variant="outline" size="sm" className="rounded-xl gap-2 font-bold"><Info className="h-4 w-4" /> Ler Termo</Button></DialogTrigger>
-                <DialogContent className="rounded-[2rem]"><DialogHeader><DialogTitle className="font-black">Termo de Autorização de Uso de Imagem</DialogTitle></DialogHeader><div className="text-sm text-slate-600 leading-relaxed p-4">Autorizo a EcoBúzios a utilizar, de forma gratuita, a imagem e voz do aluno para fins institucionais, pedagógicos e de divulgação em redes sociais, sites e materiais impressos da instituição.</div></DialogContent>
+                <DialogContent className="rounded-[2rem]"><DialogHeader><DialogTitle className="font-black">Termo de Autorização de Uso de Imagem</DialogTitle></DialogHeader><div className="text-sm text-slate-600 leading-relaxed p-4">Autorizo a EcoBúzios a utilizar, de forma gratuita, a imagem e voz do aluno para fins institucionais, pedagógicos e de divulgação em redes sociais, sites e materiais impressos da institution.</div></DialogContent>
               </Dialog>
             </div>
             <FormField control={form.control} name="imageAuthorization" render={({ field }) => (
