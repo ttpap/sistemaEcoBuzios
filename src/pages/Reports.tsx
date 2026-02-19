@@ -20,7 +20,7 @@ import { getAttendanceForClass } from "@/utils/attendance";
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { showError } from "@/utils/toast";
-import { readScoped } from "@/utils/storage";
+import { readGlobalStudents, readScoped } from "@/utils/storage";
 
 import {
   BarChart3,
@@ -161,7 +161,7 @@ export default function Reports() {
 
   useEffect(() => {
     setClasses(readScoped<SchoolClass[]>('classes', []));
-    setStudents(readScoped<StudentRegistration[]>('students', []));
+    setStudents(readGlobalStudents<StudentRegistration[]>([]));
   }, []);
 
   const monthParts = month.split("-");

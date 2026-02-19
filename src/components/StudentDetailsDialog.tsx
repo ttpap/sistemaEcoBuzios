@@ -21,11 +21,13 @@ import {
   User,
   Layers,
   Info,
-  Clock,
   ExternalLink,
+  Clock,
 } from "lucide-react";
+
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
+import { readScoped } from "@/utils/storage";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -86,7 +88,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   const classesForStudent = useMemo(() => {
     if (!student) return [] as SchoolClass[];
     try {
-      const raw = JSON.parse(localStorage.getItem("ecobuzios_classes") || "[]") as SchoolClass[];
+      // Turmas são SEMPRE do projeto ativo
+      const raw = readScoped<SchoolClass[]>("classes", []);
       return raw.filter((c) => (c.studentIds || []).includes(student.id));
     } catch {
       return [];
@@ -264,22 +267,17 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   </div>
 
                   {maps?.embedUrl ? (
-                    <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-100">
+                    <div className="mt-4 overflow-hidden rounded-[1.75rem] border border-slate-100">
                       <iframe
-                        title={`Mapa - ${student.fullName}`}
+                        title="Google Maps"
                         src={maps.embedUrl}
-                        className="h-[clamp(220px,40vh,420px)] w-full"
+                        className="w-full"
+                        style={{ height: "clamp(220px, 32vh, 360px)" }}
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
                       />
                     </div>
-                  ) : (
-                    <div className="mt-4 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-                      <p className="text-sm font-bold text-slate-500">
-                        Preencha Rua, Número, Bairro, Cidade e UF para visualizar o mapa.
-                      </p>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               </TabsContent>
 

@@ -22,7 +22,7 @@ import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
-import { readScoped, writeScoped } from '@/utils/storage';
+import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -52,7 +52,8 @@ const ClassDetails = () => {
     }
 
     setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
-    setAllStudents(readScoped<StudentRegistration[]>('students', []));
+    setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
+
   }, [id, navigate]);
 
   const saveClass = (updatedClass: SchoolClass) => {
