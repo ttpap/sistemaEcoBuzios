@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Users, Edit2, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Users, Edit2, Trash2, Eye, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
@@ -42,7 +42,8 @@ const Teachers = () => {
   const filtered = teachers.filter(t => 
     t.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
     t.cpf?.includes(searchTerm) ||
-    t.cnpj?.includes(searchTerm)
+    t.cnpj?.includes(searchTerm) ||
+    t.pixKey?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -65,7 +66,7 @@ const Teachers = () => {
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <Input 
-            placeholder="Buscar por nome, CPF ou CNPJ..." 
+            placeholder="Buscar por nome, documento ou chave PIX..." 
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -79,7 +80,7 @@ const Teachers = () => {
             <TableRow className="hover:bg-transparent border-slate-100">
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Nome / Razão Social</TableHead>
               <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Documento</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Celular</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Chave PIX</TableHead>
               <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -106,7 +107,12 @@ const Teachers = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-slate-500 font-medium">{teacher.cpf || teacher.cnpj}</TableCell>
-                  <TableCell className="font-medium text-slate-600">{teacher.cellPhone}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs bg-emerald-50 px-3 py-1 rounded-full w-fit border border-emerald-100">
+                      <CreditCard className="h-3 w-3" />
+                      {teacher.pixKey}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right px-8">
                     <div className="flex items-center justify-end gap-2">
                       <Button 
