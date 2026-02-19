@@ -282,8 +282,16 @@ const ClassDetails = () => {
                       onClick={() => openStudentDetails(s)}
                       title="Ver ficha do aluno"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
-                        {s.fullName.charAt(0)}
+                      <div className="w-10 h-10 rounded-2xl bg-secondary/20 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black text-xs shrink-0">
+                        {s.photo ? (
+                          <img
+                            src={s.photo}
+                            alt={s.fullName}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          s.fullName.charAt(0)
+                        )}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="font-bold text-slate-700 truncate">{s.fullName}</span>
