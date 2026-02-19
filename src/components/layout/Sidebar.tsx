@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -15,15 +15,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
-import { getActiveProject } from '@/utils/projects';
+import { clearActiveProjectId, getActiveProject } from '@/utils/projects';
+import { logoutAdmin } from '@/utils/admin-auth';
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
 
   const menuItems = useMemo(() => {
-    const base = [{ icon: FolderPlus, label: 'Criar projeto', path: '/projetos' }];
+    const base = [{ icon: FolderPlus, label: 'Projetos', path: '/projetos' }];
     if (!activeProject) return base;
 
     return [
@@ -41,6 +43,12 @@ const Sidebar = () => {
     activeProject?.imageUrl?.startsWith('data:image/png') ||
       activeProject?.imageUrl?.startsWith('data:image/jpeg'),
   );
+
+  const onLogout = () => {
+    clearActiveProjectId();
+    logoutAdmin();
+    navigate('/login');
+  };
 
   return (
     <div className="w-64 bg-[#f5f0e6]/90 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
@@ -104,7 +112,10 @@ const Sidebar = () => {
       </nav>
 
       <div className="p-4 border-t border-slate-200/50">
-        <button className="flex items-center gap-3 px-4 py-3 w-full text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all">
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-3 px-4 py-3 w-full text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+        >
           <LogOut className="h-5 w-5" />
           Sair
         </button>
