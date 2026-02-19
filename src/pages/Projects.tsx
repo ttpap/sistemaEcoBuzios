@@ -16,15 +16,31 @@ import {
   migrateLegacyDataToProjectIfNeeded,
   setActiveProjectId,
 } from "@/utils/projects";
-import { FolderPlus, LayoutDashboard, Layers, Pencil, Image as ImageIcon } from "lucide-react";
+import {
+  FileText,
+  FolderPlus,
+  Image as ImageIcon,
+  LayoutDashboard,
+  Layers,
+  Pencil,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
+
+function isPdfDataUrl(url?: string) {
+  return Boolean(url && url.startsWith("data:application/pdf"));
+}
+
+function isImageDataUrl(url?: string) {
+  return Boolean(url && (url.startsWith("data:image/png") || url.startsWith("data:image/jpeg")));
+}
 
 export default function Projects() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [name, setName] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [imageFileName, setImageFileName] = useState<string>("");
 
   const activeId = useMemo(() => getActiveProjectId(), [projects]);
 
@@ -46,6 +62,7 @@ export default function Projects() {
 
     setName("");
     setImageUrl("");
+    setImageFileName("");
     refresh();
 
     showSuccess("Projeto criado e selecionado.");
@@ -58,6 +75,29 @@ export default function Projects() {
     refresh();
     showSuccess("Projeto selecionado.");
     navigate("/");
+  };
+
+  const onPickFile = (file: File | null) => {
+    if (!file) {
+      setImageUrl("");
+      setImageFileName("");
+      return;
+    }
+
+    const okTypes = ["image/png", "image/jpeg", "application/pdf"];
+    if (!okTypes.includes(file.type)) {
+      showError("Arquivo inválido. Envie PNG, JPG ou PDF.");
+      return;
+    }
+
+    setImageFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || "");
+      setImageUrl(dataUrl);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -84,7 +124,7 @@ export default function Projects() {
             Novo projeto
           </CardTitle>
           <p className="text-slate-500 font-medium mt-2">
-            Informe um nome e uma imagem (link) para identificar o projeto.
+            Informe um nome e envie uma imagem (PNG/JPG) ou um arquivo PDF.
           </p>
         </CardHeader>
         <CardContent className="p-6 md:p-8 pt-0">
@@ -102,13 +142,13 @@ export default function Projects() {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                Imagem do projeto (link)
+                Arquivo do projeto (PNG / JPG / PDF)
               </Label>
               <Input
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://..."
-                className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                type="file"
+                accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                onChange={(e) => onPickFile(e.target.files?.[0] || null)}
+                className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
               />
             </div>
           </div>
@@ -116,8 +156,10 @@ export default function Projects() {
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
               <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
-                {imageUrl ? (
+                {imageUrl && !isPdfDataUrl(imageUrl) && (isImageDataUrl(imageUrl) || imageUrl.startsWith("http")) ? (
                   <img src={imageUrl} alt="Prévia" className="h-full w-full object-cover" />
+                ) : imageUrl && isPdfDataUrl(imageUrl) ? (
+                  <FileText className="h-5 w-5 text-primary" />
                 ) : (
                   <ImageIcon className="h-5 w-5" />
                 )}
@@ -125,7 +167,11 @@ export default function Projects() {
               <div className="min-w-0">
                 <p className="text-sm font-black text-slate-800 truncate">{name.trim() || "Nome do projeto"}</p>
                 <p className="text-xs font-bold text-slate-500 truncate">
-                  {imageUrl.trim() ? "Imagem definida" : "Sem imagem (opcional)"}
+                  {imageFileName
+                    ? imageFileName
+                    : imageUrl.trim()
+                      ? "Arquivo definido"
+                      : "Sem arquivo (opcional)"}
                 </p>
               </div>
             </div>
@@ -160,6 +206,8 @@ export default function Projects() {
               <div className="grid gap-3 md:grid-cols-2">
                 {projects.map((p) => {
                   const isActive = p.id === activeId;
+                  const isPdf = isPdfDataUrl(p.imageUrl);
+
                   return (
                     <button
                       key={p.id}
@@ -176,12 +224,14 @@ export default function Projects() {
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
-                            {p.imageUrl ? (
+                            {p.imageUrl && !isPdf ? (
                               <img
                                 src={p.imageUrl}
                                 alt={p.name}
                                 className="h-full w-full object-cover"
                               />
+                            ) : p.imageUrl && isPdf ? (
+                              <FileText className="h-5 w-5 text-primary" />
                             ) : (
                               <span className="text-primary font-black">{p.name.charAt(0)}</span>
                             )}
@@ -195,6 +245,11 @@ export default function Projects() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
+                          {p.imageUrl && isPdf && (
+                            <Badge className="rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-black">
+                              PDF
+                            </Badge>
+                          )}
                           {isActive && (
                             <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
                               Ativo
