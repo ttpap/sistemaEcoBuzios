@@ -150,7 +150,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       const year = new Date().getFullYear();
       const yearStudents = existingStudents.filter((s: any) => s.registration?.startsWith(year.toString()));
       const nextNumber = yearStudents.length + 1;
-      const registration = `${year}${nextNumber.toString().padStart(4, '0')}`;
+      const registration = `${year}-${nextNumber.toString().padStart(4, '0')}`;
 
       const newStudent = {
         ...values,

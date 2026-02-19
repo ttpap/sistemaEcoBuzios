@@ -29,12 +29,16 @@ const Students = () => {
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
     
-    // Migração de matrículas antigas para o novo padrão sequencial
+    // Migração de matrículas antigas para o novo padrão sequencial formatado (YYYY-XXXX)
     let changed = false;
     const migrated = saved.map((s: any, index: number) => {
-      if (!s.registration || s.registration.length !== 8 || s.registration.includes('2024') && s.registration.length < 8) {
+      const needsMigration = !s.registration || !s.registration.includes('-') || s.registration.length < 9;
+      
+      if (needsMigration) {
         const year = new Date(s.registrationDate || Date.now()).getFullYear();
-        const reg = `${year}${(index + 1).toString().padStart(4, '0')}`;
+        // Se já tinha um número mas sem hífen, tenta preservar o final
+        const lastDigits = s.registration ? s.registration.slice(-4) : (index + 1).toString().padStart(4, '0');
+        const reg = `${year}-${lastDigits}`;
         changed = true;
         return { ...s, registration: reg };
       }
