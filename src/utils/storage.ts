@@ -1,6 +1,6 @@
 import { getActiveProjectId, getProjectScopedKey } from "@/utils/projects";
 
-export type BaseKey = "students" | "classes" | "teachers" | "attendance";
+export type ProjectKey = "classes" | "teachers" | "attendance";
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -16,19 +16,28 @@ export function requireActiveProjectId() {
   return id;
 }
 
-export function scopedKey(baseKey: BaseKey) {
+export function scopedKey(baseKey: ProjectKey) {
   const pid = requireActiveProjectId();
   return getProjectScopedKey(pid, baseKey);
 }
 
-export function readScoped<T>(baseKey: BaseKey, fallback: T): T {
+export function readScoped<T>(baseKey: ProjectKey, fallback: T): T {
   const key = scopedKey(baseKey);
   return safeParse<T>(localStorage.getItem(key), fallback);
 }
 
-export function writeScoped<T>(baseKey: BaseKey, value: T) {
+export function writeScoped<T>(baseKey: ProjectKey, value: T) {
   const key = scopedKey(baseKey);
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+// Students are global
+export function readGlobalStudents<T>(fallback: T): T {
+  return safeParse<T>(localStorage.getItem("ecobuzios_students"), fallback);
+}
+
+export function writeGlobalStudents<T>(value: T) {
+  localStorage.setItem("ecobuzios_students", JSON.stringify(value));
 }
 
 export function hasActiveProject() {

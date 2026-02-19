@@ -62,20 +62,32 @@ export function getProjectScopedKey(projectId: string, baseKey: string) {
   return `ecobuzios:${projectId}:${baseKey}`;
 }
 
-export function getScopedStorageKey(baseKey: "students" | "classes" | "teachers" | "attendance") {
+export function getScopedStorageKey(baseKey: "classes" | "teachers" | "attendance") {
   const active = getActiveProjectId();
   if (!active) return null;
   return getProjectScopedKey(active, baseKey);
 }
 
 /**
- * One-time migration for users who already have data in legacy keys.
- * If a project is created and the scoped keys are empty but legacy keys exist,
- * copy legacy values into the scoped keys.
+ * Students are global across the system.
+ * This migrates legacy student storage into the global key (if needed).
  */
-export function migrateLegacyDataToProjectIfNeeded(projectId: string) {
-  const pairs: Array<{ baseKey: "students" | "classes" | "teachers" | "attendance"; legacyKey: string }> = [
-    { baseKey: "students", legacyKey: "ecobuzios_students" },
+export function migrateLegacyStudentsToGlobalIfNeeded() {
+  const globalKey = "ecobuzios_students";
+  const existing = localStorage.getItem(globalKey);
+  if (existing) return;
+
+  // legacy key is the same; this is mainly future-proof.
+  const legacy = localStorage.getItem("ecobuzios_students");
+  if (legacy) localStorage.setItem(globalKey, legacy);
+}
+
+/**
+ * One-time migration for users who already have data in legacy keys.
+ * Classes/teachers/attendance become project-scoped.
+ */
+export function migrateLegacyProjectDataToProjectIfNeeded(projectId: string) {
+  const pairs: Array<{ baseKey: "classes" | "teachers" | "attendance"; legacyKey: string }> = [
     { baseKey: "classes", legacyKey: "ecobuzios_classes" },
     { baseKey: "teachers", legacyKey: "ecobuzios_teachers" },
     { baseKey: "attendance", legacyKey: "ecobuzios_attendance" },

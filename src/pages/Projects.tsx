@@ -13,7 +13,9 @@ import {
   createProject,
   getActiveProjectId,
   getProjects,
-  migrateLegacyDataToProjectIfNeeded,
+  migrateLegacyProjectDataToProjectIfNeeded,
+  migrateLegacyStudentsToGlobalIfNeeded,
+
   setActiveProjectId,
 } from "@/utils/projects";
 import {
@@ -57,8 +59,9 @@ export default function Projects() {
       return;
     }
 
+    migrateLegacyStudentsToGlobalIfNeeded();
     const p = createProject({ name: n, imageUrl });
-    migrateLegacyDataToProjectIfNeeded(p.id);
+    migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
     setName("");
     setImageUrl("");
@@ -70,8 +73,10 @@ export default function Projects() {
   };
 
   const onSelect = (p: Project) => {
+    migrateLegacyStudentsToGlobalIfNeeded();
     setActiveProjectId(p.id);
-    migrateLegacyDataToProjectIfNeeded(p.id);
+    migrateLegacyProjectDataToProjectIfNeeded(p.id);
+
     refresh();
     showSuccess("Projeto selecionado.");
     navigate("/");

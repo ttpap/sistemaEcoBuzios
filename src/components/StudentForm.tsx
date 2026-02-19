@@ -21,7 +21,7 @@ import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
-import { readScoped, writeScoped } from '@/utils/storage';
+import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
@@ -224,7 +224,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existingStudents = readScoped<StudentRegistration[]>('students', []);
+    const existingStudents = readGlobalStudents<StudentRegistration[]>([]);
 
     const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
 
@@ -237,7 +237,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       const updated = existingStudents.map((s: any) =>
         s.id === initialData.id ? { ...s, ...studentData } : s
       );
-      writeScoped('students', updated);
+      writeGlobalStudents(updated);
+
       showSuccess("Dados atualizados!");
     } else {
       const year = new Date().getFullYear();
@@ -253,7 +254,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
         status: 'Ativo',
         class: 'A definir'
       };
-      writeScoped('students', [...existingStudents, newStudent]);
+      writeGlobalStudents([...existingStudents, newStudent]);
+
       showSuccess("Inscrição realizada!");
     }
     navigate('/alunos');

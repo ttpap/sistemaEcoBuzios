@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import {
   Table,
   TableBody,
@@ -16,19 +17,24 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { StudentRegistration } from '@/types/student';
+import { SchoolClass } from '@/types/class';
+
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
-import { readScoped, writeScoped } from '@/utils/storage';
+import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
 
 const Students = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState<StudentRegistration[]>([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = readScoped<StudentRegistration[]>('students', []);
+    const saved = readGlobalStudents<StudentRegistration[]>([]);
+    setClasses(readScoped<SchoolClass[]>('classes', []));
 
     // Migração de matrículas antigas para o novo padrão sequencial formatado (YYYY-XXXX)
     let changed = false;
@@ -47,24 +53,26 @@ const Students = () => {
     });
 
     if (changed) {
-      writeScoped('students', migrated);
+      writeGlobalStudents(migrated);
       setStudents(migrated);
     } else {
       setStudents(saved);
     }
+
   }, []);
 
   const handleDelete = (id: string) => {
     if (window.confirm("Tem certeza que deseja excluir este aluno?")) {
       const updated = students.filter(s => s.id !== id);
-      writeScoped('students', updated);
+      writeGlobalStudents(updated);
+
       setStudents(updated);
       showSuccess("Aluno removido com sucesso.");
     }
   };
 
   const seedTestStudents = () => {
-    const existing = readScoped<StudentRegistration[]>('students', []);
+    const existing = readGlobalStudents<StudentRegistration[]>([]);
 
     if (existing.length > 0) {
       const ok = window.confirm(
@@ -160,12 +168,24 @@ const Students = () => {
       } as StudentRegistration;
     });
 
-    writeScoped('students', seeded);
+    writeGlobalStudents(seeded);
+
     setStudents(seeded);
     showSuccess("10 alunos de teste criados!");
   };
 
-  const filtered = students.filter(s =>
+  const allowedStudentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
+    return ids;
+  }, [classes]);
+
+  const visibleStudents = useMemo(() => {
+    // dentro do projeto, só aparecem alunos vinculados a turmas do projeto
+    return students.filter((s) => allowedStudentIds.has(s.id));
+  }, [students, allowedStudentIds]);
+
+  const filtered = visibleStudents.filter(s =>
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.registration || "").includes(searchTerm)
   );

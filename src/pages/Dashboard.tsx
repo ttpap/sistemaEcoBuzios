@@ -36,7 +36,7 @@ import {
   printSchoolTypeReport,
 } from "@/utils/dashboard-reports";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
-import { readScoped } from "@/utils/storage";
+import { readGlobalStudents, readScoped } from "@/utils/storage";
 
 type KPI = {
   label: string;
@@ -80,7 +80,8 @@ export default function Dashboard() {
   useEffect(() => {
     // Project-scoped
     setClasses(readScoped("classes", []));
-    setStudents(readScoped("students", []));
+    setStudents(readGlobalStudents([]));
+
     setTeachers(readScoped("teachers", []));
   }, []);
 
