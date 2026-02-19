@@ -1,0 +1,462 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { SchoolClass } from "@/types/class";
+import { StudentRegistration } from "@/types/student";
+import { AttendanceStatus } from "@/types/attendance";
+import { getAttendanceForClass } from "@/utils/attendance";
+import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
+import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
+import { showError } from "@/utils/toast";
+import { BarChart3, CalendarDays, FileDown, Printer, ClipboardCheck, ArrowLeft } from "lucide-react";
+
+function monthLabel(month: string) {
+  const [y, m] = month.split("-");
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(d);
+}
+
+function formatDateCol(ymd: string) {
+  const [, m, d] = ymd.split("-");
+  return `${d}/${m}`;
+}
+
+function displaySocialName(s: StudentRegistration) {
+  return s.socialName || s.preferredName || s.fullName;
+}
+
+function statusShort(s?: AttendanceStatus) {
+  switch (s) {
+    case "presente":
+      return "P";
+    case "atrasado":
+      return "A";
+    case "falta":
+      return "F";
+    case "justificada":
+      return "J";
+    default:
+      return "";
+  }
+}
+
+function statusPill(s?: AttendanceStatus) {
+  if (!s) return null;
+  const base = "inline-flex h-8 min-w-8 items-center justify-center rounded-2xl px-2 text-xs font-black border";
+  switch (s) {
+    case "presente":
+      return <span className={cn(base, "bg-emerald-600 text-white border-emerald-600")}>P</span>;
+    case "atrasado":
+      return <span className={cn(base, "bg-amber-600 text-white border-amber-600")}>A</span>;
+    case "falta":
+      return <span className={cn(base, "bg-rose-600 text-white border-rose-600")}>F</span>;
+    case "justificada":
+      return <span className={cn(base, "bg-sky-600 text-white border-sky-600")}>J</span>;
+    default:
+      return null;
+  }
+}
+
+function printAttendanceReport(matrix: AttendanceMatrix) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const title = `RELATÓRIO DE CHAMADA`;
+  const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+
+  const html = `
+  <html>
+    <head>
+      <title>Relatório de Chamada</title>
+      <style>
+        body { font-family: Arial, sans-serif; font-size: 10px; margin: 18px; }
+        .header { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+        .sub { font-size: 11px; margin-bottom: 8px; color: #334155; }
+        .legend { font-size: 10px; margin-bottom: 10px; color: #475569; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #111827; padding: 4px 6px; vertical-align: top; }
+        th { background: #f3f4f6; text-align: center; font-weight: 700; }
+        td.name { width: 240px; }
+        .social { font-weight: 800; }
+        .full { color: #475569; font-weight: 700; font-size: 9px; margin-top: 2px; }
+        .center { text-align: center; font-weight: 700; }
+        @media print { @page { size: landscape; margin: 1cm; } }
+      </style>
+    </head>
+    <body>
+      <div class="header">${title}</div>
+      <div class="sub">${subtitle}</div>
+      <div class="legend">Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data ou não registrado)</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Aluno</th>
+            ${matrix.dates.map((d) => `<th>${formatDateCol(d)}</th>`).join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${matrix.students
+            .map((st) => {
+              const name = `${st.socialName || st.preferredName || st.fullName}`;
+              const full = st.fullName;
+              const tds = matrix.dates
+                .map((d) => {
+                  const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
+                  if (!isMember) return `<td class="center"></td>`;
+                  const s = matrix.statusByStudentByDate[st.id]?.[d];
+                  return `<td class="center">${statusShort(s)}</td>`;
+                })
+                .join("");
+              return `<tr><td class="name"><div class="social">${name}</div><div class="full">${full}</div></td>${tds}</tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </body>
+  </html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    win.print();
+    win.close();
+  }, 250);
+}
+
+export default function Reports() {
+  const [report, setReport] = useState<"home" | "attendance">("home");
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [students, setStudents] = useState<StudentRegistration[]>([]);
+
+  const [classId, setClassId] = useState<string>("");
+
+  const now = new Date();
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const [month, setMonth] = useState<string>(defaultMonth);
+
+  useEffect(() => {
+    setClasses(JSON.parse(localStorage.getItem("ecobuzios_classes") || "[]"));
+    setStudents(JSON.parse(localStorage.getItem("ecobuzios_students") || "[]"));
+  }, []);
+
+  useEffect(() => {
+    if (!classId && classes.length > 0) setClassId(classes[0].id);
+  }, [classes, classId]);
+
+  const selectedClass = useMemo(() => {
+    const c = classes.find((x) => x.id === classId);
+    return c ? ensureStudentEnrollments(c) : null;
+  }, [classes, classId]);
+
+  const matrix = useMemo((): AttendanceMatrix | null => {
+    if (!selectedClass || !month) return null;
+
+    const sessions = getAttendanceForClass(selectedClass.id).filter((s) => s.date.startsWith(month));
+    const dates = Array.from(new Set(sessions.map((s) => s.date))).sort((a, b) => a.localeCompare(b));
+    if (dates.length === 0) return {
+      className: selectedClass.name,
+      month,
+      dates: [],
+      students: [],
+      statusByStudentByDate: {},
+      membershipByStudentByDate: {},
+    };
+
+    // students ever in class (enrollment history) OR current ids
+    const everIds = new Set<string>([
+      ...(selectedClass.studentEnrollments || []).map((e) => e.studentId),
+      ...(selectedClass.studentIds || []),
+    ]);
+
+    const allStudents = students.filter((s) => everIds.has(s.id));
+
+    const membershipByStudentByDate: AttendanceMatrix["membershipByStudentByDate"] = {};
+    const statusByStudentByDate: AttendanceMatrix["statusByStudentByDate"] = {};
+
+    for (const st of allStudents) {
+      membershipByStudentByDate[st.id] = {};
+      statusByStudentByDate[st.id] = {};
+
+      for (const date of dates) {
+        const isMember = isStudentEnrolledOn(selectedClass, st.id, date);
+        membershipByStudentByDate[st.id][date] = isMember;
+
+        if (!isMember) {
+          statusByStudentByDate[st.id][date] = undefined;
+          continue;
+        }
+
+        const sess = sessions.find((x) => x.date === date);
+        statusByStudentByDate[st.id][date] = sess?.records?.[st.id];
+      }
+    }
+
+    // only include students who were enrolled in at least one day of the report
+    const studentsInMonth = allStudents
+      .filter((st) => dates.some((d) => membershipByStudentByDate[st.id]?.[d]))
+      .sort((a, b) => displaySocialName(a).localeCompare(displaySocialName(b), "pt-BR"));
+
+    return {
+      className: selectedClass.name,
+      month,
+      dates,
+      students: studentsInMonth.map((s) => ({
+        id: s.id,
+        fullName: s.fullName,
+        socialName: s.socialName,
+        preferredName: s.preferredName,
+      })),
+      statusByStudentByDate,
+      membershipByStudentByDate,
+    };
+  }, [selectedClass?.id, selectedClass?.studentIds?.join(","), selectedClass?.studentEnrollments?.length, month, students]);
+
+  const yearOptions = useMemo(() => {
+    const y = now.getFullYear();
+    return [y - 1, y, y + 1].map(String);
+  }, []);
+
+  const monthOptions = useMemo(
+    () =>
+      Array.from({ length: 12 }).map((_, i) => {
+        const m = String(i + 1).padStart(2, "0");
+        return { value: m, label: new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(new Date(2020, i, 1)) };
+      }),
+    []
+  );
+
+  const monthParts = month.split("-");
+  const selectedYear = monthParts[0] || String(now.getFullYear());
+  const selectedMonthPart = monthParts[1] || String(now.getMonth() + 1).padStart(2, "0");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-primary tracking-tight">Relatórios</h1>
+          <p className="text-slate-500 font-medium">Visão consolidada para conferência e impressão.</p>
+        </div>
+      </div>
+
+      {report === "home" ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card
+            className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
+            onClick={() => setReport("attendance")}
+          >
+            <div className="p-7 bg-slate-50/60 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-[1.6rem] bg-primary/10 text-primary flex items-center justify-center">
+                    <ClipboardCheck className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-primary">Chamada</p>
+                    <p className="text-sm font-bold text-slate-500">Mensal por turma</p>
+                  </div>
+                </div>
+                <Badge className="bg-secondary text-primary border-none font-black">Tabela</Badge>
+              </div>
+            </div>
+            <div className="p-7">
+              <p className="text-slate-600 font-medium">
+                Gere um relatório com todas as datas registradas no mês e o status de cada aluno.
+              </p>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              variant="ghost"
+              className="rounded-2xl w-fit px-4 font-black text-slate-600 hover:bg-slate-100"
+              onClick={() => setReport("home")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">Legenda:</Badge>
+              <span className="text-xs font-black text-emerald-700">P</span>
+              <span className="text-xs font-black text-amber-700">A</span>
+              <span className="text-xs font-black text-rose-700">F</span>
+              <span className="text-xs font-black text-sky-700">J</span>
+              <span className="text-xs font-bold text-slate-400">(em branco = não estava na turma)</span>
+            </div>
+          </div>
+
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <div className="p-6 md:p-8 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-2xl font-black text-primary mt-1">Chamada</p>
+                  <p className="text-slate-500 font-medium mt-1">Selecione turma e mês.</p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
+                    <Select value={classId} onValueChange={setClassId}>
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mês</p>
+                    <Select
+                      value={selectedMonthPart}
+                      onValueChange={(m) => setMonth(`${selectedYear}-${m}`)}
+                    >
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
+                        <SelectValue placeholder="Mês" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {monthOptions.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ano</p>
+                    <Select
+                      value={selectedYear}
+                      onValueChange={(y) => setMonth(`${y}-${selectedMonthPart}`)}
+                    >
+                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
+                        <SelectValue placeholder="Ano" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {yearOptions.map((y) => (
+                          <SelectItem key={y} value={y}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3 items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-500">
+                  <CalendarDays className="h-4 w-4" />
+                  <span className="text-sm font-bold">{monthLabel(month)}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    className="rounded-2xl gap-2 h-11 font-black border-slate-200"
+                    onClick={() => {
+                      if (!matrix || !matrix.dates.length) return;
+                      printAttendanceReport(matrix);
+                    }}
+                    disabled={!matrix || matrix.dates.length === 0}
+                  >
+                    <Printer className="h-4 w-4" />
+                    Imprimir
+                  </Button>
+                  <Button
+                    className="rounded-2xl gap-2 h-11 font-black shadow-lg shadow-primary/20"
+                    onClick={() => {
+                      if (!matrix) return;
+                      try {
+                        generateAttendancePdf(matrix);
+                      } catch {
+                        showError("Não foi possível gerar o PDF.");
+                      }
+                    }}
+                    disabled={!matrix || matrix.dates.length === 0}
+                  >
+                    <FileDown className="h-4 w-4" />
+                    Gerar PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-0">
+              {!matrix ? (
+                <div className="p-10 text-center bg-white">
+                  <BarChart3 className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Selecione turma e mês.</p>
+                </div>
+              ) : matrix.dates.length === 0 ? (
+                <div className="p-10 text-center bg-white">
+                  <ClipboardCheck className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Nenhuma chamada registrada neste mês.</p>
+                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba “Chamada” da turma.</p>
+                </div>
+              ) : (
+                <ScrollArea className="max-h-[70vh]">
+                  <div className="min-w-[900px]">
+                    <div className="grid" style={{ gridTemplateColumns: `360px repeat(${matrix.dates.length}, minmax(64px, 1fr))` }}>
+                      {/* Header */}
+                      <div className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
+                        <p className="text-base font-black text-primary mt-1 truncate">{matrix.className}</p>
+                        <p className="text-xs font-bold text-slate-500 mt-1">{monthLabel(matrix.month)}</p>
+                      </div>
+                      {matrix.dates.map((d) => (
+                        <div key={d} className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4 text-center">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dia</p>
+                          <p className="text-base font-black text-slate-700 mt-1">{formatDateCol(d)}</p>
+                        </div>
+                      ))}
+
+                      {/* Rows */}
+                      {matrix.students.map((st) => (
+                        <React.Fragment key={st.id}>
+                          <div className="border-b border-slate-100 p-4 bg-slate-50/30">
+                            <p className="text-base font-black text-primary leading-tight">{st.socialName || st.preferredName || st.fullName}</p>
+                            <p className="text-sm font-bold text-slate-600 mt-1">{st.fullName}</p>
+                          </div>
+                          {matrix.dates.map((d) => {
+                            const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
+                            if (!isMember) {
+                              return <div key={`${st.id}-${d}`} className="border-b border-slate-100 p-4 text-center bg-white" />;
+                            }
+                            const s = matrix.statusByStudentByDate[st.id]?.[d];
+                            return (
+                              <div key={`${st.id}-${d}`} className="border-b border-slate-100 p-4 text-center bg-white">
+                                {statusPill(s) || (
+                                  <span className="text-xs font-bold text-slate-300">—</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
+import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -37,8 +38,14 @@ const ClassDetails = () => {
     const classes = JSON.parse(localStorage.getItem('ecobuzios_classes') || '[]');
     const found = classes.find((c: any) => c.id === id);
     if (found) {
-      setSchoolClass(found);
-      setInfo(found.complementaryInfo || "");
+      const normalized = ensureStudentEnrollments(found);
+      // ensure persist if it was missing
+      if (!found.studentEnrollments) {
+        const newClasses = classes.map((c: any) => c.id === id ? normalized : c);
+        localStorage.setItem('ecobuzios_classes', JSON.stringify(newClasses));
+      }
+      setSchoolClass(normalized);
+      setInfo(normalized.complementaryInfo || "");
     } else {
       navigate('/turmas');
     }
@@ -75,20 +82,14 @@ const ClassDetails = () => {
 
   const addStudent = (studentId: string) => {
     if (!schoolClass) return;
-    const currentIds = schoolClass.studentIds || [];
-    if (currentIds.includes(studentId)) return;
-    
-    const updated = { ...schoolClass, studentIds: [...currentIds, studentId] };
+    const updated = enrollStudent(schoolClass, studentId);
     saveClass(updated);
     showSuccess("Aluno matriculado!");
   };
 
   const removeStudent = (studentId: string) => {
     if (!schoolClass) return;
-    const updated = { 
-      ...schoolClass, 
-      studentIds: (schoolClass.studentIds || []).filter(sid => sid !== studentId) 
-    };
+    const updated = removeStudentEnrollment(schoolClass, studentId);
     saveClass(updated);
   };
 

@@ -7,7 +7,8 @@ import {
   Users, 
   GraduationCap, 
   BookOpen, 
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -20,6 +21,7 @@ const Sidebar = () => {
     { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
     { icon: Users, label: 'Professores', path: '/professores' },
     { icon: BookOpen, label: 'Turmas', path: '/turmas' },
+    { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
   ];
 
   return (

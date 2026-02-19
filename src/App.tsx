@@ -15,6 +15,7 @@ import Classes from "./pages/Classes";
 import NewClass from "./pages/NewClass";
 import EditClass from "./pages/EditClass";
 import ClassDetails from "./pages/ClassDetails";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="/turmas/nova" element={<NewClass />} />
               <Route path="/turmas/editar/:id" element={<EditClass />} />
               <Route path="/turmas/:id" element={<ClassDetails />} />
+              <Route path="/relatorios" element={<Reports />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

@@ -10,5 +10,7 @@ export interface SchoolClass {
   status: 'Ativo' | 'Inativo';
   teacherIds?: string[];
   studentIds?: string[];
+  /** Enrollment history so reports can infer who was in the class on a specific date. */
+  studentEnrollments?: Array<{ studentId: string; enrolledAt: string; removedAt?: string }>;
   complementaryInfo?: string;
 }

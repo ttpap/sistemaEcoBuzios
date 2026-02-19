@@ -43,13 +43,17 @@ export function findAttendanceByClassAndDate(classId: string, date: string) {
 
 export function ensureStudentRecords(
   session: AttendanceSession,
-  studentIds: string[],
+  currentStudentIds: string[],
   defaultStatus: AttendanceStatus = "presente"
 ): AttendanceSession {
+  // If session has a snapshot, we DO NOT expand it with new students.
+  // This preserves the historical truth for reports.
+  const targetIds = session.studentIds && session.studentIds.length > 0 ? session.studentIds : currentStudentIds;
+
   const records = { ...session.records };
   let changed = false;
 
-  for (const id of studentIds) {
+  for (const id of targetIds) {
     if (!records[id]) {
       records[id] = defaultStatus;
       changed = true;
