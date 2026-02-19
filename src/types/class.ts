@@ -8,4 +8,7 @@ export interface SchoolClass {
   absenceLimit: number;
   registrationDate: string;
   status: 'Ativo' | 'Inativo';
+  teacherIds?: string[];
+  studentIds?: string[];
+  complementaryInfo?: string;
 }

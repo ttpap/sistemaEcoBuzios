@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle } from "lucide-react";
+import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
@@ -69,7 +69,11 @@ const Classes = () => {
           </div>
         ) : (
           filtered.map((cls) => (
-            <Card key={cls.id} className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500">
+            <Card 
+              key={cls.id} 
+              className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer"
+              onClick={() => navigate(`/turmas/${cls.id}`)}
+            >
               <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-black text-primary tracking-tight">{cls.name}</CardTitle>
@@ -97,7 +101,7 @@ const Classes = () => {
                   Limite de {cls.absenceLimit} faltas
                 </div>
                 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   <Button 
                     variant="outline" 
                     className="flex-1 rounded-xl gap-2 font-bold border-slate-100 hover:bg-primary hover:text-white transition-all"
