@@ -22,6 +22,41 @@ import { useNavigate } from 'react-router-dom';
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 
+const SCHOOLS_BY_TYPE: Record<string, string[]> = {
+  municipal: [
+    "E. M. Paulo Freire",
+    "E. M. Darcy Ribeiro",
+    "E. M. Nicomedes Theotônio dos Santos",
+    "E. M. Prof. Eliete Mureb de Araújo Pinho",
+    "E. M. Vereador Emigdio Gonçalves Coutinho",
+    "E. M. Ciléia Maria Barreto",
+    "E. M. Eva Maria da Conceição Oliveira",
+    "E. M. José Bento Ribeiro Dantas",
+    "E. M. Regina da Silveira Ramos e Silva",
+    "Outra"
+  ],
+  state: [
+    "C. E. João de Oliveira Botas",
+    "C. E. Berenice de Oliveira Martins",
+    "Outra"
+  ],
+  private: [
+    "Colégio Integral",
+    "Instituto de Educação de Búzios (IEB)",
+    "Colégio Objetivo Búzios",
+    "Escola Alternativa",
+    "Outra"
+  ],
+  higher: [
+    "UFF - Universidade Federal Fluminense",
+    "Estácio de Sá",
+    "UVA - Veiga de Almeida",
+    "UNOPAR",
+    "IFF - Instituto Federal Fluminense",
+    "Outra"
+  ]
+};
+
 const HEALTH_PROBLEMS = [
   "Asma", "Diabetes", "Epilepsia", "Problemas Cardíacos", "Problemas Renais", 
   "Problemas de Visão", "Problemas de Audição", "Deficiência Motora"
@@ -110,7 +145,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
 
   const birthDate = form.watch('birthDate');
   const cep = form.watch('cep');
-  const age = form.watch('age');
+  const schoolType = form.watch('schoolType');
+  const schoolName = form.watch('schoolName');
 
   useEffect(() => {
     if (birthDate) {
@@ -156,9 +192,16 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
   function onSubmit(values: z.infer<typeof formSchema>) {
     const existingStudents = JSON.parse(localStorage.getItem('ecobuzios_students') || '[]');
     
+    const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
+
+    const studentData = {
+      ...values,
+      schoolName: finalSchoolName || values.schoolName
+    };
+
     if (initialData) {
       const updated = existingStudents.map((s: any) => 
-        s.id === initialData.id ? { ...s, ...values } : s
+        s.id === initialData.id ? { ...s, ...studentData } : s
       );
       localStorage.setItem('ecobuzios_students', JSON.stringify(updated));
       showSuccess("Dados atualizados!");
@@ -169,7 +212,7 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       const registration = `${year}-${nextNumber.toString().padStart(4, '0')}`;
 
       const newStudent = {
-        ...values,
+        ...studentData,
         id: crypto.randomUUID(),
         registrationDate: new Date().toISOString(),
         registration: registration,
@@ -283,11 +326,52 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
             <SectionHeader icon={School} title="3. Escola" subtitle="Vínculo Educacional" />
             <div className="grid gap-8 md:grid-cols-2">
               <FormField control={form.control} name="schoolType" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Rede de Ensino *</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100"><SelectValue placeholder="Selecione a rede" /></SelectTrigger></FormControl><SelectContent><SelectItem value="municipal">Municipal</SelectItem><SelectItem value="state">Estadual</SelectItem><SelectItem value="private">Particular</SelectItem><SelectItem value="higher">Ensino Superior</SelectItem></SelectContent></Select></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Rede de Ensino *</FormLabel>
+                  <Select onValueChange={(v) => { field.onChange(v); form.setValue('schoolName', ''); }} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
+                        <SelectValue placeholder="Selecione a rede" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="municipal">Municipal</SelectItem>
+                      <SelectItem value="state">Estadual</SelectItem>
+                      <SelectItem value="private">Particular</SelectItem>
+                      <SelectItem value="higher">Ensino Superior</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="schoolName" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Unidade Escolar *</FormLabel><FormControl><Input placeholder="Nome da escola ou faculdade" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Unidade Escolar *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!schoolType}>
+                    <FormControl>
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
+                        <SelectValue placeholder={schoolType ? "Selecione a escola" : "Selecione a rede primeiro"} />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {schoolType && SCHOOLS_BY_TYPE[schoolType]?.map(school => (
+                        <SelectItem key={school} value={school}>{school}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
               )} />
+
+              {schoolName === "Outra" && (
+                <FormField control={form.control} name="schoolOther" render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel className="font-bold">Digite o nome da Instituição *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome completo da escola ou universidade" {...field} className="h-12 rounded-xl border-primary/30" />
+                    </FormControl>
+                  </FormItem>
+                )} />
+              )}
             </div>
           </CardContent>
         </Card>
