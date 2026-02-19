@@ -3,12 +3,10 @@ export interface StudentRegistration {
   registration: string;
   fullName: string;
   socialName?: string;
-  preferredName?: string;
   email?: string;
   cpf?: string;
   birthDate: string;
   age: number;
-  phone: string;
   cellPhone: string;
   gender: string;
   genderOther?: string;
