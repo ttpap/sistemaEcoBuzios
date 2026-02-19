@@ -22,6 +22,7 @@ import {
   Layers,
   Info,
   Clock,
+  ExternalLink,
 } from "lucide-react";
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
@@ -57,6 +58,21 @@ function labelSchoolType(type?: string) {
   }
 }
 
+function buildAddressLine(student: StudentRegistration) {
+  const parts = [
+    student.street,
+    student.number,
+    student.neighborhood,
+    student.city,
+    student.uf,
+    student.cep,
+  ]
+    .map((p) => (p || "").toString().trim())
+    .filter(Boolean);
+
+  return parts.join(", ");
+}
+
 const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
   <div className="rounded-2xl border border-slate-100 bg-white p-4">
     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -75,6 +91,19 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     } catch {
       return [];
     }
+  }, [student, isOpen]);
+
+  const maps = useMemo(() => {
+    if (!student) return null;
+    const addressLine = buildAddressLine(student);
+    if (!addressLine) return null;
+
+    const q = encodeURIComponent(addressLine);
+    return {
+      addressLine,
+      embedUrl: `https://www.google.com/maps?q=${q}&output=embed`,
+      openUrl: `https://www.google.com/maps/search/?api=1&query=${q}`,
+    };
   }, [student, isOpen]);
 
   if (!student) return null;
@@ -189,7 +218,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 )}
               </TabsContent>
 
-              <TabsContent value="endereco" className="mt-6">
+              <TabsContent value="endereco" className="mt-6 space-y-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <Row label="CEP" value={student.cep} />
                   <Row label="Bairro" value={student.neighborhood} />
@@ -197,6 +226,53 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   <Row label="Número" value={student.number} />
                   <Row label="Complemento" value={student.complement || "---"} />
                   <Row label="Cidade / UF" value={`${student.city} - ${student.uf}`} />
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-primary">
+                        <MapPin className="h-4 w-4" />
+                        <p className="text-xs font-black uppercase tracking-widest">
+                          Localização (Google Maps)
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm font-bold text-slate-700 truncate">
+                        {maps?.addressLine || "Endereço insuficiente para gerar o mapa."}
+                      </p>
+                    </div>
+
+                    {maps?.openUrl && (
+                      <a
+                        href={maps.openUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-black text-primary border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors"
+                        title="Abrir no Google Maps"
+                      >
+                        Abrir
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+
+                  {maps?.embedUrl ? (
+                    <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-100">
+                      <iframe
+                        title={`Mapa - ${student.fullName}`}
+                        src={maps.embedUrl}
+                        className="h-[320px] w-full"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                      <p className="text-sm font-bold text-slate-500">
+                        Preencha Rua, Número, Bairro, Cidade e UF para visualizar o mapa.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
