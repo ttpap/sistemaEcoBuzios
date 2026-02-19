@@ -33,11 +33,28 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "E. M. Eva Maria da Conceição Oliveira",
     "E. M. José Bento Ribeiro Dantas",
     "E. M. Regina da Silveira Ramos e Silva",
+    "E. M. Prof. Lydia Sherman",
+    "E. M. Manoel da Costa Perpétuo",
+    "E. M. João José de Carvalho",
+    "E. M. Comendador Ideal",
+    "E. M. Antônio Alípio da Silva",
+    "E. M. Maria Alice de Aguiar Lodas",
+    "E. M. Inefi (Instituto de Educação e Formação Integral)",
+    "E. M. Vila Nova",
+    "E. M. Baía Formosa",
+    "E. M. Arpoador",
+    "E. M. Geribá",
+    "E. M. Rasa",
+    "E. M. Cem Braças",
+    "E. M. José Gonçalves",
+    "E. M. Caravelas",
     "Outra"
   ],
   state: [
     "C. E. João de Oliveira Botas",
     "C. E. Berenice de Oliveira Martins",
+    "C. E. Rui Barbosa",
+    "C. E. Miguel Couto",
     "Outra"
   ],
   private: [
@@ -45,6 +62,10 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Instituto de Educação de Búzios (IEB)",
     "Colégio Objetivo Búzios",
     "Escola Alternativa",
+    "Colégio Sagrado Coração de Jesus",
+    "Escola Mágico de Oz",
+    "Centro Educacional Búzios (CEB)",
+    "Escola Waldorf Búzios",
     "Outra"
   ],
   higher: [
@@ -53,6 +74,10 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "UVA - Veiga de Almeida",
     "UNOPAR",
     "IFF - Instituto Federal Fluminense",
+    "UNIFASS",
+    "UNINTER",
+    "Cruzeiro do Sul Virtual",
+    "UNIP",
     "Outra"
   ]
 };
