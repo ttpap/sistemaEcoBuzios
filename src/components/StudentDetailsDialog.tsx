@@ -1,16 +1,30 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StudentRegistration } from '@/types/student';
-import { User, MapPin, HeartPulse, School, ShieldAlert, FileText, Camera, Info } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Camera,
+  FileText,
+  GraduationCap,
+  HeartPulse,
+  MapPin,
+  School,
+  ShieldAlert,
+  User,
+  Layers,
+  Info,
+  Clock,
+} from "lucide-react";
+import { StudentRegistration } from "@/types/student";
+import { SchoolClass } from "@/types/class";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -18,124 +32,332 @@ interface StudentDetailsDialogProps {
   onClose: () => void;
 }
 
+function formatBirthDate(iso?: string) {
+  if (!iso) return "---";
+  // expects yyyy-mm-dd
+  const parts = iso.split("-");
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+function labelSchoolType(type?: string) {
+  switch (type) {
+    case "municipal":
+      return "Rede Municipal";
+    case "state":
+      return "Rede Estadual";
+    case "private":
+      return "Rede Particular";
+    case "higher":
+      return "Ensino Superior";
+    case "none":
+      return "Não estuda";
+    default:
+      return type || "---";
+  }
+}
+
+const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
+  <div className="rounded-2xl border border-slate-100 bg-white p-4">
+    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+      {label}
+    </p>
+    <div className="mt-1 text-sm font-bold text-slate-700">{value ?? "---"}</div>
+  </div>
+);
+
 const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialogProps) => {
+  const classesForStudent = useMemo(() => {
+    if (!student) return [] as SchoolClass[];
+    try {
+      const raw = JSON.parse(localStorage.getItem("ecobuzios_classes") || "[]") as SchoolClass[];
+      return raw.filter((c) => (c.studentIds || []).includes(student.id));
+    } catch {
+      return [];
+    }
+  }, [student, isOpen]);
+
   if (!student) return null;
-
-  const InfoRow = ({ label, value, fullWidth = false }: { label: string, value?: string | number | boolean, fullWidth?: boolean }) => (
-    <div className={`py-2 border-b border-slate-50 last:border-0 ${fullWidth ? 'md:col-span-2' : ''}`}>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className="text-sm font-bold text-slate-700">{value?.toString() || '---'}</p>
-    </div>
-  );
-
-  const Section = ({ icon: Icon, title, children }: { icon: any, title: string, children: React.ReactNode }) => (
-    <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="bg-white p-2 rounded-xl shadow-sm">
-          <Icon className="h-4 w-4 text-primary" />
-        </div>
-        <h4 className="text-xs font-black text-primary uppercase tracking-widest">{title}</h4>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-        {children}
-      </div>
-    </div>
-  );
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden rounded-[3rem] border-none shadow-2xl">
+      <DialogContent className="max-w-5xl p-0 overflow-hidden rounded-[2.75rem] border-none shadow-2xl">
         <DialogHeader className="p-8 bg-primary text-white">
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-[2rem] bg-white/20 border-4 border-white/30 overflow-hidden flex items-center justify-center shadow-xl">
-              {student.photo ? (
-                <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
-              ) : (
-                <User className="h-10 w-10 text-white/50" />
-              )}
-            </div>
-            <div className="space-y-1">
-              <DialogTitle className="text-2xl font-black tracking-tight">{student.fullName}</DialogTitle>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-secondary text-primary font-black border-none">
-                  Matrícula: {student.registration}
-                </Badge>
-                <Badge className="bg-white/20 text-white border-none">
-                  {student.age} anos
-                </Badge>
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-6">
+              <div className="h-24 w-24 overflow-hidden rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center">
+                {student.photo ? (
+                  <img
+                    src={student.photo}
+                    alt={student.fullName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-white/50" />
+                )}
               </div>
+              <div className="space-y-2">
+                <DialogTitle className="text-2xl font-black tracking-tight">
+                  {student.fullName}
+                </DialogTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-secondary text-primary border-none font-black">
+                    Matrícula: {student.registration}
+                  </Badge>
+                  <Badge className="bg-white/20 text-white border-none">
+                    {student.age} anos
+                  </Badge>
+                  <Badge className="bg-white/20 text-white border-none">
+                    {student.status}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 border border-white/15">
+              <Layers className="h-4 w-4 text-white/80" />
+              <span className="text-sm font-bold text-white/90">
+                Turmas: {classesForStudent.length}
+              </span>
             </div>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="h-full max-h-[calc(90vh-160px)] p-8">
-          <div className="space-y-6">
-            <Section icon={User} title="1. Dados Pessoais">
-              <InfoRow label="Nome Social" value={student.socialName} />
-              <InfoRow label="Nome Preferido" value={student.preferredName} />
-              <InfoRow label="CPF" value={student.cpf} />
-              <InfoRow label="Data de Nasc." value={student.birthDate.split('-').reverse().join('/')} />
-              <InfoRow label="Gênero" value={student.gender} />
-              <InfoRow label="Raça/Cor" value={student.race} />
-              <InfoRow label="E-mail" value={student.email} />
-              <InfoRow label="Telefone" value={student.phone} />
-              <InfoRow label="Celular" value={student.cellPhone} />
-            </Section>
+        <ScrollArea className="max-h-[calc(90vh-180px)]">
+          <div className="p-6 md:p-8">
+            <Tabs defaultValue="pessoais" className="w-full">
+              <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
+                <TabsTrigger value="pessoais" className="rounded-xl font-black">
+                  <User className="h-4 w-4 mr-2" />
+                  Dados pessoais
+                </TabsTrigger>
+                <TabsTrigger value="endereco" className="rounded-xl font-black">
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Endereço
+                </TabsTrigger>
+                <TabsTrigger value="escola" className="rounded-xl font-black">
+                  <School className="h-4 w-4 mr-2" />
+                  Escola
+                </TabsTrigger>
+                <TabsTrigger value="saude" className="rounded-xl font-black">
+                  <HeartPulse className="h-4 w-4 mr-2" />
+                  Saúde
+                </TabsTrigger>
+                <TabsTrigger value="turmas" className="rounded-xl font-black">
+                  <GraduationCap className="h-4 w-4 mr-2" />
+                  Turmas
+                </TabsTrigger>
+                <TabsTrigger value="imagem" className="rounded-xl font-black">
+                  <Camera className="h-4 w-4 mr-2" />
+                  Uso de imagem
+                </TabsTrigger>
+                <TabsTrigger value="docs" className="rounded-xl font-black">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Documentação
+                </TabsTrigger>
+                <TabsTrigger value="sistema" className="rounded-xl font-black">
+                  <Info className="h-4 w-4 mr-2" />
+                  Sistema
+                </TabsTrigger>
+              </TabsList>
 
-            {student.guardianName && (
-              <Section icon={ShieldAlert} title="2. Responsável">
-                <InfoRow label="Nome" value={student.guardianName} />
-                <InfoRow label="Parentesco" value={student.guardianKinship} />
-                <InfoRow label="Telefone" value={student.guardianPhone} />
-              </Section>
-            )}
+              <TabsContent value="pessoais" className="mt-6 space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row label="Nome social" value={student.socialName || "---"} />
+                  <Row label="Nome preferido" value={student.preferredName || "---"} />
+                  <Row label="CPF" value={student.cpf || "---"} />
+                  <Row label="Data de nascimento" value={formatBirthDate(student.birthDate)} />
+                  <Row label="Gênero" value={student.gender || "---"} />
+                  <Row label="Cor/Raça" value={student.race || "---"} />
+                  <Row label="E-mail" value={student.email || "---"} />
+                  <Row label="Telefone" value={student.phone || "---"} />
+                  <Row label="Celular / WhatsApp" value={student.cellPhone || "---"} />
+                </div>
 
-            <Section icon={School} title="3. Escolaridade">
-              <InfoRow label="Rede" value={student.schoolType} />
-              <InfoRow label="Unidade" value={student.schoolName} />
-            </Section>
+                {(student.guardianName || student.guardianKinship || student.guardianPhone) && (
+                  <div className="rounded-[2rem] border border-slate-100 bg-slate-50 p-5">
+                    <div className="flex items-center gap-2 text-primary">
+                      <ShieldAlert className="h-4 w-4" />
+                      <p className="text-xs font-black uppercase tracking-widest">Responsável</p>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <Row label="Nome" value={student.guardianName || "---"} />
+                      <Row label="Parentesco" value={student.guardianKinship || "---"} />
+                      <Row label="Telefone" value={student.guardianPhone || "---"} />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
 
-            <Section icon={MapPin} title="4. Endereço">
-              <InfoRow label="CEP" value={student.cep} />
-              <InfoRow label="Bairro" value={student.neighborhood} />
-              <InfoRow label="Logradouro" value={student.street} />
-              <InfoRow label="Número" value={student.number} />
-              <InfoRow label="Complemento" value={student.complement} />
-              <InfoRow label="Cidade/UF" value={`${student.city} - ${student.uf}`} />
-            </Section>
+              <TabsContent value="endereco" className="mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row label="CEP" value={student.cep} />
+                  <Row label="Bairro" value={student.neighborhood} />
+                  <Row label="Logradouro" value={student.street} />
+                  <Row label="Número" value={student.number} />
+                  <Row label="Complemento" value={student.complement || "---"} />
+                  <Row label="Cidade / UF" value={`${student.city} - ${student.uf}`} />
+                </div>
+              </TabsContent>
 
-            <Section icon={HeartPulse} title="5. Saúde">
-              <InfoRow label="Tipo Sanguíneo" value={student.bloodType} />
-              <InfoRow label="Alergias" value={student.hasAllergy ? student.allergyDetail : 'Não'} />
-              <InfoRow label="Nec. Especiais" value={student.hasSpecialNeeds ? student.specialNeedsDetail : 'Não'} />
-              <InfoRow label="Medicamentos" value={student.usesMedication ? student.medicationDetail : 'Não'} />
-              <InfoRow label="Restrição Física" value={student.hasPhysicalRestriction ? student.physicalRestrictionDetail : 'Não'} />
-              <InfoRow label="Praticou Atividade?" value={student.practicedActivity ? student.practicedActivityDetail : 'Não'} />
-              <InfoRow label="Histórico Cardíaco" value={student.familyHeartHistory ? 'Sim' : 'Não'} />
-              <InfoRow label="Problemas de Saúde" value={student.healthProblems.length > 0 ? student.healthProblems.join(', ') : 'Nenhum'} fullWidth />
-              <InfoRow label="Observações" value={student.observations} fullWidth />
-            </Section>
+              <TabsContent value="escola" className="mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row label="Rede" value={labelSchoolType(student.schoolType)} />
+                  <Row label="Instituição" value={student.schoolName || "---"} />
+                  {student.schoolOther && (
+                    <div className="md:col-span-2">
+                      <Row label="Outra instituição (informada)" value={student.schoolOther} />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-            <Section icon={Camera} title="6. Autorizações">
-              <InfoRow label="Uso de Imagem" value={student.imageAuthorization === 'authorized' ? 'Autorizado' : 'Não Autorizado'} />
-            </Section>
+              <TabsContent value="saude" className="mt-6 space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row label="Tipo sanguíneo" value={student.bloodType || "---"} />
+                  <Row
+                    label="Alergia"
+                    value={student.hasAllergy ? student.allergyDetail || "Sim" : "Não"}
+                  />
+                  <Row
+                    label="Necessidades especiais"
+                    value={
+                      student.hasSpecialNeeds
+                        ? student.specialNeedsDetail || "Sim"
+                        : "Não"
+                    }
+                  />
+                  <Row
+                    label="Medicamento contínuo"
+                    value={student.usesMedication ? student.medicationDetail || "Sim" : "Não"}
+                  />
+                  <Row
+                    label="Restrição física"
+                    value={
+                      student.hasPhysicalRestriction
+                        ? student.physicalRestrictionDetail || "Sim"
+                        : "Não"
+                    }
+                  />
+                  <Row
+                    label="Praticou atividade"
+                    value={student.practicedActivity ? student.practicedActivityDetail || "Sim" : "Não"}
+                  />
+                  <Row
+                    label="Histórico cardíaco na família"
+                    value={student.familyHeartHistory ? "Sim" : "Não"}
+                  />
+                  <div className="md:col-span-2">
+                    <Row
+                      label="Problemas de saúde"
+                      value={
+                        student.healthProblems && student.healthProblems.length > 0
+                          ? student.healthProblems.join(", ")
+                          : "Nenhum"
+                      }
+                    />
+                  </div>
+                  {student.observations && (
+                    <div className="md:col-span-2">
+                      <Row label="Observações" value={student.observations} />
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
 
-            <Section icon={FileText} title="7. Documentação">
-              <div className="md:col-span-2 flex flex-wrap gap-2 mt-2">
-                {student.docsDelivered.map(doc => (
-                  <Badge key={doc} variant="outline" className="rounded-lg border-primary/20 text-primary font-bold">
-                    {doc}
-                  </Badge>
-                ))}
-                {student.docsDelivered.length === 0 && <p className="text-sm text-slate-400">Nenhum documento registrado.</p>}
-              </div>
-            </Section>
+              <TabsContent value="turmas" className="mt-6 space-y-4">
+                {classesForStudent.length === 0 ? (
+                  <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
+                    <GraduationCap className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                    <p className="text-sm font-bold text-slate-500">
+                      Este aluno ainda não está matriculado em nenhuma turma.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {classesForStudent.map((c) => (
+                      <div
+                        key={c.id}
+                        className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-lg font-black text-primary leading-tight">
+                              {c.name}
+                            </p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Badge className="bg-secondary text-primary border-none font-black">
+                                {c.period}
+                              </Badge>
+                              <Badge variant="outline" className="rounded-full">
+                                <Clock className="h-3.5 w-3.5 mr-1" />
+                                {c.startTime}–{c.endTime}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                              Vagas
+                            </p>
+                            <p className="text-sm font-bold text-slate-700">
+                              {c.capacity === 0 ? "Ilimitado" : c.capacity}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
 
-            <Section icon={Info} title="Sistema">
-              <InfoRow label="Data de Cadastro" value={new Date(student.registrationDate).toLocaleString('pt-BR')} />
-              <InfoRow label="Status" value={student.status} />
-              <InfoRow label="Turma" value={student.class} />
-            </Section>
+              <TabsContent value="imagem" className="mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row
+                    label="Autorização"
+                    value={
+                      student.imageAuthorization === "authorized"
+                        ? "Autorizado"
+                        : "Não autorizado"
+                    }
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="docs" className="mt-6">
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-6">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                    Documentos entregues
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {student.docsDelivered && student.docsDelivered.length > 0 ? (
+                      student.docsDelivered.map((doc) => (
+                        <Badge
+                          key={doc}
+                          variant="outline"
+                          className="rounded-full border-primary/20 text-primary font-bold"
+                        >
+                          {doc}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm font-bold text-slate-500">Nenhum documento marcado.</p>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="sistema" className="mt-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Row label="Matrícula (ID)" value={student.registration} />
+                  <Row label="Status" value={student.status} />
+                  <Row
+                    label="Data de cadastro"
+                    value={new Date(student.registrationDate).toLocaleString("pt-BR")}
+                  />
+                  <Row label="ID interno" value={student.id} />
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </ScrollArea>
       </DialogContent>
