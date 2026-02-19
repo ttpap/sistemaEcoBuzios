@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -93,17 +93,24 @@ const ClassDetails = () => {
     showSuccess("Informações salvas!");
   };
 
+  // Filtro otimizado de alunos disponíveis
+  const filteredAvailableStudents = useMemo(() => {
+    if (!schoolClass) return [];
+    
+    return allStudents
+      .filter(s => !schoolClass.studentIds?.includes(s.id))
+      .filter(s => {
+        const search = studentSearch.toLowerCase();
+        const nameMatch = s.fullName.toLowerCase().includes(search);
+        const regMatch = s.registration?.toLowerCase().includes(search);
+        return nameMatch || regMatch;
+      });
+  }, [allStudents, schoolClass, studentSearch]);
+
   if (!schoolClass) return null;
 
   const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
   const classStudents = allStudents.filter(s => schoolClass.studentIds?.includes(s.id));
-
-  const filteredAvailableStudents = allStudents
-    .filter(s => !schoolClass.studentIds?.includes(s.id))
-    .filter(s => 
-      s.fullName.toLowerCase().includes(studentSearch.toLowerCase()) || 
-      s.registration?.includes(studentSearch)
-    );
 
   return (
     <div className="space-y-8 pb-20">
@@ -187,35 +194,46 @@ const ClassDetails = () => {
             <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
               <GraduationCap className="h-5 w-5" /> Alunos ({classStudents.length})
             </CardTitle>
-            <Dialog>
+            <Dialog onOpenChange={(open) => !open && setStudentSearch("")}>
               <DialogTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-2"><UserPlus className="h-4 w-4" /> Matricular</Button>
               </DialogTrigger>
-              <DialogContent className="rounded-[2rem] max-h-[80vh] flex flex-col">
-                <DialogHeader><DialogTitle>Matricular Aluno</DialogTitle></DialogHeader>
-                
-                <div className="relative mt-4 mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input 
-                    placeholder="Buscar por nome ou matrícula..." 
-                    className="pl-10 h-10 rounded-xl border-slate-100 bg-slate-50"
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                  />
-                </div>
+              <DialogContent className="rounded-[2rem] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-2">
+                  <DialogTitle>Matricular Aluno</DialogTitle>
+                  <div className="relative mt-4">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input 
+                      placeholder="Digite nome ou matrícula (ex: 2026-0001)..." 
+                      className="pl-10 h-12 rounded-xl border-slate-100 bg-slate-50 focus:bg-white transition-all"
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-2">
                   {filteredAvailableStudents.length === 0 ? (
-                    <p className="text-center py-8 text-slate-400 text-sm">Nenhum aluno disponível.</p>
+                    <div className="text-center py-12">
+                      <p className="text-slate-400 text-sm font-medium">
+                        {studentSearch ? "Nenhum aluno encontrado para esta busca." : "Todos os alunos já estão matriculados."}
+                      </p>
+                    </div>
                   ) : (
                     filteredAvailableStudents.map(s => (
-                      <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors">
+                      <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-slate-100 hover:border-primary/20 transition-all group">
                         <div className="flex flex-col">
-                          <span className="font-bold text-sm text-slate-700">{s.fullName}</span>
-                          <span className="text-[10px] font-black text-primary tracking-tighter">MATRÍCULA: {s.registration}</span>
+                          <span className="font-bold text-sm text-slate-700 group-hover:text-primary transition-colors">{s.fullName}</span>
+                          <span className="text-[10px] font-black text-primary tracking-tighter mt-0.5">MATRÍCULA: {s.registration}</span>
                         </div>
-                        <Button size="sm" variant="ghost" className="hover:bg-primary hover:text-white rounded-lg" onClick={() => addStudent(s.id)}>
-                          <Plus className="h-4 w-4" />
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="hover:bg-primary hover:text-white rounded-xl h-10 w-10 p-0" 
+                          onClick={() => addStudent(s.id)}
+                        >
+                          <Plus className="h-5 w-5" />
                         </Button>
                       </div>
                     ))
