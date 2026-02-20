@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
+  Users2,
   GraduationCap,
   BookOpen,
   LogOut,
@@ -29,6 +30,7 @@ const Sidebar = () => {
     const base = [
       { icon: FolderPlus, label: 'Projetos', path: '/projetos' },
       { icon: Users, label: 'Professores', path: '/professores' },
+      { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
     ];
     if (!activeProject) return base;
 

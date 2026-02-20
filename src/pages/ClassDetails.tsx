@@ -29,6 +29,7 @@ const ClassDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isTeacherArea = location.pathname.startsWith('/professor');
+  const base = isTeacherArea ? '/professor' : '';
 
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
@@ -51,13 +52,13 @@ const ClassDetails = () => {
       setSchoolClass(normalized);
       setInfo(normalized.complementaryInfo || "");
     } else {
-      navigate('/turmas');
+      navigate(`${base}/turmas`);
     }
 
     setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
     setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
 
-  }, [id, navigate]);
+  }, [id, navigate, base]);
 
   const saveClass = (updatedClass: SchoolClass) => {
     const classes = readScoped<SchoolClass[]>('classes', []);
@@ -143,7 +144,7 @@ const ClassDetails = () => {
             variant="ghost" 
             size="icon" 
             className="rounded-xl bg-white shadow-sm border border-slate-100"
-            onClick={() => navigate('/turmas')}
+            onClick={() => navigate(`${base}/turmas`)}
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Button>
