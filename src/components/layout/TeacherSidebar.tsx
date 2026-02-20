@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   NotebookPen,
   Layers,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
@@ -46,6 +47,7 @@ export default function TeacherSidebar() {
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
+      { icon: UserCog, label: "Minha conta", path: "/professor/conta" },
     ],
     [],
   );

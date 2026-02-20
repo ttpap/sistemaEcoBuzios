@@ -36,7 +36,7 @@ import {
 } from "@/utils/projects";
 import { readGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
-import { setAdminPassword } from "@/utils/admin-auth";
+import { setAdminPassword, resetAdminPasswordToDefault, getDefaultAdminPassword } from "@/utils/admin-auth";
 import { invalidateProjectTheme } from "@/utils/theme";
 import {
   FileText,
@@ -258,12 +258,13 @@ export default function Projects() {
       setAdminPassword(newPassword);
     }
 
-    setSystemLogo(systemLogo.trim() ? systemLogo : null);
-    setSettingsOpen(false);
-    setNewPassword("");
-    setNewPassword2("");
-    setSystemLogoFileName("");
+    // Save system logo
+    if (systemLogo) {
+      setSystemLogo(systemLogo);
+    }
 
+    setSettingsOpen(false);
+    refresh();
     showSuccess("Configurações salvas.");
   };
 
@@ -413,6 +414,24 @@ export default function Projects() {
                   O login continua sendo <span className="font-black">Pap</span>. Se você não preencher,
                   a senha atual permanece.
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full h-11 rounded-2xl font-black border-slate-200 bg-white"
+                  onClick={() => {
+                    const ok = window.confirm(
+                      `Resetar a senha do admin para a senha padrão (${getDefaultAdminPassword()})?`,
+                    );
+                    if (!ok) return;
+                    resetAdminPasswordToDefault();
+                    setNewPassword("");
+                    setNewPassword2("");
+                    showSuccess("Senha do admin resetada para o padrão.");
+                  }}
+                >
+                  Resetar senha do admin (padrão)
+                </Button>
               </div>
             </div>
 

@@ -130,6 +130,10 @@ export function updateGlobalTeacher(id: string, patch: Partial<TeacherRegistrati
   return next;
 }
 
+export function resetTeacherPasswordToDefault(teacherId: string) {
+  return updateGlobalTeacher(teacherId, { authPassword: DEFAULT_TEACHER_PASSWORD });
+}
+
 export function deleteGlobalTeacher(id: string) {
   const existing = readGlobalTeachers([]);
   writeGlobalTeachers(existing.filter((t) => t.id !== id));

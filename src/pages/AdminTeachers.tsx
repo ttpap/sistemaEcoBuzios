@@ -21,9 +21,11 @@ import {
   deleteGlobalTeacher,
   migrateScopedTeachersToGlobalIfNeeded,
   removeTeacherFromProject,
+  resetTeacherPasswordToDefault,
+  DEFAULT_TEACHER_PASSWORD,
 } from "@/utils/teachers";
 import { getProjects } from "@/utils/projects";
-import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X } from "lucide-react";
+import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -121,6 +123,14 @@ export default function AdminTeachers() {
     } catch {
       showError("Não foi possível copiar.");
     }
+  };
+
+  const onResetTeacherPassword = (teacherId: string) => {
+    const ok = window.confirm(`Resetar a senha do professor para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`);
+    if (!ok) return;
+    resetTeacherPasswordToDefault(teacherId);
+    refresh();
+    showSuccess("Senha do professor resetada para o padrão.");
   };
 
   const deliveryProjectName = deliverTeacher
@@ -317,6 +327,17 @@ export default function AdminTeachers() {
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             Credenciais
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-12 rounded-2xl font-black border-slate-200 bg-white"
+                            onClick={() => onResetTeacherPassword(t.id)}
+                            title="Resetar senha para o padrão"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Resetar senha
                           </Button>
 
                           <Button
