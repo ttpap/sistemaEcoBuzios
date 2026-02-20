@@ -1,4 +1,4 @@
-import { getProjectScopedKey, requireActiveProjectId } from "@/utils/projects";
+import { getActiveProjectId, getProjectScopedKey } from "@/utils/projects";
 
 export type StudentJustification = {
   id: string;
@@ -55,6 +55,7 @@ export function getJustificationsForStudentInProject(projectId: string, studentI
 }
 
 export function getJustificationsForClassDateActiveProject(classId: string, date: string) {
-  const projectId = requireActiveProjectId();
+  const projectId = getActiveProjectId();
+  if (!projectId) return [];
   return getJustificationsForClassDate(projectId, classId, date);
 }

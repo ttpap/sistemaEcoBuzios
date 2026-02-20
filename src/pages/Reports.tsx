@@ -249,6 +249,7 @@ export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const isTeacherArea = useMemo(() => location.pathname.startsWith("/professor"), [location.pathname]);
 
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
