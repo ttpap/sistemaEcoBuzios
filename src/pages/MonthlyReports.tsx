@@ -85,7 +85,12 @@ function projectStudentPool(classes: SchoolClass[], allStudents: StudentRegistra
   for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
   return allStudents
     .filter((s) => ids.has(s.id))
-    .sort((a, b) => (a.socialName || a.preferredName || a.fullName).localeCompare(b.socialName || b.preferredName || b.fullName, "pt-BR"));
+    .sort((a, b) =>
+      (a.socialName || a.preferredName || a.fullName).localeCompare(
+        b.socialName || b.preferredName || b.fullName,
+        "pt-BR",
+      ),
+    );
 }
 
 export default function MonthlyReports() {
@@ -106,7 +111,9 @@ export default function MonthlyReports() {
   const now = new Date();
   const monthParts = nowMonthKey(now).split("-");
   const [selectedYear, setSelectedYear] = useState(monthParts[0] || String(now.getFullYear()));
-  const [selectedMonthPart, setSelectedMonthPart] = useState(monthParts[1] || String(now.getMonth() + 1).padStart(2, "0"));
+  const [selectedMonthPart, setSelectedMonthPart] = useState(
+    monthParts[1] || String(now.getMonth() + 1).padStart(2, "0"),
+  );
 
   const monthKey = `${selectedYear}-${selectedMonthPart}`;
 
@@ -282,7 +289,8 @@ export default function MonthlyReports() {
       );
     }
 
-    const isSubmitted = Boolean(draft?.submittedAt);
+    const effective = draft || openedReport;
+    const isSubmitted = Boolean(effective.submittedAt);
 
     return (
       <div className="space-y-6">
@@ -316,7 +324,7 @@ export default function MonthlyReports() {
           </Button>
 
           <div className="flex flex-wrap items-center gap-2">
-            {draft ? statusBadge(draft) : null}
+            {statusBadge(effective)}
             {canEdit && (
               <>
                 <Button
@@ -364,7 +372,7 @@ export default function MonthlyReports() {
                     </h1>
                     <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 border border-slate-200">
                       <CalendarDays className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-black text-slate-700">{monthLabel(draft?.month || openedReport.month)}</span>
+                      <span className="text-sm font-black text-slate-700">{monthLabel(effective.month)}</span>
                     </div>
                   </div>
                 </div>
@@ -380,9 +388,9 @@ export default function MonthlyReports() {
                         {teachersById.get(openedReport.teacherId) || "Professor"}
                       </p>
                       <p className="text-xs font-bold text-slate-500">
-                        {isSubmitted
-                          ? `Enviado em ${new Date(draft!.submittedAt!).toLocaleString("pt-BR")}`
-                          : `Atualizado em ${new Date(draft!.updatedAt).toLocaleString("pt-BR")}`}
+                        {effective.submittedAt
+                          ? `Enviado em ${new Date(effective.submittedAt).toLocaleString("pt-BR")}`
+                          : `Atualizado em ${new Date(effective.updatedAt).toLocaleString("pt-BR")}`}
                       </p>
                     </div>
                   </div>
