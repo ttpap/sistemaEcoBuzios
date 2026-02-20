@@ -24,7 +24,7 @@ import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
-import { DEFAULT_STUDENT_PASSWORD } from '@/utils/student-auth';
+import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/utils/student-auth';
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
@@ -261,7 +261,7 @@ const StudentForm = ({
       if (reg) {
         onCompleted?.({
           registration: reg,
-          login: reg,
+          login: getStudentLoginFromRegistration(reg),
           password: DEFAULT_STUDENT_PASSWORD,
         });
       }
@@ -284,7 +284,7 @@ const StudentForm = ({
       showSuccess("Inscrição realizada!");
       onCompleted?.({
         registration,
-        login: registration,
+        login: getStudentLoginFromRegistration(registration),
         password: DEFAULT_STUDENT_PASSWORD,
       });
     }

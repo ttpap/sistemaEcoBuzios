@@ -7,6 +7,12 @@ const STUDENT_SESSION_KEY = "ecobuzios_student_session"; // stores { studentId, 
 
 export const DEFAULT_STUDENT_PASSWORD = "EcoBuzios123";
 
+export function getStudentLoginFromRegistration(registration: string) {
+  const reg = (registration || "").trim();
+  const last = reg.includes("-") ? reg.split("-").pop() || "" : reg;
+  return last.trim().padStart(4, "0");
+}
+
 type StudentSession = {
   studentId: string;
   projectId?: string;
@@ -55,6 +61,22 @@ export function findStudentByRegistration(registration: string): StudentRegistra
   return students.find((s) => String(s.registration || "").trim() === norm) || null;
 }
 
+export function findStudentByLogin(login: string): StudentRegistration | null {
+  const raw = (login || "").trim();
+  if (!raw) return null;
+
+  // Accept either full matricula (YYYY-XXXX) or only the last 4 digits.
+  const last4 = getStudentLoginFromRegistration(raw);
+
+  const students = readGlobalStudents<StudentRegistration[]>([]);
+  const matches = students.filter((s) => getStudentLoginFromRegistration(String(s.registration || "")) === last4);
+
+  // To avoid logging in the wrong student if there are duplicates.
+  if (matches.length !== 1) return null;
+
+  return matches[0] || null;
+}
+
 export function getStudentSession(): StudentSession | null {
   const raw = localStorage.getItem(STUDENT_SESSION_KEY);
   if (!raw) return null;
@@ -96,7 +118,7 @@ export function loginStudent(input: { registration: string; password: string }):
   const registration = (input.registration || "").trim();
   const password = (input.password || "").trim();
 
-  const student = findStudentByRegistration(registration);
+  const student = findStudentByLogin(registration);
   if (!student) return { ok: false, reason: "invalid_credentials" };
 
   // Default password for all students (simple model for now)

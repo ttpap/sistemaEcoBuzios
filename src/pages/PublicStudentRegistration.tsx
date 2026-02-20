@@ -128,6 +128,9 @@ export default function PublicStudentRegistration() {
                           <Copy className="h-4 w-4 mr-2" /> Copiar
                         </Button>
                       </div>
+                      <p className="mt-2 text-xs font-bold text-slate-500">
+                        O login é os <span className="font-black">4 últimos dígitos</span> da sua matrícula.
+                      </p>
                     </div>
 
                     <div className="rounded-[2rem] border border-slate-100 bg-white p-5 text-left">

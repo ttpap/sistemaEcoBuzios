@@ -61,17 +61,20 @@ export default function StudentLogin() {
           <CardContent className="p-6 md:p-8 pt-4">
             <form onSubmit={onSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Matrícula</Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Login</Label>
                 <div className="relative">
                   <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     value={registration}
                     onChange={(e) => setRegistration(e.target.value)}
-                    placeholder="Ex.: 2026-0001"
+                    placeholder="Ex.: 0011"
                     className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
                     autoComplete="username"
                   />
                 </div>
+                <p className="text-[11px] font-bold text-slate-500">
+                  Use os <span className="font-black">4 últimos dígitos</span> da matrícula. Ex.: 2026-0011 → 0011
+                </p>
               </div>
 
               <div className="space-y-2">
