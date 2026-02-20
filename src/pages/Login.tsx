@@ -6,29 +6,52 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Lock, User, Shield, GraduationCap } from "lucide-react";
+import { Lock, User } from "lucide-react";
 import Logo from "@/components/Logo";
-import { loginAdmin, isAdminLoggedIn } from "@/utils/admin-auth";
-import { loginTeacher, isTeacherLoggedIn } from "@/utils/teacher-auth";
+import { isAdminLoggedIn, loginAdmin, logoutAdmin } from "@/utils/admin-auth";
+import {
+  isTeacherLoggedIn,
+  loginTeacher,
+  logoutTeacher,
+} from "@/utils/teacher-auth";
+import {
+  isCoordinatorLoggedIn,
+  loginCoordinator,
+  logoutCoordinator,
+} from "@/utils/coordinator-auth";
 import { showError, showSuccess } from "@/utils/toast";
 
-function useQueryRole() {
+function useRoleHintFromQuery() {
   const location = useLocation();
   return useMemo(() => {
     const sp = new URLSearchParams(location.search);
     const r = (sp.get("role") || "").toLowerCase();
-    return r === "teacher" || r === "professor" ? "teacher" : r === "admin" ? "admin" : null;
+    if (r === "admin") return "admin" as const;
+    if (r === "teacher" || r === "professor") return "teacher" as const;
+    if (r === "coordinator" || r === "coordenador") return "coordinator" as const;
+    return null;
   }, [location.search]);
 }
 
 export default function Login() {
   const navigate = useNavigate();
-  const defaultRole = useQueryRole();
+  const roleHint = useRoleHintFromQuery();
 
-  const [role, setRole] = useState<"admin" | "teacher">((defaultRole as any) || "admin");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+
+  const loginTrimmed = login.trim().toLowerCase();
+  const placeholder = useMemo(() => {
+    if (loginTrimmed === "pap") return "Pap";
+    if (loginTrimmed.startsWith("prof.")) return "Ex.: prof.nome.sobrenome.123";
+    if (loginTrimmed.startsWith("coord.")) return "Ex.: coord.nome.sobrenome.123";
+
+    if (roleHint === "admin") return "Pap";
+    if (roleHint === "teacher") return "Ex.: prof.nome.sobrenome.123";
+    if (roleHint === "coordinator") return "Ex.: coord.nome.sobrenome.123";
+
+    return "Digite seu usuário";
+  }, [loginTrimmed, roleHint]);
 
   useEffect(() => {
     // If already logged in, route accordingly.
@@ -38,41 +61,66 @@ export default function Login() {
     }
     if (isTeacherLoggedIn()) {
       navigate("/professor", { replace: true });
+      return;
+    }
+    if (isCoordinatorLoggedIn()) {
+      navigate("/coordenador", { replace: true });
     }
   }, [navigate]);
-
-  useEffect(() => {
-    if (defaultRole) setRole(defaultRole);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultRole]);
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (role === "admin") {
-      const ok = loginAdmin({ login: login.trim(), password });
-      if (!ok) {
-        showError("Login ou senha inválidos.");
-        return;
-      }
+    const loginValue = login.trim();
+    const passwordValue = password;
+
+    // 1) Try admin
+    const isAdmin = loginAdmin({ login: loginValue, password: passwordValue });
+    if (isAdmin) {
+      logoutTeacher();
+      logoutCoordinator();
       showSuccess("Bem-vindo(a)! Acesso de administrador liberado.");
       navigate("/projetos", { replace: true });
       return;
     }
 
-    const res = loginTeacher({ login: login.trim(), password });
-    if (res.ok === true) {
+    // 2) Try teacher
+    const teacherRes = loginTeacher({ login: loginValue, password: passwordValue });
+    if (teacherRes.ok) {
+      logoutAdmin();
+      logoutCoordinator();
       showSuccess("Bem-vindo(a)! Acesso do professor liberado.");
-      if (res.projectIds.length > 1) {
+      if (teacherRes.projectIds.length > 1) {
         navigate("/professor/selecionar-projeto", { replace: true });
       } else {
         navigate("/professor", { replace: true });
       }
       return;
     }
+    if ("reason" in teacherRes && teacherRes.reason === "not_assigned") {
+      showError(
+        "Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.",
+      );
+      return;
+    }
 
-    if (res.reason === "not_assigned") {
-      showError("Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.");
+    // 3) Try coordinator
+    const coordRes = loginCoordinator({ login: loginValue, password: passwordValue });
+    if (coordRes.ok) {
+      logoutAdmin();
+      logoutTeacher();
+      showSuccess("Bem-vindo(a)! Acesso do coordenador liberado.");
+      if (coordRes.projectIds.length > 1) {
+        navigate("/coordenador/selecionar-projeto", { replace: true });
+      } else {
+        navigate("/coordenador", { replace: true });
+      }
+      return;
+    }
+    if ("reason" in coordRes && coordRes.reason === "not_assigned") {
+      showError(
+        "Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.",
+      );
       return;
     }
 
@@ -90,7 +138,7 @@ export default function Login() {
             Sistema de Gestão Pedagógica EcoBuzios
           </h1>
           <p className="mt-2 text-slate-500 font-medium">
-            Entre como administrador ou professor.
+            Digite seu usuário e senha. O sistema identifica seu perfil automaticamente.
           </p>
         </div>
 
@@ -99,70 +147,48 @@ export default function Login() {
             <CardTitle className="text-lg font-black text-slate-800">Acesso</CardTitle>
           </CardHeader>
           <CardContent className="p-6 md:p-8 pt-4">
-            <Tabs value={role} onValueChange={(v) => setRole(v as any)} className="w-full">
-              <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100">
-                <TabsTrigger value="admin" className="rounded-2xl font-black">
-                  <Shield className="h-4 w-4 mr-2" /> Administrador
-                </TabsTrigger>
-                <TabsTrigger value="teacher" className="rounded-2xl font-black">
-                  <GraduationCap className="h-4 w-4 mr-2" /> Professor
-                </TabsTrigger>
-              </TabsList>
+            <form onSubmit={onSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Usuário
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    placeholder={placeholder}
+                    className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                    autoComplete="username"
+                  />
+                </div>
+              </div>
 
-              <TabsContent value={role} className="mt-5">
-                <form onSubmit={onSubmit} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                      Usuário
-                    </Label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        value={login}
-                        onChange={(e) => setLogin(e.target.value)}
-                        placeholder={role === "admin" ? "Pap" : "Ex.: prof.nome.sobrenome.123"}
-                        className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                        autoComplete="username"
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha"
+                    type="password"
+                    className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                      Senha
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Digite sua senha"
-                        type="password"
-                        className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                        autoComplete="current-password"
-                      />
-                    </div>
-                  </div>
+              <Button type="submit" className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20">
+                Entrar
+              </Button>
 
-                  <Button
-                    type="submit"
-                    className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
-                  >
-                    Entrar
-                  </Button>
-
-                  {role === "teacher" ? (
-                    <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                      O acesso do professor só funciona após o administrador alocar você em um projeto.
-                    </div>
-                  ) : (
-                    <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                      Dica: após entrar, você escolherá um projeto existente ou criará um novo.
-                    </div>
-                  )}
-                </form>
-              </TabsContent>
-            </Tabs>
+              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
+                Se aparecer a mensagem de "acesso não liberado", peça ao administrador para alocar você em um projeto.
+              </div>
+            </form>
           </CardContent>
         </Card>
       </div>

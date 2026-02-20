@@ -32,6 +32,8 @@ import NewCoordinator from "@/pages/NewCoordinator";
 import EditCoordinator from "@/pages/EditCoordinator";
 import CoordinatorGate from "@/components/CoordinatorGate";
 import CoordinatorSelectProject from "@/pages/CoordinatorSelectProject";
+import CoordinatorSidebar from "@/components/layout/CoordinatorSidebar";
+import CoordinatorAccount from "@/pages/CoordinatorAccount";
 
 const queryClient = new QueryClient();
 
@@ -275,10 +277,11 @@ const App = () => (
             element={
               <CoordinatorGate>
                 <div className="flex min-h-screen bg-[#f8fafc]">
-                  <TeacherSidebar />
+                  <CoordinatorSidebar />
                   <main className="flex-1 p-8 overflow-y-auto">
                     <Routes>
                       <Route path="selecionar-projeto" element={<CoordinatorSelectProject />} />
+                      <Route path="conta" element={<CoordinatorAccount />} />
                       <Route
                         index
                         element={
