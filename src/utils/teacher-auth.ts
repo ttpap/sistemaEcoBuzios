@@ -1,6 +1,6 @@
-const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores teacherId
-
 import { findTeacherByLogin, getTeacherProjectId } from "@/utils/teachers";
+
+const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores teacherId
 
 export type TeacherLoginResult =
   | { ok: true; teacherId: string; projectId: string }
@@ -15,10 +15,13 @@ export function isTeacherLoggedIn() {
 }
 
 export function loginTeacher(input: { login: string; password: string }): TeacherLoginResult {
-  const teacher = findTeacherByLogin(input.login);
+  const login = (input.login || "").trim();
+  const password = (input.password || "").trim();
+
+  const teacher = findTeacherByLogin(login);
   if (!teacher) return { ok: false, reason: "invalid_credentials" };
 
-  const ok = String(input.password) === String(teacher.authPassword);
+  const ok = password === String(teacher.authPassword || "").trim();
   if (!ok) return { ok: false, reason: "invalid_credentials" };
 
   const projectId = getTeacherProjectId(teacher.id);
