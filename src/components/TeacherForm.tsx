@@ -61,9 +61,11 @@ const formSchema = z.object({
 
 interface TeacherFormProps {
   initialData?: TeacherRegistration | null;
+  backPath?: string;
+  onAfterSave?: (teacherId: string, mode: "create" | "update") => void;
 }
 
-const TeacherForm = ({ initialData }: TeacherFormProps) => {
+const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: TeacherFormProps) => {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   const [isCustomBank, setIsCustomBank] = useState(false);
@@ -133,12 +135,14 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
     if (initialData) {
       updateGlobalTeacher(initialData.id, teacherData);
       showSuccess("Cadastro atualizado!");
+      onAfterSave?.(initialData.id, "update");
     } else {
-      createGlobalTeacher(teacherData);
+      const created = createGlobalTeacher(teacherData);
       showSuccess("Cadastro realizado! Login e senha foram gerados.");
+      onAfterSave?.(created.id, "create");
     }
 
-    navigate('/professores');
+    navigate(backPath);
   }
 
   const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (
@@ -293,7 +297,7 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
         </Card>
 
         <div className="flex justify-center gap-4">
-          <Button type="button" variant="outline" className="rounded-2xl px-8 h-12 font-bold" onClick={() => navigate('/professores')}>Cancelar</Button>
+          <Button type="button" variant="outline" className="rounded-2xl px-8 h-12 font-bold" onClick={() => navigate(backPath)}>Cancelar</Button>
           <Button type="submit" className="rounded-2xl px-12 h-12 font-black gap-2 shadow-xl shadow-primary/20">
             <Save className="h-4 w-4" />
             {initialData ? 'Salvar Alterações' : 'Criar Cadastro'}

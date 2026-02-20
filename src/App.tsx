@@ -34,6 +34,9 @@ import CoordinatorGate from "@/components/CoordinatorGate";
 import CoordinatorSelectProject from "@/pages/CoordinatorSelectProject";
 import CoordinatorSidebar from "@/components/layout/CoordinatorSidebar";
 import CoordinatorAccount from "@/pages/CoordinatorAccount";
+import CoordinatorTeachers from "@/pages/CoordinatorTeachers";
+import CoordinatorNewTeacher from "@/pages/CoordinatorNewTeacher";
+import CoordinatorEditTeacher from "@/pages/CoordinatorEditTeacher";
 
 const queryClient = new QueryClient();
 
@@ -282,6 +285,32 @@ const App = () => (
                     <Routes>
                       <Route path="selecionar-projeto" element={<CoordinatorSelectProject />} />
                       <Route path="conta" element={<CoordinatorAccount />} />
+
+                      <Route
+                        path="professores"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorTeachers />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="professores/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorNewTeacher />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="professores/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorEditTeacher />
+                          </ActiveProjectGate>
+                        }
+                      />
+
                       <Route
                         index
                         element={

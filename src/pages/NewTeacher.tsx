@@ -26,7 +26,7 @@ const NewTeacher = () => {
         </div>
       </div>
 
-      <TeacherForm />
+      <TeacherForm backPath="/professores" />
     </div>
   );
 };

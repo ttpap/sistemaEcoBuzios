@@ -49,7 +49,7 @@ const EditTeacher = () => {
         </div>
       </div>
 
-      <TeacherForm initialData={teacher} />
+      <TeacherForm initialData={teacher} backPath="/professores" />
     </div>
   );
 };
