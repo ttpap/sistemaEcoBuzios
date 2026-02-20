@@ -44,6 +44,8 @@ import {
   User,
 } from "lucide-react";
 
+const NONE = "__none__";
+
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
   const d = new Date(Number(y), Number(m) - 1, 1);
@@ -290,7 +292,6 @@ export default function MonthlyReports() {
     }
 
     const effective = draft || openedReport;
-    const isSubmitted = Boolean(effective.submittedAt);
 
     return (
       <div className="space-y-6">
@@ -401,9 +402,11 @@ export default function MonthlyReports() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno em destaque</p>
                   <Select
-                    value={draft?.positiveStudentId || ""}
+                    value={draft?.positiveStudentId || NONE}
                     onValueChange={(v) =>
-                      setDraft((prev) => (prev ? { ...prev, positiveStudentId: v || undefined } : prev))
+                      setDraft((prev) =>
+                        prev ? { ...prev, positiveStudentId: v === NONE ? undefined : v } : prev,
+                      )
                     }
                     disabled={!canEdit}
                   >
@@ -411,7 +414,7 @@ export default function MonthlyReports() {
                       <SelectValue placeholder="Selecione um aluno" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value={NONE}>Nenhum</SelectItem>
                       {selectableStudents.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {(s.socialName || s.preferredName || s.fullName).trim()}
@@ -424,9 +427,11 @@ export default function MonthlyReports() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno reflexivo</p>
                   <Select
-                    value={draft?.reflexiveStudentId || ""}
+                    value={draft?.reflexiveStudentId || NONE}
                     onValueChange={(v) =>
-                      setDraft((prev) => (prev ? { ...prev, reflexiveStudentId: v || undefined } : prev))
+                      setDraft((prev) =>
+                        prev ? { ...prev, reflexiveStudentId: v === NONE ? undefined : v } : prev,
+                      )
                     }
                     disabled={!canEdit}
                   >
@@ -434,7 +439,7 @@ export default function MonthlyReports() {
                       <SelectValue placeholder="Selecione um aluno" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value={NONE}>Nenhum</SelectItem>
                       {selectableStudents.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {(s.socialName || s.preferredName || s.fullName).trim()}
