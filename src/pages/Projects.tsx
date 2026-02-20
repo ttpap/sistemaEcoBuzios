@@ -35,6 +35,9 @@ import {
   updateProject,
 } from "@/utils/projects";
 import { readGlobalStudents } from "@/utils/storage";
+import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
+import { setAdminPassword } from "@/utils/admin-auth";
+import { invalidateProjectTheme } from "@/utils/theme";
 import {
   FileText,
   FolderPlus,
@@ -48,6 +51,8 @@ import {
   X,
   MapPin,
   PieChart as PieChartIcon,
+  Settings,
+  KeyRound,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -85,6 +90,12 @@ export default function Projects() {
   const [editImageUrl, setEditImageUrl] = useState<string>("");
   const [editImageFileName, setEditImageFileName] = useState<string>("");
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [systemLogo, setSystemLogoState] = useState<string>(getSystemLogo() || "");
+  const [systemLogoFileName, setSystemLogoFileName] = useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [newPassword2, setNewPassword2] = useState<string>("");
+
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [studentsSearch, setStudentsSearch] = useState("");
 
@@ -93,11 +104,13 @@ export default function Projects() {
   useEffect(() => {
     setProjects(getProjects());
     setStudents(readGlobalStudents<StudentRegistration[]>([]));
+    setSystemLogoState(getSystemLogo() || "");
   }, []);
 
   const refresh = () => {
     setProjects(getProjects());
     setStudents(readGlobalStudents<StudentRegistration[]>([]));
+    setSystemLogoState(getSystemLogo() || "");
   };
 
   const onCreate = () => {
@@ -201,9 +214,57 @@ export default function Projects() {
       return;
     }
 
+    // if image changed, ensure the theme is recomputed
+    invalidateProjectTheme(editProjectId);
+
     setEditOpen(false);
     refresh();
     showSuccess("Projeto atualizado.");
+  };
+
+  const onPickSystemLogo = (file: File | null) => {
+    if (!file) {
+      setSystemLogoState("");
+      setSystemLogoFileName("");
+      return;
+    }
+
+    const okTypes = ["image/png", "image/jpeg"];
+    if (!okTypes.includes(file.type)) {
+      showError("Arquivo inválido. Envie PNG ou JPG.");
+      return;
+    }
+
+    setSystemLogoFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || "");
+      setSystemLogoState(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onSaveSettings = () => {
+    if (newPassword || newPassword2) {
+      if (newPassword.length < 6) {
+        showError("A senha deve ter pelo menos 6 caracteres.");
+        return;
+      }
+      if (newPassword !== newPassword2) {
+        showError("As senhas não conferem.");
+        return;
+      }
+      setAdminPassword(newPassword);
+    }
+
+    setSystemLogo(systemLogo.trim() ? systemLogo : null);
+    setSettingsOpen(false);
+    setNewPassword("");
+    setNewPassword2("");
+    setSystemLogoFileName("");
+
+    showSuccess("Configurações salvas.");
   };
 
   const allEnrolledStudentIds = useMemo(() => {
@@ -278,6 +339,106 @@ export default function Projects() {
 
   return (
     <div className="space-y-8">
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="border-none p-0 overflow-hidden rounded-[2.75rem] bg-white shadow-2xl w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-2xl">
+          <DialogHeader className="p-6 md:p-8 bg-primary text-white">
+            <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Configurações do administrador
+            </DialogTitle>
+            <p className="mt-1 text-white/80 text-sm font-bold">
+              Alterar logo do sistema e senha do admin.
+            </p>
+          </DialogHeader>
+
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Logo do sistema</Label>
+                <Input
+                  type="file"
+                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                  onChange={(e) => onPickSystemLogo(e.target.files?.[0] || null)}
+                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
+                />
+                <div className="mt-3 flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
+                  <div className="h-14 w-14 rounded-[1.6rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+                    {systemLogo ? (
+                      <img src={systemLogo} alt="Logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-800 truncate">
+                      {systemLogoFileName ? systemLogoFileName : systemLogo ? "Logo definida" : "Sem logo"}
+                    </p>
+                    <p className="text-xs font-bold text-slate-500">Aparece no topo quando não há projeto ativo.</p>
+                  </div>
+                  <div className="ml-auto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-2xl font-black border-slate-200"
+                      onClick={() => {
+                        setSystemLogoState("");
+                        setSystemLogoFileName("");
+                      }}
+                    >
+                      Remover
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-primary" /> Nova senha do admin
+                </Label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Digite a nova senha"
+                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                />
+                <Input
+                  type="password"
+                  value={newPassword2}
+                  onChange={(e) => setNewPassword2(e.target.value)}
+                  placeholder="Repita a nova senha"
+                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                />
+                <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
+                  O login continua sendo <span className="font-black">Pap</span>. Se você não preencher,
+                  a senha atual permanece.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 rounded-2xl font-black border-slate-200"
+                onClick={() => setSettingsOpen(false)}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
+                onClick={onSaveSettings}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="border-none p-0 overflow-hidden rounded-[2.5rem] bg-white shadow-2xl w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-xl">
           <DialogHeader className="p-6 md:p-8 bg-primary text-white">
@@ -568,6 +729,22 @@ export default function Projects() {
         </TabsContent>
 
         <TabsContent value="sistema" className="mt-6 space-y-8">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-black text-slate-800">Painel do Administrador</h2>
+              <p className="text-sm font-bold text-slate-500">Estatísticas, gráficos e configurações.</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 rounded-2xl font-black border-slate-200 bg-white hover:bg-slate-50 gap-2"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4 text-primary" />
+              Configurações
+            </Button>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.25rem] overflow-hidden">
               <CardHeader className="p-6 pb-3">

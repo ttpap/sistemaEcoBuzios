@@ -21,6 +21,7 @@ import Projects from "./pages/Projects";
 import ActiveProjectGate from "@/components/ActiveProjectGate";
 import Login from "./pages/Login";
 import AdminGate from "@/components/AdminGate";
+import ProjectTheme from "@/components/ProjectTheme";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ProjectTheme />
         <Routes>
           <Route path="/login" element={<Login />} />
 
