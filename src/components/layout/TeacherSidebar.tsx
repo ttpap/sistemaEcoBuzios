@@ -31,7 +31,7 @@ export default function TeacherSidebar() {
 
   const onLogout = () => {
     logoutTeacher();
-    navigate("/professor/login");
+    navigate("/login?role=teacher");
   };
 
   return (

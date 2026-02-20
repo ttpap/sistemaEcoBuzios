@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
@@ -21,7 +21,6 @@ import ActiveProjectGate from "@/components/ActiveProjectGate";
 import Login from "./pages/Login";
 import AdminGate from "@/components/AdminGate";
 import ProjectTheme from "@/components/ProjectTheme";
-import TeacherLogin from "@/pages/TeacherLogin";
 import TeacherGate from "@/components/TeacherGate";
 import TeacherSidebar from "@/components/layout/TeacherSidebar";
 import AdminTeachers from "@/pages/AdminTeachers";
@@ -38,7 +37,10 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          <Route path="/professor/login" element={<TeacherLogin />} />
+          <Route
+            path="/professor/login"
+            element={<Navigate to="/login?role=teacher" replace />}
+          />
 
           <Route
             path="/professor/*"
