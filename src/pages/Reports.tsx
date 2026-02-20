@@ -19,6 +19,7 @@ import { AttendanceStatus } from "@/types/attendance";
 import { getAttendanceForClass } from "@/utils/attendance";
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
+import { downloadAttendanceXls } from "@/utils/attendance-xls";
 import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped } from "@/utils/storage";
 import { getActiveProject } from "@/utils/projects";
@@ -28,6 +29,7 @@ import {
   BarChart3,
   CalendarDays,
   FileDown,
+  FileSpreadsheet,
   Printer,
   ClipboardCheck,
   ArrowLeft,
@@ -40,6 +42,10 @@ const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020
 function getReportLogoUrl(): string {
   const projectLogo = getActiveProject()?.imageUrl;
   return projectLogo || getSystemLogo() || DEFAULT_LOGO;
+}
+
+function getReportProjectName(): string {
+  return getActiveProject()?.name || "EcoBúzios";
 }
 
 function monthLabel(month: string) {
@@ -94,45 +100,110 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
   if (!win) return;
 
   const logoUrl = getReportLogoUrl();
+  const projectName = getReportProjectName();
 
   const title = `RELATÓRIO DE CHAMADA`;
   const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+  const generatedAt = new Date().toLocaleString("pt-BR");
 
   const html = `
   <html>
     <head>
       <title>Relatório de Chamada</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 10px; margin: 18px; }
-        .topbar { display:flex; align-items:center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+        :root {
+          --primary: #008ca0;
+          --accent: #ffa534;
+          --slate: #0f172a;
+          --muted: #64748b;
+          --border: #e2e8f0;
+          --soft: #f8fafc;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: Inter, Arial, sans-serif; font-size: 10px; margin: 18px; color: var(--slate); }
+
+        .sheet-header {
+          border: 1px solid var(--border);
+          border-radius: 22px;
+          background: #fff;
+          overflow: hidden;
+        }
+        .brandbar { height: 8px; background: var(--primary); }
+        .header-inner { padding: 14px 16px 12px; }
+        .toprow { display:flex; align-items:center; justify-content: space-between; gap: 14px; }
         .brand { display:flex; align-items:center; gap: 12px; min-width: 0; }
         .logo { width: 140px; height: 44px; object-fit: contain; }
         .titlewrap { min-width: 0; }
-        .header { font-weight: 900; font-size: 13px; margin: 0; }
-        .sub { font-size: 11px; margin-top: 4px; color: #334155; font-weight: 800; }
-        .legend { font-size: 10px; margin: 10px 0 12px; color: #475569; font-weight: 700; }
+        .proj { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+        .header { font-weight: 950; font-size: 15px; margin: 3px 0 0; letter-spacing: -0.02em; }
+        .sub { font-size: 11px; margin-top: 4px; color: #334155; font-weight: 850; }
+
+        .chip {
+          display:inline-flex;
+          align-items:center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-weight: 900;
+          font-size: 10px;
+          border: 1px solid rgba(0, 140, 160, 0.22);
+          background: rgba(0, 140, 160, 0.08);
+          color: var(--primary);
+          white-space: nowrap;
+        }
+        .meta {
+          margin-top: 10px;
+          display:flex;
+          align-items:center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: var(--soft);
+          border: 1px solid var(--border);
+          color: #334155;
+          font-weight: 800;
+        }
+        .legend { margin: 12px 2px 12px; font-size: 10px; color: var(--muted); font-weight: 750; }
+
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #111827; padding: 4px 6px; vertical-align: top; }
-        th { background: #f3f4f6; text-align: center; font-weight: 900; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
-        td.name { width: 240px; }
-        .social { font-weight: 900; }
+        th, td { border: 1px solid #0f172a; padding: 5px 6px; vertical-align: top; }
+        th { background: #f1f5f9; text-align: center; font-weight: 950; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+        td.name { width: 260px; }
+        .social { font-weight: 950; }
         .full { color: #475569; font-weight: 800; font-size: 9px; margin-top: 2px; }
-        .center { text-align: center; font-weight: 900; }
-        @media print { @page { size: landscape; margin: 1cm; } }
+        .center { text-align: center; font-weight: 950; }
+
+        @media print {
+          @page { size: landscape; margin: 1cm; }
+        }
       </style>
     </head>
     <body>
-      <div class="topbar">
-        <div class="brand">
-          <img class="logo" src="${logoUrl}" alt="Logo" />
-          <div class="titlewrap">
-            <p class="header">${title}</p>
-            <div class="sub">${subtitle}</div>
+      <div class="sheet-header">
+        <div class="brandbar"></div>
+        <div class="header-inner">
+          <div class="toprow">
+            <div class="brand">
+              <img class="logo" src="${logoUrl}" alt="Logo" />
+              <div class="titlewrap">
+                <div class="proj">${projectName}</div>
+                <p class="header">${title}</p>
+                <div class="sub">${subtitle}</div>
+              </div>
+            </div>
+            <div class="chip">EcoBúzios • Chamada</div>
+          </div>
+
+          <div class="meta">
+            <div>Gerado em <strong>${generatedAt}</strong></div>
+            <div>Status: <strong>P</strong>=Presente • <strong>A</strong>=Atrasado • <strong>F</strong>=Falta • <strong>J</strong>=Justificada • <strong>—</strong>=não estava na turma</div>
           </div>
         </div>
       </div>
 
-      <div class="legend">Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data ou não registrado)</div>
+      <div class="legend">Dica: você pode gerar PDF ou XLS para arquivar mensalmente.</div>
 
       <table>
         <thead>
@@ -149,7 +220,7 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
               const tds = matrix.dates
                 .map((d) => {
                   const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
-                  if (!isMember) return `<td class="center"></td>`;
+                  if (!isMember) return `<td class="center">—</td>`;
                   const s = matrix.statusByStudentByDate[st.id]?.[d];
                   return `<td class="center">${statusShort(s)}</td>`;
                 })
@@ -451,6 +522,24 @@ export default function Reports() {
                     <Printer className="h-4 w-4" />
                     Imprimir
                   </Button>
+
+                  <Button
+                    variant="outline"
+                    className="rounded-2xl gap-2 h-11 font-black border-slate-200"
+                    onClick={() => {
+                      if (!matrix || !matrix.dates.length) return;
+                      try {
+                        downloadAttendanceXls(matrix);
+                      } catch {
+                        showError("Não foi possível gerar o XLS.");
+                      }
+                    }}
+                    disabled={!matrix || matrix.dates.length === 0}
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Gerar XLS
+                  </Button>
+
                   <Button
                     className="rounded-2xl gap-2 h-11 font-black shadow-lg shadow-primary/20"
                     onClick={async () => {

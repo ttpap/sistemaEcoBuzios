@@ -15,6 +15,13 @@ export type AttendanceMatrix = {
 
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
+const BRAND = {
+  primary: [0, 140, 160] as const, // #008ca0
+  accent: [255, 165, 52] as const, // #ffa534
+  slate: [15, 23, 42] as const, // #0f172a
+  muted: [100, 116, 139] as const, // #64748b
+};
+
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
   const d = new Date(Number(y), Number(m) - 1, 1);
@@ -50,6 +57,10 @@ function getReportLogoUrl(): string {
   return projectLogo || getSystemLogo() || DEFAULT_LOGO;
 }
 
+function getReportProjectName(): string {
+  return getActiveProject()?.name || "EcoBúzios";
+}
+
 function inferImageType(dataUrl: string): "PNG" | "JPEG" {
   const lower = dataUrl.slice(0, 30).toLowerCase();
   if (lower.includes("image/jpeg") || lower.includes("image/jpg")) return "JPEG";
@@ -81,10 +92,21 @@ function loadImageToPngDataUrl(url: string): Promise<string | null> {
 export async function generateAttendancePdf(matrix: AttendanceMatrix) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
+  const projectName = getReportProjectName();
   const title = "Relatório de Chamada";
   const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
 
-  // Header (logo + title)
+  // Header (brand strip + logo + title card)
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 40;
+
+  // Brand strips
+  doc.setFillColor(...BRAND.primary);
+  doc.rect(marginX, 18, pageWidth - marginX * 2, 6, "F");
+  doc.setFillColor(...BRAND.accent);
+  doc.rect(marginX, 24, 90, 3, "F");
+
+  // Logo
   const logoUrl = getReportLogoUrl();
   let logoDataUrl: string | null = null;
   let logoType: "PNG" | "JPEG" = "PNG";
@@ -97,14 +119,9 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
     logoType = "PNG";
   }
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 40;
-
   const logoW = 120;
   const logoH = 38;
-  const logoY = 22;
-
-  const textX = logoDataUrl ? marginX + logoW + 14 : marginX;
+  const logoY = 34;
 
   if (logoDataUrl) {
     try {
@@ -114,22 +131,32 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
     }
   }
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(title, textX, 40);
+  const textX = logoDataUrl ? marginX + logoW + 14 : marginX;
 
-  doc.setFontSize(11);
+  doc.setTextColor(...BRAND.muted);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text(projectName.toUpperCase(), textX, 42);
+
+  doc.setTextColor(...BRAND.slate);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(title, textX, 60);
+
   doc.setFont("helvetica", "normal");
-  doc.text(subtitle, textX, 60);
+  doc.setFontSize(11);
+  doc.text(subtitle, textX, 78);
 
   doc.setFontSize(9);
-  doc.setTextColor(107, 114, 128);
+  doc.setTextColor(...BRAND.muted);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, marginX, 96);
   doc.text(
-    "Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data)",
+    "Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • —=não estava na turma",
     marginX,
-    82,
+    110,
     { maxWidth: pageWidth - marginX * 2 },
   );
+
   doc.setTextColor(0, 0, 0);
 
   const head = [["Aluno", ...matrix.dates.map((d) => formatDatePt(d))]];
@@ -141,7 +168,7 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
     for (const date of matrix.dates) {
       const isMember = matrix.membershipByStudentByDate[st.id]?.[date];
       if (!isMember) {
-        row.push("");
+        row.push("—");
         continue;
       }
       const status = matrix.statusByStudentByDate[st.id]?.[date];
@@ -152,7 +179,7 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
   });
 
   autoTable(doc, {
-    startY: 100,
+    startY: 128,
     head,
     body,
     theme: "grid",
@@ -163,8 +190,8 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
       valign: "top",
     },
     headStyles: {
-      fillColor: [243, 244, 246],
-      textColor: [17, 24, 39],
+      fillColor: [241, 245, 249],
+      textColor: [15, 23, 42],
       fontStyle: "bold",
       halign: "center",
     },
