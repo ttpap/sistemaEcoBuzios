@@ -61,25 +61,21 @@ function getReportProjectName(): string {
   return getActiveProject()?.name || "EcoBúzios";
 }
 
-function inferImageType(dataUrl: string): "PNG" | "JPEG" {
-  const lower = dataUrl.slice(0, 30).toLowerCase();
-  if (lower.includes("image/jpeg") || lower.includes("image/jpg")) return "JPEG";
-  return "PNG";
-}
-
-function loadImageToPngDataUrl(url: string): Promise<string | null> {
+function loadImageAsPngWithSize(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
         const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext("2d");
         if (!ctx) return resolve(null);
         ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL("image/png"));
+        resolve({ dataUrl: canvas.toDataURL("image/png"), w, h });
       } catch {
         resolve(null);
       }
@@ -106,32 +102,30 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
   doc.setFillColor(...BRAND.accent);
   doc.rect(marginX, 24, 90, 3, "F");
 
-  // Logo
+  // Logo (keep aspect ratio to avoid distortion)
   const logoUrl = getReportLogoUrl();
-  let logoDataUrl: string | null = null;
-  let logoType: "PNG" | "JPEG" = "PNG";
+  const logoInfo = await loadImageAsPngWithSize(logoUrl);
 
-  if (logoUrl.startsWith("data:image/")) {
-    logoDataUrl = logoUrl;
-    logoType = inferImageType(logoUrl);
-  } else {
-    logoDataUrl = await loadImageToPngDataUrl(logoUrl);
-    logoType = "PNG";
-  }
-
-  const logoW = 120;
-  const logoH = 38;
+  const maxLogoW = 130;
+  const maxLogoH = 42;
+  const logoX = marginX;
   const logoY = 34;
 
-  if (logoDataUrl) {
+  let textX = marginX;
+
+  if (logoInfo) {
+    const scale = Math.min(maxLogoW / logoInfo.w, maxLogoH / logoInfo.h, 1);
+    const w = logoInfo.w * scale;
+    const h = logoInfo.h * scale;
+    const y = logoY + (maxLogoH - h) / 2;
+
     try {
-      doc.addImage(logoDataUrl, logoType, marginX, logoY, logoW, logoH);
+      doc.addImage(logoInfo.dataUrl, "PNG", logoX, y, w, h);
+      textX = logoX + maxLogoW + 14;
     } catch {
       // ignore logo errors
     }
   }
-
-  const textX = logoDataUrl ? marginX + logoW + 14 : marginX;
 
   doc.setTextColor(...BRAND.muted);
   doc.setFont("helvetica", "bold");

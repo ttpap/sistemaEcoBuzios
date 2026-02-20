@@ -526,10 +526,10 @@ export default function Reports() {
                   <Button
                     variant="outline"
                     className="rounded-2xl gap-2 h-11 font-black border-slate-200"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!matrix || !matrix.dates.length) return;
                       try {
-                        downloadAttendanceXls(matrix);
+                        await downloadAttendanceXls(matrix);
                       } catch {
                         showError("Não foi possível gerar o XLS.");
                       }

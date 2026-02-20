@@ -1,5 +1,9 @@
 import { getActiveProject } from "@/utils/projects";
+import { getSystemLogo } from "@/utils/system-settings";
+import type { AttendanceStatus } from "@/types/attendance";
 import type { AttendanceMatrix } from "@/utils/attendance-pdf";
+
+const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
@@ -16,14 +20,13 @@ function displayName(st: AttendanceMatrix["students"][number]) {
   return st.socialName || st.preferredName || st.fullName;
 }
 
-function statusShort(s?: string) {
+function statusShort(s?: AttendanceStatus) {
   if (!s) return "";
-  // matrix stores the raw keys (presente/falta/atrasado/justificada)
   if (s === "presente") return "P";
   if (s === "atrasado") return "A";
   if (s === "falta") return "F";
   if (s === "justificada") return "J";
-  return String(s);
+  return "";
 }
 
 function escapeHtml(input: string) {
@@ -44,21 +47,52 @@ function filenameSafe(input: string) {
     .slice(0, 140);
 }
 
+function getReportLogoUrl(): string {
+  const projectLogo = getActiveProject()?.imageUrl;
+  return projectLogo || getSystemLogo() || DEFAULT_LOGO;
+}
+
+function loadImageToPngDataUrl(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 /**
  * Generates a simple Excel-compatible .xls file (HTML table).
  * Works offline and doesn't require extra dependencies.
  */
-export function downloadAttendanceXls(matrix: AttendanceMatrix) {
-  const projectName = getActiveProject()?.name || "Projeto";
+export async function downloadAttendanceXls(matrix: AttendanceMatrix) {
+  const project = getActiveProject();
+  const projectName = project?.name || "Projeto";
   const title = "Relatório de Chamada";
   const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
   const generated = `Gerado em ${new Date().toLocaleString("pt-BR")}`;
+
+  const logoUrl = getReportLogoUrl();
+  const logoDataUrl = logoUrl.startsWith("data:image/") ? logoUrl : (await loadImageToPngDataUrl(logoUrl));
 
   const head = ["Aluno", ...matrix.dates.map((d) => formatDateCol(d))];
 
   const rows = matrix.students.map((st) => {
     const cells: string[] = [];
-    cells.push(`${escapeHtml(displayName(st))}\n${escapeHtml(st.fullName)}`);
+    cells.push(`${escapeHtml(displayName(st))}<br/><span style="color:#64748b;font-weight:700;">${escapeHtml(st.fullName)}</span>`);
 
     for (const date of matrix.dates) {
       const isMember = matrix.membershipByStudentByDate[st.id]?.[date];
@@ -73,6 +107,8 @@ export function downloadAttendanceXls(matrix: AttendanceMatrix) {
     return cells;
   });
 
+  const legend = "Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • —=não estava na turma";
+
   const html = `
   <html>
     <head>
@@ -82,16 +118,48 @@ export function downloadAttendanceXls(matrix: AttendanceMatrix) {
         table { border-collapse: collapse; }
         td, th { border: 1px solid #0f172a; padding: 6px 8px; font-size: 11px; }
         th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; font-size: 10px; }
-        .title { font-size: 16px; font-weight: 900; border: none; padding: 0 0 8px 0; }
-        .sub { font-size: 12px; font-weight: 700; border: none; padding: 0 0 6px 0; color: #334155; }
-        .meta { font-size: 10px; border: none; padding: 0 0 12px 0; color: #64748b; }
+
+        .hrow td { border: none; padding: 0; }
+        .headcard {
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          overflow: hidden;
+        }
+        .brandbar { height: 8px; background: #008ca0; }
+        .headinner { padding: 12px 14px; }
+        .brand { display:flex; align-items:center; gap: 12px; }
+        .logo { height: 44px; width: auto; display:block; }
+        .kicker { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: #64748b; }
+        .title { font-size: 16px; font-weight: 900; margin-top: 2px; color: #0f172a; }
+        .sub { font-size: 12px; font-weight: 800; margin-top: 3px; color: #334155; }
+        .meta { font-size: 10px; font-weight: 700; margin-top: 8px; color: #64748b; }
+        .legend { font-size: 10px; font-weight: 800; margin-top: 6px; color: #334155; }
       </style>
     </head>
     <body>
       <table>
-        <tr><td class="title" colspan="${head.length}">${escapeHtml(projectName)} — ${escapeHtml(title)}</td></tr>
-        <tr><td class="sub" colspan="${head.length}">${escapeHtml(subtitle)}</td></tr>
-        <tr><td class="meta" colspan="${head.length}">${escapeHtml(generated)}</td></tr>
+        <tr class="hrow">
+          <td colspan="${head.length}">
+            <div class="headcard">
+              <div class="brandbar"></div>
+              <div class="headinner">
+                <div class="brand">
+                  ${logoDataUrl ? `<img class="logo" src="${logoDataUrl}" alt="Logo" />` : ""}
+                  <div>
+                    <div class="kicker">${escapeHtml(projectName)}</div>
+                    <div class="title">${escapeHtml(title)}</div>
+                    <div class="sub">${escapeHtml(subtitle)}</div>
+                  </div>
+                </div>
+                <div class="meta">${escapeHtml(generated)}</div>
+                <div class="legend">${escapeHtml(legend)}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <tr><td colspan="${head.length}" style="border:none;padding:8px 0;"></td></tr>
+
         <tr>${head.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr>
         ${rows
           .map(
