@@ -21,6 +21,8 @@ import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enr
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped } from "@/utils/storage";
+import { getActiveProject } from "@/utils/projects";
+import { getSystemLogo } from "@/utils/system-settings";
 
 import {
   BarChart3,
@@ -32,6 +34,13 @@ import {
   Layers,
   Users,
 } from "lucide-react";
+
+const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
+
+function getReportLogoUrl(): string {
+  const projectLogo = getActiveProject()?.imageUrl;
+  return projectLogo || getSystemLogo() || DEFAULT_LOGO;
+}
 
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
@@ -84,6 +93,8 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
   const win = window.open("", "_blank");
   if (!win) return;
 
+  const logoUrl = getReportLogoUrl();
+
   const title = `RELATÓRIO DE CHAMADA`;
   const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
 
@@ -93,23 +104,36 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
       <title>Relatório de Chamada</title>
       <style>
         body { font-family: Arial, sans-serif; font-size: 10px; margin: 18px; }
-        .header { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
-        .sub { font-size: 11px; margin-bottom: 8px; color: #334155; }
-        .legend { font-size: 10px; margin-bottom: 10px; color: #475569; }
+        .topbar { display:flex; align-items:center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+        .brand { display:flex; align-items:center; gap: 12px; min-width: 0; }
+        .logo { width: 140px; height: 44px; object-fit: contain; }
+        .titlewrap { min-width: 0; }
+        .header { font-weight: 900; font-size: 13px; margin: 0; }
+        .sub { font-size: 11px; margin-top: 4px; color: #334155; font-weight: 800; }
+        .legend { font-size: 10px; margin: 10px 0 12px; color: #475569; font-weight: 700; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border: 1px solid #111827; padding: 4px 6px; vertical-align: top; }
-        th { background: #f3f4f6; text-align: center; font-weight: 700; }
+        th { background: #f3f4f6; text-align: center; font-weight: 900; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
         td.name { width: 240px; }
-        .social { font-weight: 800; }
-        .full { color: #475569; font-weight: 700; font-size: 9px; margin-top: 2px; }
-        .center { text-align: center; font-weight: 700; }
+        .social { font-weight: 900; }
+        .full { color: #475569; font-weight: 800; font-size: 9px; margin-top: 2px; }
+        .center { text-align: center; font-weight: 900; }
         @media print { @page { size: landscape; margin: 1cm; } }
       </style>
     </head>
     <body>
-      <div class="header">${title}</div>
-      <div class="sub">${subtitle}</div>
+      <div class="topbar">
+        <div class="brand">
+          <img class="logo" src="${logoUrl}" alt="Logo" />
+          <div class="titlewrap">
+            <p class="header">${title}</p>
+            <div class="sub">${subtitle}</div>
+          </div>
+        </div>
+      </div>
+
       <div class="legend">Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data ou não registrado)</div>
+
       <table>
         <thead>
           <tr>
@@ -160,7 +184,7 @@ export default function Reports() {
   const [month, setMonth] = useState<string>(defaultMonth);
 
   useEffect(() => {
-    setClasses(readScoped<SchoolClass[]>('classes', []));
+    setClasses(readScoped<SchoolClass[]>("classes", []));
     setStudents(readGlobalStudents<StudentRegistration[]>([]));
   }, []);
 
@@ -256,7 +280,13 @@ export default function Reports() {
       statusByStudentByDate,
       membershipByStudentByDate,
     };
-  }, [selectedClass?.id, selectedClass?.studentIds?.join(","), selectedClass?.studentEnrollments?.length, month, students]);
+  }, [
+    selectedClass?.id,
+    selectedClass?.studentIds?.join(","),
+    selectedClass?.studentEnrollments?.length,
+    month,
+    students,
+  ]);
 
   const yearOptions = useMemo(() => {
     const y = now.getFullYear();
@@ -423,10 +453,10 @@ export default function Reports() {
                   </Button>
                   <Button
                     className="rounded-2xl gap-2 h-11 font-black shadow-lg shadow-primary/20"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!matrix) return;
                       try {
-                        generateAttendancePdf(matrix);
+                        await generateAttendancePdf(matrix);
                       } catch {
                         showError("Não foi possível gerar o PDF.");
                       }
@@ -495,10 +525,12 @@ export default function Reports() {
                                 {cls.period} • {cls.startTime}–{cls.endTime}
                               </p>
                             </div>
-                            <Badge className={cn(
-                              "rounded-full border-none font-black",
-                              cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
-                            )}>
+                            <Badge
+                              className={cn(
+                                "rounded-full border-none font-black",
+                                cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700",
+                              )}
+                            >
                               {cls.status}
                             </Badge>
                           </div>
@@ -528,59 +560,82 @@ export default function Reports() {
                   <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[70vh]">
-                  <div className="min-w-[900px]">
-                    <div
-                      className="grid"
-                      style={{
-                        gridTemplateColumns: `360px repeat(${matrix.dates.length}, minmax(64px, 1fr))`,
-                      }}
-                    >
-                      {/* Header */}
-                      <div className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
-                        <p className="text-base font-black text-primary mt-1 truncate">{matrix.className}</p>
-                        <p className="text-xs font-bold text-slate-500 mt-1">{monthLabel(matrix.month)}</p>
-                        <p className="text-xs font-black text-slate-700 mt-1">{matrix.students.length} aluno(s) no relatório</p>
-                      </div>
-                      {matrix.dates.map((d) => (
-                        <div key={d} className="sticky top-0 z-10 bg-white border-b border-slate-100 p-4 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dia</p>
-                          <p className="text-base font-black text-slate-700 mt-1">{formatDateCol(d)}</p>
-                        </div>
-                      ))}
-
-                      {/* Rows */}
-                      {matrix.students.map((st) => (
-                        <React.Fragment key={st.id}>
-                          <div className="border-b border-slate-100 p-4 bg-slate-50/30">
-                            <p className="text-base font-black text-primary leading-tight">
-                              {st.socialName || st.preferredName || st.fullName}
-                            </p>
-                            <p className="text-sm font-bold text-slate-600 mt-1">{st.fullName}</p>
+                <div className="p-6 md:p-8">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm">
+                      <div className="p-5">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo</p>
+                        <p className="text-xl font-black text-primary mt-1">Todas as turmas</p>
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Turmas cadastradas</span>
+                            <span className="text-sm font-black text-slate-900">{classes.length}</span>
                           </div>
-                          {matrix.dates.map((d) => {
-                            const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
-                            if (!isMember) {
-                              return (
-                                <div
-                                  key={`${st.id}-${d}`}
-                                  className="border-b border-slate-100 p-4 text-center bg-white"
-                                />
-                              );
-                            }
-                            const s = matrix.statusByStudentByDate[st.id]?.[d];
-                            return (
-                              <div key={`${st.id}-${d}`} className="border-b border-slate-100 p-4 text-center bg-white">
-                                {statusPill(s) || <span className="text-xs font-bold text-slate-300">—</span>}
-                              </div>
-                            );
-                          })}
-                        </React.Fragment>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Alunos (únicos) nas turmas</span>
+                            <span className="text-sm font-black text-slate-900">{totalStudentsInClasses}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-slate-600">Mês</span>
+                            <span className="text-sm font-black text-slate-900">{monthLabel(month)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+
+                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2 lg:col-span-2">
+                      <div className="p-5 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</p>
+                          <p className="text-xl font-black text-primary mt-1">Escolha uma turma</p>
+                          <p className="text-sm font-bold text-slate-500 mt-1">Clique em qualquer turma abaixo para ver o relatório detalhado.</p>
+                        </div>
+                        <div className="h-12 w-12 rounded-2xl bg-secondary/10 text-primary flex items-center justify-center border border-secondary/20">
+                          <Layers className="h-6 w-6" />
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Turmas</p>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {classesWithCounts.map(({ cls, studentsCount, callDaysCount }) => (
+                        <button
+                          key={cls.id}
+                          onClick={() => setClassId(cls.id)}
+                          className="text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:border-primary/25 hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-base font-black text-primary truncate">{cls.name}</p>
+                              <p className="text-xs font-bold text-slate-500 mt-1">
+                                {cls.period} • {cls.startTime}–{cls.endTime}
+                              </p>
+                            </div>
+                            <Badge
+                              className={cn(
+                                "rounded-full border-none font-black",
+                                cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700",
+                              )}
+                            >
+                              {cls.status}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
+                              <Users className="h-3.5 w-3.5 mr-1" /> {studentsCount} aluno(s)
+                            </Badge>
+                            <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
+                              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> {callDaysCount} dia(s) com chamada
+                            </Badge>
+                          </div>
+                        </button>
                       ))}
                     </div>
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </div>
           </Card>

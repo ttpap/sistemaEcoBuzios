@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { AttendanceStatus } from "@/types/attendance";
+import { getActiveProject } from "@/utils/projects";
+import { getSystemLogo } from "@/utils/system-settings";
 
 export type AttendanceMatrix = {
   className: string;
@@ -10,6 +12,8 @@ export type AttendanceMatrix = {
   statusByStudentByDate: Record<string, Record<string, AttendanceStatus | undefined>>;
   membershipByStudentByDate: Record<string, Record<string, boolean>>;
 };
+
+const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
 function monthLabel(month: string) {
   const [y, m] = month.split("-");
@@ -41,23 +45,91 @@ function statusShort(s?: AttendanceStatus) {
   }
 }
 
-export function generateAttendancePdf(matrix: AttendanceMatrix) {
+function getReportLogoUrl(): string {
+  const projectLogo = getActiveProject()?.imageUrl;
+  return projectLogo || getSystemLogo() || DEFAULT_LOGO;
+}
+
+function inferImageType(dataUrl: string): "PNG" | "JPEG" {
+  const lower = dataUrl.slice(0, 30).toLowerCase();
+  if (lower.includes("image/jpeg") || lower.includes("image/jpg")) return "JPEG";
+  return "PNG";
+}
+
+function loadImageToPngDataUrl(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL("image/png"));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+export async function generateAttendancePdf(matrix: AttendanceMatrix) {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
 
   const title = "Relatório de Chamada";
   const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
 
+  // Header (logo + title)
+  const logoUrl = getReportLogoUrl();
+  let logoDataUrl: string | null = null;
+  let logoType: "PNG" | "JPEG" = "PNG";
+
+  if (logoUrl.startsWith("data:image/")) {
+    logoDataUrl = logoUrl;
+    logoType = inferImageType(logoUrl);
+  } else {
+    logoDataUrl = await loadImageToPngDataUrl(logoUrl);
+    logoType = "PNG";
+  }
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 40;
+
+  const logoW = 120;
+  const logoH = 38;
+  const logoY = 22;
+
+  const textX = logoDataUrl ? marginX + logoW + 14 : marginX;
+
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, logoType, marginX, logoY, logoW, logoH);
+    } catch {
+      // ignore logo errors
+    }
+  }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.text(title, 40, 40);
+  doc.text(title, textX, 40);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  doc.text(subtitle, 40, 60);
+  doc.text(subtitle, textX, 60);
 
   doc.setFontSize(9);
   doc.setTextColor(107, 114, 128);
-  doc.text("Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data)", 40, 78);
+  doc.text(
+    "Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • (em branco = aluno não estava na turma na data)",
+    marginX,
+    82,
+    { maxWidth: pageWidth - marginX * 2 },
+  );
   doc.setTextColor(0, 0, 0);
 
   const head = [["Aluno", ...matrix.dates.map((d) => formatDatePt(d))]];
@@ -80,7 +152,7 @@ export function generateAttendancePdf(matrix: AttendanceMatrix) {
   });
 
   autoTable(doc, {
-    startY: 95,
+    startY: 100,
     head,
     body,
     theme: "grid",
