@@ -8,6 +8,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AttendanceSession, AttendanceStatus } from "@/types/attendance";
 import {
@@ -17,6 +27,7 @@ import {
   getAllAttendance,
   saveAllAttendance,
   upsertAttendanceSession,
+  deleteAttendanceSession,
 } from "@/utils/attendance";
 import { StudentRegistration } from "@/types/student";
 import { showSuccess } from "@/utils/toast";
@@ -29,6 +40,7 @@ import {
   FileCheck2,
   Plus,
   Save,
+  Trash2,
   XCircle,
 } from "lucide-react";
 
@@ -105,6 +117,8 @@ export default function ClassAttendance({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  const [deleteTarget, setDeleteTarget] = useState<AttendanceSession | null>(null);
 
   // Draft state (only persists when user clicks "Salvar")
   const [draftRecords, setDraftRecords] = useState<Record<string, AttendanceStatus> | null>(null);
@@ -237,6 +251,22 @@ export default function ClassAttendance({
     showSuccess("Chamada salva com sucesso.");
   };
 
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteAttendanceSession(deleteTarget.id);
+
+    const list = getAttendanceForClass(classId);
+    setSessions(list);
+
+    setSelectedId((prev) => {
+      if (prev !== deleteTarget.id) return prev;
+      return list[0]?.id || null;
+    });
+
+    setDeleteTarget(null);
+    showSuccess("Dia de chamada removido.");
+  };
+
   const openStudentDetails = (student: StudentRegistration) => {
     setSelectedStudent(student);
     setIsStudentDetailsOpen(true);
@@ -244,6 +274,28 @@ export default function ClassAttendance({
 
   return (
     <div className="space-y-6">
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => (!o ? setDeleteTarget(null) : null)}>
+        <AlertDialogContent className="rounded-[2rem]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-black text-primary">Apagar dia da chamada?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-600 font-medium">
+              {deleteTarget
+                ? `Isso vai remover a chamada do dia ${new Date(deleteTarget.date + "T00:00:00").toLocaleDateString("pt-BR")}. Essa ação não pode ser desfeita.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-2xl font-black">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-2xl font-black bg-rose-600 hover:bg-rose-700 text-white"
+              onClick={confirmDelete}
+            >
+              Apagar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-primary tracking-tight">Chamada</h2>
@@ -352,9 +404,31 @@ export default function ClassAttendance({
                             <p className="text-xs font-bold text-slate-400">Criada em {new Date(s.createdAt).toLocaleString("pt-BR")}</p>
                           </div>
                         </div>
-                        {isActive && (
-                          <Badge className="rounded-full bg-secondary text-primary font-black border-none">Selecionada</Badge>
-                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                              "rounded-2xl",
+                              isActive
+                                ? "text-rose-700 hover:text-rose-800 hover:bg-rose-600/10"
+                                : "text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
+                            )}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDeleteTarget(s);
+                            }}
+                            title="Apagar dia"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+
+                          {isActive && (
+                            <Badge className="rounded-full bg-secondary text-primary font-black border-none">Selecionada</Badge>
+                          )}
+                        </div>
                       </div>
                     </button>
                   );

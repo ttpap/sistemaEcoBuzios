@@ -46,6 +46,14 @@ export function upsertAttendanceSession(session: AttendanceSession) {
   saveAllAttendance(next);
 }
 
+export function deleteAttendanceSession(sessionId: string): boolean {
+  const all = getAllAttendance();
+  const next = all.filter((s) => s.id !== sessionId);
+  if (next.length === all.length) return false;
+  saveAllAttendance(next);
+  return true;
+}
+
 export function findAttendanceByClassAndDate(classId: string, date: string) {
   return getAllAttendance().find((s) => s.classId === classId && s.date === date);
 }
