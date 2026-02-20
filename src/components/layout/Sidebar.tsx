@@ -14,6 +14,7 @@ import {
   FileText,
   BadgeCheck,
   NotebookPen,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -31,6 +32,7 @@ const Sidebar = () => {
       { icon: FolderPlus, label: 'Projetos', path: '/projetos' },
       { icon: Users, label: 'Professores', path: '/professores' },
       { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
+      { icon: Link2, label: 'Link de inscrição', path: '/inscricao' },
     ];
     if (!activeProject) return base;
 

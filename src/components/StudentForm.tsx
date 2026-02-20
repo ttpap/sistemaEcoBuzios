@@ -156,9 +156,19 @@ const formSchema = z.object({
 
 interface StudentFormProps {
   initialData?: StudentRegistration | null;
+  redirectTo?: string | null;
+  hideDiscard?: boolean;
+  submitLabel?: string;
+  onCompleted?: (registration: string) => void;
 }
 
-const StudentForm = ({ initialData }: StudentFormProps) => {
+const StudentForm = ({
+  initialData,
+  redirectTo,
+  hideDiscard = false,
+  submitLabel,
+  onCompleted,
+}: StudentFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
@@ -245,6 +255,9 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       writeGlobalStudents(updated);
 
       showSuccess("Dados atualizados!");
+
+      const reg = String((initialData as any).registration || "");
+      if (reg) onCompleted?.(reg);
     } else {
       const year = new Date().getFullYear();
       const yearStudents = existingStudents.filter((s: any) => s.registration?.startsWith(year.toString()));
@@ -262,9 +275,11 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
       writeGlobalStudents([...existingStudents, newStudent]);
 
       showSuccess("Inscrição realizada!");
+      onCompleted?.(registration);
     }
-    navigate(`${base}/alunos`);
 
+    const target = redirectTo === undefined ? `${base}/alunos` : redirectTo;
+    if (target !== null) navigate(target);
   }
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
@@ -584,9 +599,21 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
             <p className="text-slate-500 font-medium">Revise os dados antes de confirmar a inscrição no sistema.</p>
           </div>
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 pt-4">
-            <Button type="button" variant="outline" className="rounded-2xl px-10 h-14 font-bold text-slate-600 border-slate-200 hover:bg-slate-100" onClick={() => navigate(`${base}/alunos`)}>Descartar Alterações</Button>
+            {!hideDiscard && (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-2xl px-10 h-14 font-bold text-slate-600 border-slate-200 hover:bg-slate-100"
+                onClick={() => navigate(`${base}/alunos`)}
+              >
+                Descartar Alterações
+              </Button>
+            )}
 
-            <Button type="submit" className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg"><Save className="h-6 w-6" />{initialData ? 'Salvar Alterações' : 'Finalizar Inscrição'}</Button>
+            <Button type="submit" className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg">
+              <Save className="h-6 w-6" />
+              {submitLabel || (initialData ? 'Salvar Alterações' : 'Finalizar Inscrição')}
+            </Button>
           </div>
         </div>
       </form>

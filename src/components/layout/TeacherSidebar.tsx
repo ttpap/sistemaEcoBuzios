@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Layers,
   UserCog,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
@@ -45,6 +46,7 @@ export default function TeacherSidebar() {
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
+      { icon: Link2, label: "Link de inscrição", path: "/inscricao" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
       { icon: UserCog, label: "Minha conta", path: "/professor/conta" },

@@ -37,6 +37,7 @@ import CoordinatorAccount from "@/pages/CoordinatorAccount";
 import CoordinatorTeachers from "@/pages/CoordinatorTeachers";
 import CoordinatorNewTeacher from "@/pages/CoordinatorNewTeacher";
 import CoordinatorEditTeacher from "@/pages/CoordinatorEditTeacher";
+import PublicStudentRegistration from "@/pages/PublicStudentRegistration";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
         <ProjectTheme />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/inscricao" element={<PublicStudentRegistration />} />
 
           <Route
             path="/professor/login"

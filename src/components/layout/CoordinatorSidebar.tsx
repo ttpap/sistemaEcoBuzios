@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Layers,
   UserCog,
+  Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
@@ -49,6 +50,7 @@ export default function CoordinatorSidebar() {
       { icon: GraduationCap, label: "Alunos", path: "/coordenador/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/coordenador/turmas" },
       { icon: UserCog, label: "Professores", path: "/coordenador/professores" },
+      { icon: Link2, label: "Link de inscrição", path: "/inscricao" },
       { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/coordenador/relatorios/mensais" },
       { icon: UserCog, label: "Minha conta", path: "/coordenador/conta" },
