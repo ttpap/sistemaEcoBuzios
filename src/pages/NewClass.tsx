@@ -1,13 +1,16 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const NewClass = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
+  const base = isTeacherArea ? '/professor' : '';
 
   return (
     <div className="space-y-8">
@@ -16,7 +19,7 @@ const NewClass = () => {
           variant="ghost" 
           size="icon" 
           className="rounded-xl bg-white shadow-sm border border-slate-100"
-          onClick={() => navigate('/turmas')}
+          onClick={() => navigate(`${base}/turmas`)}
         >
           <ArrowLeft className="h-5 w-5 text-slate-600" />
         </Button>

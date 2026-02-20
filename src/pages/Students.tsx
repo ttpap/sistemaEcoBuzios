@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, GraduationCap, Eye, Edit2, Trash2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { StudentRegistration } from '@/types/student';
 import { SchoolClass } from '@/types/class';
@@ -25,6 +25,10 @@ import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/sto
 
 const Students = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
+  const base = isTeacherArea ? '/professor' : '';
+
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
 
@@ -219,7 +223,7 @@ const Students = () => {
           </Button>
           <Button
             className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
-            onClick={() => navigate('/alunos/novo')}
+            onClick={() => navigate(`${base}/alunos/novo`)}
           >
             <Plus className="h-5 w-5" />
             Novo Aluno
@@ -303,7 +307,7 @@ const Students = () => {
                         variant="ghost"
                         size="icon"
                         className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10"
-                        onClick={() => navigate(`/alunos/editar/${student.id}`)}
+                        onClick={() => navigate(`${base}/alunos/editar/${student.id}`)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>

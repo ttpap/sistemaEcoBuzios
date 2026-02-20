@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { showSuccess } from '@/utils/toast';
 import { readScoped, writeScoped } from '@/utils/storage';
 
 const Classes = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
+  const base = isTeacherArea ? '/professor' : '';
+
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -43,7 +47,7 @@ const Classes = () => {
         </div>
         <Button
           className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
-          onClick={() => navigate('/turmas/nova')}
+          onClick={() => navigate(`${base}/turmas/nova`)}
         >
           <Plus className="h-5 w-5" />
           Nova Turma
@@ -73,7 +77,7 @@ const Classes = () => {
             <Card
               key={cls.id}
               className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer"
-              onClick={() => navigate(`/turmas/${cls.id}`)}
+              onClick={() => navigate(`${base}/turmas/${cls.id}`)}
             >
               <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
                 <div className="flex items-center justify-between">
@@ -106,7 +110,7 @@ const Classes = () => {
                   <Button
                     variant="outline"
                     className="flex-1 rounded-xl gap-2 font-bold border-slate-100 hover:bg-primary hover:text-white transition-all"
-                    onClick={() => navigate(`/turmas/editar/${cls.id}`)}
+                    onClick={() => navigate(`${base}/turmas/editar/${cls.id}`)}
                   >
                     <Edit2 className="h-4 w-4" />
                     Editar

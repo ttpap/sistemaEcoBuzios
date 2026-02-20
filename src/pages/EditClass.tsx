@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -11,6 +11,10 @@ import { readScoped } from '@/utils/storage';
 const EditClass = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
+  const base = isTeacherArea ? '/professor' : '';
+
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
 
   useEffect(() => {
@@ -19,9 +23,9 @@ const EditClass = () => {
     if (found) {
       setSchoolClass(found);
     } else {
-      navigate('/turmas');
+      navigate(`${base}/turmas`);
     }
-  }, [id, navigate]);
+  }, [id, navigate, base]);
 
   if (!schoolClass) {
     return (
@@ -38,7 +42,7 @@ const EditClass = () => {
           variant="ghost" 
           size="icon" 
           className="rounded-xl bg-white shadow-sm border border-slate-100"
-          onClick={() => navigate('/turmas')}
+          onClick={() => navigate(`${base}/turmas`)}
         >
           <ArrowLeft className="h-5 w-5 text-slate-600" />
         </Button>

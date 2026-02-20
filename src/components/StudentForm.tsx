@@ -18,7 +18,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { showSuccess } from '@/utils/toast';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
@@ -158,6 +159,10 @@ interface StudentFormProps {
 
 const StudentForm = ({ initialData }: StudentFormProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = location.pathname.startsWith('/professor');
+  const base = isTeacherArea ? '/professor' : '';
+
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -258,7 +263,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
 
       showSuccess("Inscrição realizada!");
     }
-    navigate('/alunos');
+    navigate(`${base}/alunos`);
+
   }
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
@@ -578,7 +584,8 @@ const StudentForm = ({ initialData }: StudentFormProps) => {
             <p className="text-slate-500 font-medium">Revise os dados antes de confirmar a inscrição no sistema.</p>
           </div>
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 pt-4">
-            <Button type="button" variant="outline" className="rounded-2xl px-10 h-14 font-bold text-slate-600 border-slate-200 hover:bg-slate-100" onClick={() => navigate('/alunos')}>Descartar Alterações</Button>
+            <Button type="button" variant="outline" className="rounded-2xl px-10 h-14 font-bold text-slate-600 border-slate-200 hover:bg-slate-100" onClick={() => navigate(`${base}/alunos`)}>Descartar Alterações</Button>
+
             <Button type="submit" className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg"><Save className="h-6 w-6" />{initialData ? 'Salvar Alterações' : 'Finalizar Inscrição'}</Button>
           </div>
         </div>

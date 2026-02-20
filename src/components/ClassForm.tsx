@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { showSuccess } from '@/utils/toast';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { readScoped, writeScoped } from '@/utils/storage';
 
@@ -32,6 +32,9 @@ interface ClassFormProps {
 
 const ClassForm = ({ initialData }: ClassFormProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
+  const base = isTeacherArea ? '/professor' : '';
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -74,7 +77,7 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
       writeScoped('classes', [...existing, newClass]);
       showSuccess("Turma criada com sucesso!");
     }
-    navigate('/turmas');
+    navigate(`${base}/turmas`);
   }
 
   return (
@@ -182,7 +185,14 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
         </Card>
 
         <div className="flex justify-center gap-4">
-          <Button type="button" variant="outline" className="rounded-2xl px-8 h-12 font-bold" onClick={() => navigate('/turmas')}>Cancelar</Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-2xl px-8 h-12 font-bold"
+            onClick={() => navigate(`${base}/turmas`)}
+          >
+            Cancelar
+          </Button>
           <Button type="submit" className="rounded-2xl px-12 h-12 font-black gap-2 shadow-xl shadow-primary/20">
             <Save className="h-4 w-4" />
             {initialData ? 'Salvar Alterações' : 'Criar Turma'}

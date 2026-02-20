@@ -51,7 +51,7 @@ const App = () => (
                   <main className="flex-1 p-8 overflow-y-auto">
                     <Routes>
                       <Route
-                        path="/"
+                        index
                         element={
                           <ActiveProjectGate>
                             <Dashboard />
@@ -59,7 +59,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/alunos"
+                        path="alunos"
                         element={
                           <ActiveProjectGate>
                             <Students />
@@ -67,7 +67,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/alunos/novo"
+                        path="alunos/novo"
                         element={
                           <ActiveProjectGate>
                             <NewStudent />
@@ -75,7 +75,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/alunos/editar/:id"
+                        path="alunos/editar/:id"
                         element={
                           <ActiveProjectGate>
                             <EditStudent />
@@ -83,7 +83,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/turmas"
+                        path="turmas"
                         element={
                           <ActiveProjectGate>
                             <Classes />
@@ -91,7 +91,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/turmas/nova"
+                        path="turmas/nova"
                         element={
                           <ActiveProjectGate>
                             <NewClass />
@@ -99,7 +99,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/turmas/editar/:id"
+                        path="turmas/editar/:id"
                         element={
                           <ActiveProjectGate>
                             <EditClass />
@@ -107,7 +107,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/turmas/:id"
+                        path="turmas/:id"
                         element={
                           <ActiveProjectGate>
                             <ClassDetails />
@@ -115,7 +115,7 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/relatorios"
+                        path="relatorios"
                         element={
                           <ActiveProjectGate>
                             <Reports />

@@ -4,10 +4,13 @@ import React from 'react';
 import StudentForm from '@/components/StudentForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const NewStudent = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = location.pathname.startsWith('/professor');
+  const base = isTeacherArea ? '/professor' : '';
 
   return (
     <div className="space-y-8">
@@ -16,7 +19,7 @@ const NewStudent = () => {
           variant="ghost" 
           size="icon" 
           className="rounded-xl bg-white shadow-sm border border-slate-100"
-          onClick={() => navigate('/alunos')}
+          onClick={() => navigate(`${base}/alunos`)}
         >
           <ArrowLeft className="h-5 w-5 text-slate-600" />
         </Button>

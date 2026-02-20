@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+
 import StudentForm from '@/components/StudentForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -11,6 +12,10 @@ import { readGlobalStudents } from '@/utils/storage';
 const EditStudent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = location.pathname.startsWith('/professor');
+  const base = isTeacherArea ? '/professor' : '';
+
   const [student, setStudent] = useState<StudentRegistration | null>(null);
 
   useEffect(() => {
@@ -19,9 +24,10 @@ const EditStudent = () => {
     if (found) {
       setStudent(found);
     } else {
-      navigate('/alunos');
+      navigate(`${base}/alunos`);
+
     }
-  }, [id, navigate]);
+  }, [id, navigate, base]);
 
   if (!student) {
     return (
@@ -38,7 +44,7 @@ const EditStudent = () => {
           variant="ghost" 
           size="icon" 
           className="rounded-xl bg-white shadow-sm border border-slate-100"
-          onClick={() => navigate('/alunos')}
+          onClick={() => navigate(`${base}/alunos`)}
         >
           <ArrowLeft className="h-5 w-5 text-slate-600" />
         </Button>

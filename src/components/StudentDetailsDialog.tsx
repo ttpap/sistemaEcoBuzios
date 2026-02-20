@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
 import {
   Dialog,
   DialogContent,
@@ -88,6 +89,7 @@ const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
 
 const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialogProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const classesForStudent = useMemo(() => {
     if (!student) return [] as SchoolClass[];
@@ -117,7 +119,9 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
   const onEdit = () => {
     onClose();
-    navigate(`/alunos/editar/${student.id}`);
+    const isTeacherArea = location.pathname.startsWith('/professor');
+    const base = isTeacherArea ? '/professor' : '';
+    navigate(`${base}/alunos/editar/${student.id}`);
   };
 
   return (
