@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 
@@ -25,6 +25,7 @@ import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/utils/student-auth';
+import { allocateNewStudentRegistration } from '@/utils/student-registration';
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
@@ -266,10 +267,13 @@ const StudentForm = ({
         });
       }
     } else {
-      const year = new Date().getFullYear();
-      const yearStudents = existingStudents.filter((s: any) => s.registration?.startsWith(year.toString()));
-      const nextNumber = yearStudents.length + 1;
-      const registration = `${year}-${nextNumber.toString().padStart(4, '0')}`;
+      let registration = "";
+      try {
+        registration = allocateNewStudentRegistration(existingStudents);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível gerar a matrícula.");
+        return;
+      }
 
       const newStudent = {
         ...studentData,

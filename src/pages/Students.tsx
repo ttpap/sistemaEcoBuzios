@@ -22,6 +22,7 @@ import { SchoolClass } from '@/types/class';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
+import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const Students = () => {
@@ -40,25 +41,13 @@ const Students = () => {
     const saved = readGlobalStudents<StudentRegistration[]>([]);
     setClasses(readScoped<SchoolClass[]>('classes', []));
 
-    // Migração de matrículas antigas para o novo padrão sequencial formatado (YYYY-XXXX)
-    let changed = false;
-    const migrated = saved.map((s: any, index: number) => {
-      const needsMigration = !s.registration || !s.registration.includes('-') || s.registration.length < 9;
+    // Garante que as matrículas estejam no padrão YYYY-XXXX e que o sufixo XXXX seja ÚNICO
+    // (o login do aluno é baseado nos 4 últimos dígitos).
+    const normalized = normalizeStudentRegistrations(saved);
 
-      if (needsMigration) {
-        const year = new Date(s.registrationDate || Date.now()).getFullYear();
-        // Se já tinha um número mas sem hífen, tenta preservar o final
-        const lastDigits = s.registration ? s.registration.slice(-4) : (index + 1).toString().padStart(4, '0');
-        const reg = `${year}-${lastDigits}`;
-        changed = true;
-        return { ...s, registration: reg };
-      }
-      return s;
-    });
-
-    if (changed) {
-      writeGlobalStudents(migrated);
-      setStudents(migrated);
+    if (normalized.changed) {
+      writeGlobalStudents(normalized.students);
+      setStudents(normalized.students);
     } else {
       setStudents(saved);
     }
