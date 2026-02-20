@@ -22,7 +22,7 @@ export default function PublicStudentRegistration() {
   const navigate = useNavigate();
   const url = useMemo(() => getSelfRegistrationUrl(), []);
 
-  const [done, setDone] = useState<{ registration: string } | null>(null);
+  const [done, setDone] = useState<{ registration: string; login: string; password: string } | null>(null);
 
   const copy = async (text: string) => {
     try {
@@ -105,21 +105,42 @@ export default function PublicStudentRegistration() {
 
                   <h2 className="mt-5 text-2xl font-black text-slate-900 tracking-tight">Inscrição enviada!</h2>
                   <p className="mt-2 text-slate-600 font-medium">
-                    Anote seu número de matrícula e apresente a um gestor do projeto no momento de entrar em uma turma.
+                    Anote sua matrícula e suas credenciais de acesso. No dia da matrícula na turma, entregue sua matrícula a um gestor do projeto.
                   </p>
 
-                  <div className="mt-6 flex flex-col items-center gap-3">
-                    <Badge className="rounded-full bg-primary text-white border-none px-5 py-2 text-lg font-black tracking-wide">
-                      Matrícula: {done.registration}
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      className="rounded-2xl font-black"
-                      onClick={() => copy(done.registration)}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar matrícula
-                    </Button>
+                  <div className="mt-6 grid gap-3">
+                    <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5 text-left">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Matrícula</p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-lg font-black text-slate-900 break-all">{done.registration}</p>
+                        <Button variant="outline" className="rounded-2xl font-black" onClick={() => copy(done.registration)}>
+                          <Copy className="h-4 w-4 mr-2" /> Copiar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[2rem] border border-slate-100 bg-white p-5 text-left">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Login</p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-black text-slate-800 break-all">{done.login}</p>
+                        <Button variant="outline" className="rounded-2xl font-black" onClick={() => copy(done.login)}>
+                          <Copy className="h-4 w-4 mr-2" /> Copiar
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[2rem] border border-slate-100 bg-white p-5 text-left">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</p>
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-black text-slate-800 break-all">{done.password}</p>
+                        <Button variant="outline" className="rounded-2xl font-black" onClick={() => copy(done.password)}>
+                          <Copy className="h-4 w-4 mr-2" /> Copiar
+                        </Button>
+                      </div>
+                      <p className="mt-2 text-xs font-bold text-slate-500">
+                        Por padrão, a senha é a <span className="font-black">data de nascimento</span> informada na inscrição.
+                      </p>
+                    </div>
                   </div>
 
                   <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -131,6 +152,13 @@ export default function PublicStudentRegistration() {
                       }}
                     >
                       Fazer outra inscrição
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="rounded-2xl font-black h-12 px-6"
+                      onClick={() => navigate("/aluno/login")}
+                    >
+                      Ir para área do aluno
                     </Button>
                     <Button
                       variant="ghost"
@@ -147,7 +175,7 @@ export default function PublicStudentRegistration() {
                 redirectTo={null}
                 hideDiscard
                 submitLabel="Finalizar inscrição"
-                onCompleted={(reg) => setDone({ registration: reg })}
+                onCompleted={(result) => setDone(result)}
               />
             )}
           </div>

@@ -159,7 +159,7 @@ interface StudentFormProps {
   redirectTo?: string | null;
   hideDiscard?: boolean;
   submitLabel?: string;
-  onCompleted?: (registration: string) => void;
+  onCompleted?: (result: { registration: string; login: string; password: string }) => void;
 }
 
 const StudentForm = ({
@@ -257,7 +257,13 @@ const StudentForm = ({
       showSuccess("Dados atualizados!");
 
       const reg = String((initialData as any).registration || "");
-      if (reg) onCompleted?.(reg);
+      if (reg) {
+        onCompleted?.({
+          registration: reg,
+          login: reg,
+          password: String(values.birthDate || "").trim(),
+        });
+      }
     } else {
       const year = new Date().getFullYear();
       const yearStudents = existingStudents.filter((s: any) => s.registration?.startsWith(year.toString()));
@@ -275,7 +281,11 @@ const StudentForm = ({
       writeGlobalStudents([...existingStudents, newStudent]);
 
       showSuccess("Inscrição realizada!");
-      onCompleted?.(registration);
+      onCompleted?.({
+        registration,
+        login: registration,
+        password: String(values.birthDate || "").trim(),
+      });
     }
 
     const target = redirectTo === undefined ? `${base}/alunos` : redirectTo;
