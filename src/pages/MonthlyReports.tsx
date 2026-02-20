@@ -25,12 +25,15 @@ import {
 import { cn } from "@/lib/utils";
 import { getActiveProject } from "@/utils/projects";
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
+import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
 import { readGlobalStudents, readScoped } from "@/utils/storage";
 import type { SchoolClass } from "@/types/class";
 import type { StudentRegistration } from "@/types/student";
 import type { MonthlyReport } from "@/types/monthly-report";
 import { getAllMonthlyReports, getMonthlyReportById, upsertMonthlyReport } from "@/utils/monthly-reports";
+import { getAllCoordinatorMonthlyReports, getCoordinatorMonthlyReportById, upsertCoordinatorMonthlyReport } from "@/utils/coordinator-monthly-reports";
 import { readGlobalTeachers } from "@/utils/teachers";
+import { readGlobalCoordinators } from "@/utils/coordinators";
 import RichTextEditor from "@/components/RichTextEditor";
 import { showError, showSuccess } from "@/utils/toast";
 import {
@@ -66,7 +69,11 @@ function filenameMonthOptions() {
   });
 }
 
-function statusBadge(r: MonthlyReport) {
+type ReportLike = {
+  submittedAt?: string;
+};
+
+function statusBadge(r: ReportLike) {
   const submitted = Boolean(r.submittedAt);
   if (submitted) {
     return (
@@ -101,14 +108,24 @@ export default function MonthlyReports() {
   const params = useParams();
 
   const isTeacherArea = location.pathname.startsWith("/professor");
+  const isCoordinatorArea = location.pathname.startsWith("/coordenador");
+
   const teacherId = useMemo(() => (isTeacherArea ? getTeacherSessionTeacherId() : null), [isTeacherArea]);
+  const coordinatorId = useMemo(
+    () => (isCoordinatorArea ? getCoordinatorSessionCoordinatorId() : null),
+    [isCoordinatorArea],
+  );
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
   const projectId = activeProject?.id || null;
 
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
-  const basePath = isTeacherArea ? "/professor/relatorios/mensais" : "/relatorios/mensais";
+  const basePath = isTeacherArea
+    ? "/professor/relatorios/mensais"
+    : isCoordinatorArea
+      ? "/coordenador/relatorios/mensais"
+      : "/relatorios/mensais";
 
   const now = new Date();
   const monthParts = nowMonthKey(now).split("-");
@@ -125,59 +142,123 @@ export default function MonthlyReports() {
     return map;
   }, []);
 
+  const coordinatorsById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of readGlobalCoordinators([])) map.set(c.id, c.fullName);
+    return map;
+  }, []);
+
   const classes = useMemo(() => readScoped<SchoolClass[]>("classes", []), [projectId]);
   const students = useMemo(() => readGlobalStudents<StudentRegistration[]>([]), [projectId]);
 
   const selectableStudents = useMemo(() => projectStudentPool(classes, students), [classes, students]);
 
-  const allReports = useMemo(() => {
+  const teacherReportsAll = useMemo(() => {
     if (!projectId) return [];
     return getAllMonthlyReports(projectId);
   }, [projectId]);
 
+  const coordinatorReportsAll = useMemo(() => {
+    if (!projectId) return [];
+    return getAllCoordinatorMonthlyReports(projectId);
+  }, [projectId]);
+
   const reports = useMemo(() => {
-    if (!teacherId && isTeacherArea) return [];
-    const list = isTeacherArea ? allReports.filter((r) => r.teacherId === teacherId) : allReports;
-    return [...list].sort((a, b) => {
+    if (isTeacherArea) {
+      if (!teacherId) return [];
+      const list = teacherReportsAll.filter((r) => r.teacherId === teacherId);
+      return [...list].sort((a, b) => {
+        const md = b.month.localeCompare(a.month);
+        if (md !== 0) return md;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    }
+
+    if (isCoordinatorArea) {
+      if (!coordinatorId) return [];
+      // Coordinator can see teacher reports + their own coordinator reports
+      const ownCoord = coordinatorReportsAll.filter((r) => r.coordinatorId === coordinatorId);
+      const list = [...teacherReportsAll, ...ownCoord];
+      return list.sort((a: any, b: any) => {
+        const md = b.month.localeCompare(a.month);
+        if (md !== 0) return md;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    }
+
+    // Admin sees teacher reports + coordinator reports
+    const list = [...teacherReportsAll, ...coordinatorReportsAll];
+    return list.sort((a: any, b: any) => {
       const md = b.month.localeCompare(a.month);
       if (md !== 0) return md;
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
-  }, [allReports, isTeacherArea, teacherId]);
+  }, [teacherReportsAll, coordinatorReportsAll, isTeacherArea, isCoordinatorArea, teacherId, coordinatorId]);
 
   const reportId = params.id || null;
 
   const openedReport = useMemo(() => {
     if (!projectId || !reportId) return null;
-    return getMonthlyReportById(projectId, reportId);
-  }, [projectId, reportId, reports.length]);
 
-  const [draft, setDraft] = useState<MonthlyReport | null>(null);
+    // Teacher area: only teacher report
+    if (isTeacherArea) return getMonthlyReportById(projectId, reportId);
 
-  // Initialize draft when opening a report.
+    // Admin/Coordinator area: try teacher report first, then coordinator report
+    return getMonthlyReportById(projectId, reportId) || getCoordinatorMonthlyReportById(projectId, reportId);
+  }, [projectId, reportId, reports.length, isTeacherArea, isCoordinatorArea]);
+
+  const [draft, setDraft] = useState<(MonthlyReport & { authorRole?: "teacher" | "coordinator" }) | null>(null);
+
   React.useEffect(() => {
     if (!openedReport) {
       setDraft(null);
       return;
     }
-    setDraft({ ...openedReport });
+
+    const authorRole = "teacherId" in openedReport ? "teacher" : "coordinator";
+    setDraft({ ...(openedReport as any), authorRole });
   }, [openedReport?.id]);
 
   const canEdit = useMemo(() => {
     if (!draft) return false;
-    if (!isTeacherArea) return false;
-    if (!teacherId) return false;
-    if (draft.teacherId !== teacherId) return false;
-    // Permite editar mesmo após envio; o professor pode ajustar e reenviar.
-    return true;
-  }, [draft, isTeacherArea, teacherId]);
+
+    // Teacher can edit only their own teacher report
+    if (isTeacherArea) {
+      if (!teacherId) return false;
+      if (draft.authorRole !== "teacher") return false;
+      return (draft as any).teacherId === teacherId;
+    }
+
+    // Coordinator can edit only their own coordinator report
+    if (isCoordinatorArea) {
+      if (!coordinatorId) return false;
+      if (draft.authorRole !== "coordinator") return false;
+      return (draft as any).coordinatorId === coordinatorId;
+    }
+
+    // Admin is view-only here
+    return false;
+  }, [draft, isTeacherArea, isCoordinatorArea, teacherId, coordinatorId]);
 
   const hasAccessToOpenedReport = useMemo(() => {
     if (!openedReport) return true;
-    if (!isTeacherArea) return true;
-    if (!teacherId) return false;
-    return openedReport.teacherId === teacherId;
-  }, [openedReport, isTeacherArea, teacherId]);
+
+    // Teacher can access only their own teacher report
+    if (isTeacherArea) {
+      if (!teacherId) return false;
+      return "teacherId" in openedReport && openedReport.teacherId === teacherId;
+    }
+
+    // Coordinator area: coordinator can see teacher reports and their own coordinator reports
+    if (isCoordinatorArea) {
+      if (!coordinatorId) return false;
+      if ("teacherId" in openedReport) return true;
+      return openedReport.coordinatorId === coordinatorId;
+    }
+
+    // Admin: can see both
+    return true;
+  }, [openedReport, isTeacherArea, isCoordinatorArea, teacherId, coordinatorId]);
 
   const yearOptions = useMemo(() => {
     const y = now.getFullYear();
@@ -187,36 +268,75 @@ export default function MonthlyReports() {
   const monthOptions = useMemo(() => filenameMonthOptions(), []);
 
   const createOrOpenForMonth = () => {
-    if (!projectId || !teacherId) return;
+    if (!projectId) return;
 
-    const existing = reports.find((r) => r.teacherId === teacherId && r.month === monthKey) || null;
-    if (existing) {
-      navigate(`${basePath}/${existing.id}`);
+    // Teacher creates teacher report
+    if (isTeacherArea) {
+      if (!teacherId) return;
+      const existing = teacherReportsAll.find((r) => r.teacherId === teacherId && r.month === monthKey) || null;
+      if (existing) {
+        navigate(`${basePath}/${existing.id}`);
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const next: MonthlyReport = {
+        id: crypto.randomUUID(),
+        projectId,
+        teacherId,
+        month: monthKey,
+        strategyHtml: "",
+        adaptationHtml: "",
+        observationHtml: "",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      upsertMonthlyReport(projectId, next);
+      showSuccess("Relatório criado. Preencha e clique em Enviar.");
+      navigate(`${basePath}/${next.id}`);
       return;
     }
 
-    const nowIso = new Date().toISOString();
-    const next: MonthlyReport = {
-      id: crypto.randomUUID(),
-      projectId,
-      teacherId,
-      month: monthKey,
-      strategyHtml: "",
-      adaptationHtml: "",
-      observationHtml: "",
-      createdAt: nowIso,
-      updatedAt: nowIso,
-    };
+    // Coordinator creates coordinator report
+    if (isCoordinatorArea) {
+      if (!coordinatorId) return;
+      const existing = coordinatorReportsAll.find((r) => r.coordinatorId === coordinatorId && r.month === monthKey) || null;
+      if (existing) {
+        navigate(`${basePath}/${existing.id}`);
+        return;
+      }
 
-    upsertMonthlyReport(projectId, next);
-    showSuccess("Relatório criado. Preencha e clique em Enviar.");
-    navigate(`${basePath}/${next.id}`);
+      const nowIso = new Date().toISOString();
+      const next: any = {
+        id: crypto.randomUUID(),
+        projectId,
+        coordinatorId,
+        month: monthKey,
+        strategyHtml: "",
+        adaptationHtml: "",
+        observationHtml: "",
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      upsertCoordinatorMonthlyReport(projectId, next);
+      showSuccess("Relatório do coordenador criado. Preencha e clique em Enviar.");
+      navigate(`${basePath}/${next.id}`);
+      return;
+    }
   };
 
   const saveDraft = () => {
     if (!projectId || !draft) return;
-    const next = { ...draft, updatedAt: new Date().toISOString() };
-    upsertMonthlyReport(projectId, next);
+    if (!canEdit) return;
+
+    const next = { ...(draft as any), updatedAt: new Date().toISOString() };
+    if (draft.authorRole === "teacher") {
+      upsertMonthlyReport(projectId, next);
+    } else {
+      upsertCoordinatorMonthlyReport(projectId, next);
+    }
     setDraft(next);
     showSuccess("Rascunho salvo.");
   };
@@ -226,15 +346,21 @@ export default function MonthlyReports() {
     if (!canEdit) return;
 
     const nowIso = new Date().toISOString();
-    const next: MonthlyReport = {
-      ...draft,
+    const next: any = {
+      ...(draft as any),
       updatedAt: nowIso,
       submittedAt: nowIso,
     };
-    upsertMonthlyReport(projectId, next);
+
+    if (draft.authorRole === "teacher") {
+      upsertMonthlyReport(projectId, next);
+    } else {
+      upsertCoordinatorMonthlyReport(projectId, next);
+    }
+
     setDraft(next);
     setConfirmSubmitOpen(false);
-    showSuccess(next.submittedAt ? "Relatório enviado/atualizado para o administrador." : "Relatório enviado ao administrador.");
+    showSuccess("Relatório enviado/atualizado.");
   };
 
   if (!activeProject) {
@@ -285,7 +411,9 @@ export default function MonthlyReports() {
               </div>
               <p className="mt-4 text-sm font-black text-slate-700">Acesso restrito</p>
               <p className="text-xs font-bold text-slate-500 mt-1">
-                Este relatório só pode ser acessado pelo professor que criou e pelo administrador.
+                {isCoordinatorArea
+                  ? "Relatórios do coordenador só podem ser acessados pelo coordenador que criou e pelo administrador."
+                  : "Este relatório só pode ser acessado pelo professor que criou e pelo administrador."}
               </p>
             </CardContent>
           </Card>
@@ -293,8 +421,8 @@ export default function MonthlyReports() {
       );
     }
 
-    const effective = draft || openedReport;
-    const alreadySubmitted = Boolean(effective.submittedAt);
+    const effective = draft || (openedReport as any);
+    const alreadySubmitted = Boolean((effective as any).submittedAt);
 
     return (
       <div className="space-y-6">
@@ -392,14 +520,18 @@ export default function MonthlyReports() {
                 </div>
 
                 <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Professor</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {draft?.authorRole === "coordinator" ? "Coordenador" : "Professor"}
+                  </p>
                   <div className="mt-2 flex items-center gap-2">
                     <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
                       <User className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-black text-slate-800 truncate">
-                        {teachersById.get(openedReport.teacherId) || "Professor"}
+                        {draft?.authorRole === "coordinator"
+                          ? coordinatorsById.get((openedReport as any).coordinatorId) || "Coordenador"
+                          : teachersById.get((openedReport as any).teacherId) || "Professor"}
                       </p>
                       <p className="text-xs font-bold text-slate-500">
                         {effective.submittedAt
@@ -537,11 +669,15 @@ export default function MonthlyReports() {
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Relatório mensal</h1>
           <p className="text-slate-500 font-medium">
-            Envie seu relatório para o administrador do projeto e acompanhe o histórico.
+            {isTeacherArea
+              ? "Envie seu relatório para o administrador do projeto e acompanhe o histórico."
+              : isCoordinatorArea
+                ? "Veja os relatórios dos professores e faça também o relatório do coordenador (visível só para você e o administrador)."
+                : "Veja os relatórios dos professores e do coordenador neste projeto."}
           </p>
         </div>
 
-        {isTeacherArea && (
+        {(isTeacherArea || isCoordinatorArea) && (
           <div className="flex flex-col gap-2 sm:items-end">
             <div className="grid gap-2 grid-cols-2">
               <Select value={selectedMonthPart} onValueChange={setSelectedMonthPart}>
@@ -574,8 +710,12 @@ export default function MonthlyReports() {
             <Button
               className="rounded-2xl gap-2 h-11 font-black shadow-lg shadow-primary/20"
               onClick={() => {
-                if (!teacherId) {
+                if (isTeacherArea && !teacherId) {
                   showError("Sessão do professor inválida.");
+                  return;
+                }
+                if (isCoordinatorArea && !coordinatorId) {
+                  showError("Sessão do coordenador inválida.");
                   return;
                 }
                 createOrOpenForMonth();
@@ -603,7 +743,10 @@ export default function MonthlyReports() {
           </Card>
         ) : (
           reports.map((r) => {
-            const teacherName = teachersById.get(r.teacherId) || "Professor";
+            const authorName = "teacherId" in (r as any)
+              ? (teachersById.get((r as any).teacherId) || "Professor")
+              : (coordinatorsById.get((r as any).coordinatorId) || "Coordenador");
+
             return (
               <button
                 key={r.id}
@@ -617,7 +760,7 @@ export default function MonthlyReports() {
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{monthLabel(r.month)}</p>
                         <p className="text-lg font-black text-primary mt-1">Relatório mensal</p>
                         {!isTeacherArea && (
-                          <p className="mt-2 text-sm font-bold text-slate-600 truncate">{teacherName}</p>
+                          <p className="mt-2 text-sm font-bold text-slate-600 truncate">{authorName}</p>
                         )}
                       </div>
                       {statusBadge(r)}

@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents } from '@/utils/storage';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const EditStudent = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = location.pathname.startsWith('/professor');
-  const base = isTeacherArea ? '/professor' : '';
+  const base = getAreaBaseFromPathname(location.pathname);
 
   const [student, setStudent] = useState<StudentRegistration | null>(null);
 

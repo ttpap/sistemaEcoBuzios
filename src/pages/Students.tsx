@@ -22,12 +22,12 @@ import { SchoolClass } from '@/types/class';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const Students = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
-  const base = isTeacherArea ? '/professor' : '';
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);

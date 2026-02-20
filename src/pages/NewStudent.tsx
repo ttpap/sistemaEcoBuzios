@@ -5,12 +5,12 @@ import StudentForm from '@/components/StudentForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const NewStudent = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = location.pathname.startsWith('/professor');
-  const base = isTeacherArea ? '/professor' : '';
+  const base = getAreaBaseFromPathname(location.pathname);
 
   return (
     <div className="space-y-8">

@@ -25,6 +25,7 @@ import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped } from "@/utils/storage";
 import { getActiveProject } from "@/utils/projects";
 import { getSystemLogo } from "@/utils/system-settings";
+import { getAreaBaseFromPathname } from "@/utils/route-base";
 
 import {
   BarChart3,
@@ -247,7 +248,7 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = location.pathname.startsWith("/professor");
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -420,7 +421,7 @@ export default function Reports() {
 
           <Card
             className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
-            onClick={() => navigate(isTeacherArea ? "/professor/relatorios/mensais" : "/relatorios/mensais")}
+            onClick={() => navigate(`${base}/relatorios/mensais`)}
           >
             <div className="p-7 bg-slate-50/60 border-b border-slate-100">
               <div className="flex items-center justify-between">

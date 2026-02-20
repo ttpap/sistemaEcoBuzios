@@ -10,12 +10,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { showSuccess } from '@/utils/toast';
 import { readScoped, writeScoped } from '@/utils/storage';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const Classes = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
-  const base = isTeacherArea ? '/professor' : '';
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [searchTerm, setSearchTerm] = useState("");

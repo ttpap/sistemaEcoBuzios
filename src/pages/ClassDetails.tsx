@@ -23,13 +23,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const ClassDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const isTeacherArea = location.pathname.startsWith('/professor');
-  const base = isTeacherArea ? '/professor' : '';
+  const base = getAreaBaseFromPathname(location.pathname);
 
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);

@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { showSuccess } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
@@ -160,8 +161,7 @@ interface StudentFormProps {
 const StudentForm = ({ initialData }: StudentFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = location.pathname.startsWith('/professor');
-  const base = isTeacherArea ? '/professor' : '';
+  const base = getAreaBaseFromPathname(location.pathname);
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
