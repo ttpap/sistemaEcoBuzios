@@ -24,6 +24,10 @@ export interface TeacherRegistration {
   account: string;
   pixKey: string;
 
+  // Auth (gerado automaticamente)
+  authLogin: string;
+  authPassword: string;
+
   registrationDate: string;
   status: 'Ativo' | 'Inativo';
 }

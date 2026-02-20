@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { showSuccess } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
-import { readScoped, writeScoped } from '@/utils/storage';
+import { createGlobalTeacher, updateGlobalTeacher } from '@/utils/teachers';
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -122,30 +122,22 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existing = readScoped<TeacherRegistration[]>('teachers', []);
-
     const finalBank = values.bank === "outro" ? values.customBank : values.bank;
 
     const teacherData = {
       ...values,
       bank: finalBank,
-    };
+    } as any;
     delete (teacherData as any).customBank;
 
     if (initialData) {
-      const updated = existing.map((t: any) => (t.id === initialData.id ? { ...t, ...teacherData } : t));
-      writeScoped('teachers', updated);
+      updateGlobalTeacher(initialData.id, teacherData);
       showSuccess("Cadastro atualizado!");
     } else {
-      const newTeacher = {
-        ...teacherData,
-        id: crypto.randomUUID(),
-        registrationDate: new Date().toISOString(),
-        status: 'Ativo'
-      };
-      writeScoped('teachers', [...existing, newTeacher]);
-      showSuccess("Cadastro realizado!");
+      createGlobalTeacher(teacherData);
+      showSuccess("Cadastro realizado! Login e senha foram gerados.");
     }
+
     navigate('/professores');
   }
 
@@ -259,23 +251,42 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
               {isCustomBank && (
                 <FormField control={form.control} name="customBank" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-bold">Digite o nome do Banco *</FormLabel>
+                    <FormLabel className="font-bold">Nome do Banco</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ex: Banco Digital X" {...field} className="rounded-xl border-primary/30" />
+                      <Input placeholder="Digite o banco" {...field} className="rounded-xl" />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )} />
               )}
 
               <FormField control={form.control} name="agency" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Agência *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Agência *</FormLabel>
+                  <FormControl>
+                    <Input {...field} className="rounded-xl" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="account" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Conta Corrente / Poupança + Dígito *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Conta *</FormLabel>
+                  <FormControl>
+                    <Input {...field} className="rounded-xl" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <FormField control={form.control} name="pixKey" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Chave PIX *</FormLabel><FormControl><Input {...field} className="rounded-xl" /></FormControl></FormItem>
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="font-bold">Chave PIX *</FormLabel>
+                  <FormControl>
+                    <Input {...field} className="rounded-xl" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
             </div>
           </CardContent>
@@ -283,7 +294,10 @@ const TeacherForm = ({ initialData }: TeacherFormProps) => {
 
         <div className="flex justify-center gap-4">
           <Button type="button" variant="outline" className="rounded-2xl px-8 h-12 font-bold" onClick={() => navigate('/professores')}>Cancelar</Button>
-          <Button type="submit" className="rounded-2xl px-12 h-12 font-black gap-2 shadow-xl shadow-primary/20"><Save className="h-4 w-4" />{initialData ? 'Salvar Alterações' : 'Finalizar Cadastro'}</Button>
+          <Button type="submit" className="rounded-2xl px-12 h-12 font-black gap-2 shadow-xl shadow-primary/20">
+            <Save className="h-4 w-4" />
+            {initialData ? 'Salvar Alterações' : 'Criar Cadastro'}
+          </Button>
         </div>
       </form>
     </Form>

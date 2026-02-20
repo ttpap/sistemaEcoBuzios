@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -27,6 +27,9 @@ import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 const ClassDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = location.pathname.startsWith('/professor');
+
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
   const [allStudents, setAllStudents] = useState<StudentRegistration[]>([]);
@@ -64,6 +67,7 @@ const ClassDetails = () => {
   };
 
   const addTeacher = (teacherId: string) => {
+    if (isTeacherArea) return;
     if (!schoolClass) return;
     const currentIds = schoolClass.teacherIds || [];
     if (currentIds.includes(teacherId)) return;
@@ -74,6 +78,7 @@ const ClassDetails = () => {
   };
 
   const removeTeacher = (teacherId: string) => {
+    if (isTeacherArea) return;
     if (!schoolClass) return;
     const updated = { 
       ...schoolClass, 
@@ -170,22 +175,33 @@ const ClassDetails = () => {
                 <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
                   <Users className="h-5 w-5" /> Professores
                 </CardTitle>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="rounded-xl gap-2"><Plus className="h-4 w-4" /> Vincular</Button>
-                  </DialogTrigger>
-                  <DialogContent className="rounded-[2rem]">
-                    <DialogHeader><DialogTitle>Vincular Professor</DialogTitle></DialogHeader>
-                    <div className="space-y-2 mt-4">
-                      {allTeachers.filter(t => !schoolClass.teacherIds?.includes(t.id)).map(t => (
-                        <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                          <span className="font-bold text-sm">{t.fullName}</span>
-                          <Button size="sm" variant="ghost" onClick={() => addTeacher(t.id)}><Plus className="h-4 w-4" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+
+                {isTeacherArea ? (
+                  <Badge className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 font-black">
+                    Somente admin
+                  </Badge>
+                ) : (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="rounded-xl gap-2">
+                        <Plus className="h-4 w-4" /> Vincular
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-[2rem]">
+                      <DialogHeader><DialogTitle>Vincular Professor</DialogTitle></DialogHeader>
+                      <div className="space-y-2 mt-4">
+                        {allTeachers.filter(t => !schoolClass.teacherIds?.includes(t.id)).map(t => (
+                          <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                            <span className="font-bold text-sm">{t.fullName}</span>
+                            <Button size="sm" variant="ghost" onClick={() => addTeacher(t.id)}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </CardHeader>
               <CardContent className="p-8 pt-0">
                 <div className="space-y-3">
@@ -200,18 +216,27 @@ const ClassDetails = () => {
                           </div>
                           <span className="font-bold text-slate-700">{t.fullName}</span>
                         </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeTeacher(t.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {!isTeacherArea && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeTeacher(t.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     ))
                   )}
                 </div>
+
+                {isTeacherArea && (
+                  <div className="mt-4 rounded-[1.75rem] border border-slate-100 bg-white p-4 text-xs font-bold text-slate-600">
+                    Para vincular/remover professores nesta turma, solicite ao administrador.
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -259,23 +284,19 @@ const ClassDetails = () => {
                           </p>
                         </div>
                       ) : (
-                        filteredAvailableStudents.map(s => (
-                          <div key={s.id} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 transition-all group">
-                            <div className="flex flex-col">
-                              <span className="font-black text-slate-700 group-hover:text-primary transition-colors">{s.fullName}</span>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-[10px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-md tracking-tighter">
-                                  MATRÍCULA: {s.registration}
-                                </span>
-                                {s.age && <span className="text-[10px] font-bold text-slate-400 uppercase">{s.age} anos</span>}
+                        filteredAvailableStudents.map(student => (
+                          <div key={student.id} className="p-4 bg-white rounded-2xl border border-slate-100 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 rounded-2xl bg-secondary/15 border border-secondary/20 flex items-center justify-center font-black text-primary shrink-0">
+                                {student.fullName.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-black text-slate-800 truncate">{student.fullName}</p>
+                                <p className="text-xs font-bold text-slate-500">Matrícula: {student.registration}</p>
                               </div>
                             </div>
-                            <Button 
-                              size="icon" 
-                              className="rounded-xl h-12 w-12 shadow-md hover:scale-110 transition-transform" 
-                              onClick={() => addStudent(s.id)}
-                            >
-                              <Plus className="h-6 w-6" />
+                            <Button size="sm" className="rounded-xl" onClick={() => addStudent(student.id)}>
+                              <Plus className="h-4 w-4" />
                             </Button>
                           </div>
                         ))
@@ -285,50 +306,35 @@ const ClassDetails = () => {
                 </Dialog>
               </CardHeader>
               <CardContent className="p-8 pt-0">
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {classStudents.length === 0 ? (
                     <p className="text-slate-400 text-sm italic">Nenhum aluno matriculado.</p>
                   ) : (
                     classStudents.map(s => (
                       <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
-                        <button
-                          className="flex items-center gap-3 text-left flex-1 min-w-0"
-                          onClick={() => openStudentDetails(s)}
-                          title="Ver ficha do aluno"
-                        >
-                          <div className="w-10 h-10 rounded-2xl bg-secondary/20 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black text-xs shrink-0">
-                            {s.photo ? (
-                              <img
-                                src={s.photo}
-                                alt={s.fullName}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              s.fullName.charAt(0)
-                            )}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-black text-xs shrink-0">
+                            {s.fullName.charAt(0)}
                           </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="font-bold text-slate-700 truncate">{s.fullName}</span>
-                            <span className="text-[10px] font-black text-primary tracking-tighter truncate">MATRÍCULA: {s.registration}</span>
+                          <div className="min-w-0">
+                            <p className="font-black text-slate-700 truncate">{s.fullName}</p>
+                            <p className="text-xs font-bold text-slate-500">{s.registration}</p>
                           </div>
-                        </button>
-
-                        <div className="flex items-center gap-1">
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="rounded-xl hover:bg-primary/10 hover:text-primary"
                             onClick={() => openStudentDetails(s)}
-                            title="Ver ficha"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="rounded-xl text-red-400 hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={() => removeStudent(s.id)}
-                            title="Remover da turma"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -337,28 +343,20 @@ const ClassDetails = () => {
                     ))
                   )}
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Informações Complementares */}
-            <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem] lg:col-span-2">
-              <CardHeader className="p-8 pb-4">
-                <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
-                  <Info className="h-5 w-5" /> Informações Complementares
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 pt-0 space-y-4">
-                <Textarea 
-                  placeholder="Digite aqui observações, avisos ou detalhes específicos desta turma..."
-                  className="min-h-[150px] rounded-[1.5rem] bg-slate-50 border-slate-100 focus:bg-white transition-all"
-                  value={info}
-                  onChange={(e) => setInfo(e.target.value)}
-                />
-                <div className="flex justify-end">
-                  <Button className="rounded-xl gap-2 font-bold" onClick={saveInfo}>
-                    <Save className="h-4 w-4" /> Salvar Informações
-                  </Button>
-                </div>
+                <Card className="mt-6 border-none shadow-sm rounded-[2rem] bg-white">
+                  <CardHeader className="p-6 pb-3">
+                    <CardTitle className="text-sm font-black text-primary flex items-center gap-2">
+                      <Info className="h-4 w-4" /> Informações Complementares
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-0 space-y-3">
+                    <Textarea value={info} onChange={(e) => setInfo(e.target.value)} className="rounded-2xl" placeholder="Observações sobre a turma..." />
+                    <Button onClick={saveInfo} className="rounded-2xl font-black">
+                      <Save className="h-4 w-4 mr-2" /> Salvar Informações
+                    </Button>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </div>

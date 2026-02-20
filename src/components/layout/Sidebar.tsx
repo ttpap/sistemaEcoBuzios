@@ -25,14 +25,16 @@ const Sidebar = () => {
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
 
   const menuItems = useMemo(() => {
-    const base = [{ icon: FolderPlus, label: 'Projetos', path: '/projetos' }];
+    const base = [
+      { icon: FolderPlus, label: 'Projetos', path: '/projetos' },
+      { icon: Users, label: 'Professores', path: '/professores' },
+    ];
     if (!activeProject) return base;
 
     return [
       ...base,
       { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
       { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
-      { icon: Users, label: 'Professores', path: '/professores' },
       { icon: BookOpen, label: 'Turmas', path: '/turmas' },
       { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     ];

@@ -8,7 +8,6 @@ import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import NewStudent from "./pages/NewStudent";
 import EditStudent from "./pages/EditStudent";
-import Teachers from "./pages/Teachers";
 import NewTeacher from "./pages/NewTeacher";
 import EditTeacher from "./pages/EditTeacher";
 import Classes from "./pages/Classes";
@@ -22,6 +21,10 @@ import ActiveProjectGate from "@/components/ActiveProjectGate";
 import Login from "./pages/Login";
 import AdminGate from "@/components/AdminGate";
 import ProjectTheme from "@/components/ProjectTheme";
+import TeacherLogin from "@/pages/TeacherLogin";
+import TeacherGate from "@/components/TeacherGate";
+import TeacherSidebar from "@/components/layout/TeacherSidebar";
+import AdminTeachers from "@/pages/AdminTeachers";
 
 const queryClient = new QueryClient();
 
@@ -35,16 +38,16 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
 
+          <Route path="/professor/login" element={<TeacherLogin />} />
+
           <Route
-            path="/*"
+            path="/professor/*"
             element={
-              <AdminGate>
+              <TeacherGate>
                 <div className="flex min-h-screen bg-[#f8fafc]">
-                  <Sidebar />
+                  <TeacherSidebar />
                   <main className="flex-1 p-8 overflow-y-auto">
                     <Routes>
-                      <Route path="/projetos" element={<Projects />} />
-
                       <Route
                         path="/"
                         element={
@@ -78,26 +81,96 @@ const App = () => (
                         }
                       />
                       <Route
-                        path="/professores"
+                        path="/turmas"
                         element={
                           <ActiveProjectGate>
-                            <Teachers />
+                            <Classes />
                           </ActiveProjectGate>
                         }
                       />
                       <Route
-                        path="/professores/novo"
+                        path="/turmas/nova"
                         element={
                           <ActiveProjectGate>
-                            <NewTeacher />
+                            <NewClass />
                           </ActiveProjectGate>
                         }
                       />
                       <Route
-                        path="/professores/editar/:id"
+                        path="/turmas/editar/:id"
                         element={
                           <ActiveProjectGate>
-                            <EditTeacher />
+                            <EditClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/turmas/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <ClassDetails />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios"
+                        element={
+                          <ActiveProjectGate>
+                            <Reports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                </div>
+              </TeacherGate>
+            }
+          />
+
+          <Route
+            path="/*"
+            element={
+              <AdminGate>
+                <div className="flex min-h-screen bg-[#f8fafc]">
+                  <Sidebar />
+                  <main className="flex-1 p-8 overflow-y-auto">
+                    <Routes>
+                      <Route path="/projetos" element={<Projects />} />
+
+                      <Route path="/professores" element={<AdminTeachers />} />
+                      <Route path="/professores/novo" element={<NewTeacher />} />
+                      <Route path="/professores/editar/:id" element={<EditTeacher />} />
+
+                      <Route
+                        path="/"
+                        element={
+                          <ActiveProjectGate>
+                            <Dashboard />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos"
+                        element={
+                          <ActiveProjectGate>
+                            <Students />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <NewStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditStudent />
                           </ActiveProjectGate>
                         }
                       />

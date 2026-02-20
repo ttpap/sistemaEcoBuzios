@@ -6,7 +6,7 @@ import TeacherForm from '@/components/TeacherForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { TeacherRegistration } from '@/types/teacher';
-import { readScoped } from '@/utils/storage';
+import { migrateScopedTeachersToGlobalIfNeeded, readGlobalTeachers } from '@/utils/teachers';
 
 const EditTeacher = () => {
   const { id } = useParams();
@@ -14,7 +14,8 @@ const EditTeacher = () => {
   const [teacher, setTeacher] = useState<TeacherRegistration | null>(null);
 
   useEffect(() => {
-    const saved = readScoped<TeacherRegistration[]>('teachers', []);
+    migrateScopedTeachersToGlobalIfNeeded();
+    const saved = readGlobalTeachers([]);
     const found = saved.find((t: any) => t.id === id);
     if (found) {
       setTeacher(found);
