@@ -5,6 +5,8 @@ import type { SchoolClass } from "@/types/class";
 
 const STUDENT_SESSION_KEY = "ecobuzios_student_session"; // stores { studentId, projectId? }
 
+export const DEFAULT_STUDENT_PASSWORD = "EcoBuzios123";
+
 type StudentSession = {
   studentId: string;
   projectId?: string;
@@ -90,14 +92,15 @@ export function isStudentLoggedIn() {
   return Boolean(getStudentSessionStudentId());
 }
 
-export function loginStudent(input: { registration: string; birthDate: string }): StudentLoginResult {
+export function loginStudent(input: { registration: string; password: string }): StudentLoginResult {
   const registration = (input.registration || "").trim();
-  const birthDate = (input.birthDate || "").trim();
+  const password = (input.password || "").trim();
 
   const student = findStudentByRegistration(registration);
   if (!student) return { ok: false, reason: "invalid_credentials" };
 
-  const ok = String(student.birthDate || "").trim() === birthDate;
+  // Default password for all students (simple model for now)
+  const ok = password === DEFAULT_STUDENT_PASSWORD;
   if (!ok) return { ok: false, reason: "invalid_credentials" };
 
   const projectIds = getStudentProjectIds(student.id);

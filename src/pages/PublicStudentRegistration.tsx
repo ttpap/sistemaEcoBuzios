@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { showError, showSuccess } from "@/utils/toast";
 import { CheckCircle2, Copy, Link2, Shield, ArrowLeft, FileText } from "lucide-react";
+import { DEFAULT_STUDENT_PASSWORD } from "@/utils/student-auth";
 
 function getSelfRegistrationUrl() {
   try {
@@ -138,7 +139,7 @@ export default function PublicStudentRegistration() {
                         </Button>
                       </div>
                       <p className="mt-2 text-xs font-bold text-slate-500">
-                        Por padrão, a senha é a <span className="font-black">data de nascimento</span> informada na inscrição.
+                        A senha padrão do aluno é <span className="font-black">{DEFAULT_STUDENT_PASSWORD}</span>.
                       </p>
                     </div>
                   </div>

@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
 import { CalendarDays, IdCard, Lock } from "lucide-react";
-import { isStudentLoggedIn, loginStudent } from "@/utils/student-auth";
+import { DEFAULT_STUDENT_PASSWORD, isStudentLoggedIn, loginStudent } from "@/utils/student-auth";
 import { showError, showSuccess } from "@/utils/toast";
 
 export default function StudentLogin() {
   const navigate = useNavigate();
 
   const [registration, setRegistration] = useState("");
-  const [birthDate, setBirthDate] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (isStudentLoggedIn()) navigate("/aluno", { replace: true });
@@ -24,7 +24,7 @@ export default function StudentLogin() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const res = loginStudent({ registration, birthDate });
+    const res = loginStudent({ registration, password });
     if (res.ok) {
       showSuccess("Bem-vindo(a)! Acesso do aluno liberado.");
       if (res.projectIds.length > 1) {
@@ -40,7 +40,7 @@ export default function StudentLogin() {
       return;
     }
 
-    showError("Matrícula ou data de nascimento inválidos.");
+    showError("Matrícula ou senha inválidos.");
   };
 
   return (
@@ -50,12 +50,8 @@ export default function StudentLogin() {
           <div className="mx-auto w-full max-w-[240px]">
             <Logo className="w-full" />
           </div>
-          <h1 className="mt-5 text-2xl sm:text-3xl font-black tracking-tight text-primary">
-            Área do Aluno
-          </h1>
-          <p className="mt-2 text-slate-500 font-medium">
-            Entre com sua matrícula e senha.
-          </p>
+          <h1 className="mt-5 text-2xl sm:text-3xl font-black tracking-tight text-primary">Área do Aluno</h1>
+          <p className="mt-2 text-slate-500 font-medium">Entre com sua matrícula e senha.</p>
         </div>
 
         <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
@@ -65,9 +61,7 @@ export default function StudentLogin() {
           <CardContent className="p-6 md:p-8 pt-4">
             <form onSubmit={onSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                  Matrícula
-                </Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Matrícula</Label>
                 <div className="relative">
                   <IdCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
@@ -81,17 +75,16 @@ export default function StudentLogin() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                  Data de nascimento (senha)
-                </Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    type="date"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha"
+                    type="password"
                     className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                    autoComplete="bday"
+                    autoComplete="current-password"
                   />
                 </div>
               </div>
@@ -103,7 +96,9 @@ export default function StudentLogin() {
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 text-primary" />
-                  <span>Você verá apenas seu calendário e suas presenças.</span>
+                  <span>
+                    A senha padrão do aluno é <span className="font-black">{DEFAULT_STUDENT_PASSWORD}</span>.
+                  </span>
                 </div>
               </div>
             </form>

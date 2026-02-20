@@ -24,6 +24,7 @@ import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
+import { DEFAULT_STUDENT_PASSWORD } from '@/utils/student-auth';
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
@@ -261,7 +262,7 @@ const StudentForm = ({
         onCompleted?.({
           registration: reg,
           login: reg,
-          password: String(values.birthDate || "").trim(),
+          password: DEFAULT_STUDENT_PASSWORD,
         });
       }
     } else {
@@ -284,7 +285,7 @@ const StudentForm = ({
       onCompleted?.({
         registration,
         login: registration,
-        password: String(values.birthDate || "").trim(),
+        password: DEFAULT_STUDENT_PASSWORD,
       });
     }
 
