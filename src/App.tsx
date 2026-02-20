@@ -15,6 +15,7 @@ import NewClass from "./pages/NewClass";
 import EditClass from "./pages/EditClass";
 import ClassDetails from "./pages/ClassDetails";
 import Reports from "./pages/Reports";
+import MonthlyReports from "./pages/MonthlyReports";
 import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import ActiveProjectGate from "@/components/ActiveProjectGate";
@@ -122,6 +123,22 @@ const App = () => (
                           </ActiveProjectGate>
                         }
                       />
+                      <Route
+                        path="relatorios/mensais"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/mensais/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>
@@ -213,6 +230,22 @@ const App = () => (
                         element={
                           <ActiveProjectGate>
                             <Reports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios/mensais"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios/mensais/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
                           </ActiveProjectGate>
                         }
                       />

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ import {
   ClipboardCheck,
   ArrowLeft,
   Layers,
+  NotebookPen,
   Users,
 } from "lucide-react";
 
@@ -133,7 +135,7 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
         .header-inner { padding: 14px 16px 12px; }
         .toprow { display:flex; align-items:center; justify-content: space-between; gap: 14px; }
         .brand { display:flex; align-items:center; gap: 12px; min-width: 0; }
-        .logo { width: 140px; height: 44px; object-fit: contain; }
+        .logo { height: 44px; width: auto; object-fit: contain; display:block; }
         .titlewrap { min-width: 0; }
         .proj { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
         .header { font-weight: 950; font-size: 15px; margin: 3px 0 0; letter-spacing: -0.02em; }
@@ -243,6 +245,10 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
 }
 
 export default function Reports() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isTeacherArea = location.pathname.startsWith("/professor");
+
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
@@ -408,6 +414,33 @@ export default function Reports() {
             <div className="p-7">
               <p className="text-slate-600 font-medium">
                 Gere um relatório com todas as datas registradas no mês e o status de cada aluno.
+              </p>
+            </div>
+          </Card>
+
+          <Card
+            className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
+            onClick={() => navigate(isTeacherArea ? "/professor/relatorios/mensais" : "/relatorios/mensais")}
+          >
+            <div className="p-7 bg-slate-50/60 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-[1.6rem] bg-primary/10 text-primary flex items-center justify-center">
+                    <NotebookPen className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-primary">Relatório mensal</p>
+                    <p className="text-sm font-bold text-slate-500">Professor → Admin</p>
+                  </div>
+                </div>
+                <Badge className="bg-secondary text-primary border-none font-black">Envio</Badge>
+              </div>
+            </div>
+            <div className="p-7">
+              <p className="text-slate-600 font-medium">
+                {isTeacherArea
+                  ? "Crie, salve e envie seu relatório mensal para o administrador do projeto."
+                  : "Veja os relatórios mensais enviados pelos professores neste projeto."}
               </p>
             </div>
           </Card>

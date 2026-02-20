@@ -2,7 +2,16 @@
 
 import React, { useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, GraduationCap, BookOpen, BarChart3, LogOut, FileText, BadgeCheck } from "lucide-react";
+import {
+  LayoutDashboard,
+  GraduationCap,
+  BookOpen,
+  BarChart3,
+  LogOut,
+  FileText,
+  BadgeCheck,
+  NotebookPen,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject } from "@/utils/projects";
 import { logoutTeacher } from "@/utils/teacher-auth";
@@ -19,6 +28,7 @@ export default function TeacherSidebar() {
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
+      { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
     ],
     [],
   );

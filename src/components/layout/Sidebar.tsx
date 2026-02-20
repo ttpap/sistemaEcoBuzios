@@ -12,6 +12,7 @@ import {
   FolderPlus,
   FileText,
   BadgeCheck,
+  NotebookPen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -37,6 +38,7 @@ const Sidebar = () => {
       { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
       { icon: BookOpen, label: 'Turmas', path: '/turmas' },
       { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
+      { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
     ];
   }, [activeProject]);
 
