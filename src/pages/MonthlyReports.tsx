@@ -168,7 +168,8 @@ export default function MonthlyReports() {
     if (!isTeacherArea) return false;
     if (!teacherId) return false;
     if (draft.teacherId !== teacherId) return false;
-    return !draft.submittedAt;
+    // Permite editar mesmo após envio; o professor pode ajustar e reenviar.
+    return true;
   }, [draft, isTeacherArea, teacherId]);
 
   const hasAccessToOpenedReport = useMemo(() => {
@@ -224,15 +225,16 @@ export default function MonthlyReports() {
     if (!projectId || !draft) return;
     if (!canEdit) return;
 
+    const nowIso = new Date().toISOString();
     const next: MonthlyReport = {
       ...draft,
-      updatedAt: new Date().toISOString(),
-      submittedAt: new Date().toISOString(),
+      updatedAt: nowIso,
+      submittedAt: nowIso,
     };
     upsertMonthlyReport(projectId, next);
     setDraft(next);
     setConfirmSubmitOpen(false);
-    showSuccess("Relatório enviado ao administrador.");
+    showSuccess(next.submittedAt ? "Relatório enviado/atualizado para o administrador." : "Relatório enviado ao administrador.");
   };
 
   if (!activeProject) {
@@ -292,15 +294,20 @@ export default function MonthlyReports() {
     }
 
     const effective = draft || openedReport;
+    const alreadySubmitted = Boolean(effective.submittedAt);
 
     return (
       <div className="space-y-6">
         <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
           <AlertDialogContent className="rounded-[2rem]">
             <AlertDialogHeader>
-              <AlertDialogTitle className="text-lg font-black text-primary">Enviar relatório?</AlertDialogTitle>
+              <AlertDialogTitle className="text-lg font-black text-primary">
+                {alreadySubmitted ? "Reenviar relatório?" : "Enviar relatório?"}
+              </AlertDialogTitle>
               <AlertDialogDescription className="text-slate-600 font-medium">
-                Ao enviar, o relatório fica visível para o administrador e não poderá ser editado pelo professor.
+                {alreadySubmitted
+                  ? "O administrador verá a versão atualizada. Você pode editar e reenviar sempre que precisar."
+                  : "Ao enviar, o relatório fica visível para o administrador. Você pode editar e reenviar sempre que precisar."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -309,7 +316,7 @@ export default function MonthlyReports() {
                 className="rounded-2xl font-black bg-primary hover:bg-primary/90 text-white"
                 onClick={submitReport}
               >
-                Enviar
+                {alreadySubmitted ? "Reenviar" : "Enviar"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -341,12 +348,18 @@ export default function MonthlyReports() {
                   onClick={() => setConfirmSubmitOpen(true)}
                 >
                   <Send className="h-4 w-4" />
-                  Enviar
+                  {alreadySubmitted ? "Reenviar" : "Enviar"}
                 </Button>
               </>
             )}
           </div>
         </div>
+
+        {isTeacherArea && alreadySubmitted && (
+          <div className="rounded-[2rem] border border-emerald-200 bg-emerald-50 px-6 py-4 text-sm font-bold text-emerald-900">
+            Este relatório já foi enviado. Você pode editar, salvar e reenviar a qualquer momento.
+          </div>
+        )}
 
         <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
           <CardContent className="p-6 md:p-8">
@@ -507,7 +520,7 @@ export default function MonthlyReports() {
             {!canEdit && (
               <div className="mt-6 rounded-[2rem] border border-slate-200 bg-slate-50 p-5 text-sm font-bold text-slate-600">
                 {isTeacherArea
-                  ? "Este relatório está enviado e não pode mais ser editado pelo professor."
+                  ? "Você não tem permissão para editar este relatório."
                   : "Visualização do relatório enviado pelo professor."}
               </div>
             )}
