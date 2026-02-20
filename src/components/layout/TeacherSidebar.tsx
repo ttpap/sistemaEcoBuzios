@@ -11,16 +11,33 @@ import {
   FileText,
   BadgeCheck,
   NotebookPen,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getActiveProject } from "@/utils/projects";
-import { logoutTeacher } from "@/utils/teacher-auth";
+import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
+import { logoutTeacher, getTeacherSessionTeacherId, setTeacherSessionProjectId } from "@/utils/teacher-auth";
+import { getTeacherProjectIds } from "@/utils/teachers";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function TeacherSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const teacherId = useMemo(() => getTeacherSessionTeacherId(), []);
+
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
+
+  const availableProjects = useMemo(() => {
+    if (!teacherId) return [];
+    const allowed = new Set(getTeacherProjectIds(teacherId));
+    return getProjects().filter((p) => allowed.has(p.id));
+  }, [teacherId]);
 
   const menuItems = useMemo(
     () => [
@@ -42,6 +59,16 @@ export default function TeacherSidebar() {
   const onLogout = () => {
     logoutTeacher();
     navigate("/login?role=teacher");
+  };
+
+  const hasMultipleProjects = availableProjects.length > 1;
+  const currentProjectId = activeProject?.id || availableProjects[0]?.id || "";
+
+  const onChangeProject = (projectId: string) => {
+    if (!projectId) return;
+    setActiveProjectId(projectId);
+    setTeacherSessionProjectId(projectId);
+    navigate("/professor", { replace: true });
   };
 
   return (
@@ -72,6 +99,25 @@ export default function TeacherSidebar() {
               <p className="text-[11px] font-bold text-slate-500">Acesso do professor</p>
             </div>
           </div>
+
+          {hasMultipleProjects && (
+            <div className="mt-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Projeto ativo</p>
+              <Select value={currentProjectId} onValueChange={onChangeProject}>
+                <SelectTrigger className="mt-2 h-11 rounded-2xl border-slate-200 bg-white font-black">
+                  <Layers className="h-4 w-4 mr-2 text-primary" />
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProjects.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="font-bold">
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

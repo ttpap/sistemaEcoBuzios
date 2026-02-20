@@ -33,7 +33,7 @@ export default function AdminTeachers() {
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<Record<string, string[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
 
   const [deliverOpen, setDeliverOpen] = useState(false);
@@ -71,6 +71,14 @@ export default function AdminTeachers() {
     return (id?: string) => (id ? map.get(id) : undefined);
   }, [projects]);
 
+  const teacherProjectNames = useMemo(() => {
+    const map = new Map(projects.map((p) => [p.id, p.name] as const));
+    return (teacherId: string) => {
+      const ids = assignments[teacherId] || [];
+      return ids.map((id) => map.get(id)).filter(Boolean) as string[];
+    };
+  }, [projects, assignments]);
+
   const onAssign = (teacherId: string, projectId: string) => {
     if (!projectId) return;
     const res = assignTeacherToProject(teacherId, projectId);
@@ -104,7 +112,9 @@ export default function AdminTeachers() {
     }
   };
 
-  const deliveryProjectName = deliverTeacher ? projectNameById(assignments[deliverTeacher.id]) : undefined;
+  const deliveryProjectName = deliverTeacher
+    ? (teacherProjectNames(deliverTeacher.id)[0] || "—")
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -218,8 +228,8 @@ export default function AdminTeachers() {
                 <div className="p-10 text-center text-sm font-bold text-slate-500">Nenhum professor encontrado.</div>
               ) : (
                 filtered.map((t) => {
-                  const assignedProjectId = assignments[t.id];
-                  const assignedName = projectNameById(assignedProjectId);
+                  const assignedProjectIds = assignments[t.id] || [];
+                  const assignedNames = teacherProjectNames(t.id);
 
                   return (
                     <div key={t.id} className="p-5 md:p-6">
@@ -232,10 +242,16 @@ export default function AdminTeachers() {
                             <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
                               {t.authLogin}
                             </Badge>
-                            {assignedName ? (
-                              <Badge className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-black">
-                                Projeto: {assignedName}
-                              </Badge>
+
+                            {assignedNames.length > 0 ? (
+                              assignedNames.map((name) => (
+                                <Badge
+                                  key={name}
+                                  className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-black"
+                                >
+                                  Projeto: {name}
+                                </Badge>
+                              ))
                             ) : (
                               <Badge className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 font-black">
                                 Sem projeto
@@ -246,18 +262,20 @@ export default function AdminTeachers() {
 
                         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                           <Select
-                            value={assignedProjectId || ""}
+                            value={""}
                             onValueChange={(v) => onAssign(t.id, v)}
                           >
                             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-black">
-                              <SelectValue placeholder="Alocar em projeto" />
+                              <SelectValue placeholder="Adicionar em projeto" />
                             </SelectTrigger>
                             <SelectContent>
-                              {projects.map((p) => (
-                                <SelectItem key={p.id} value={p.id} className="font-bold">
-                                  {p.name}
-                                </SelectItem>
-                              ))}
+                              {projects
+                                .filter((p) => !assignedProjectIds.includes(p.id))
+                                .map((p) => (
+                                  <SelectItem key={p.id} value={p.id} className="font-bold">
+                                    {p.name}
+                                  </SelectItem>
+                                ))}
                             </SelectContent>
                           </Select>
 
@@ -266,14 +284,14 @@ export default function AdminTeachers() {
                             variant="outline"
                             className={cn(
                               "h-12 rounded-2xl font-black border-slate-200 bg-white",
-                              assignedName ? "" : "opacity-60 cursor-not-allowed",
+                              assignedNames.length ? "" : "opacity-60 cursor-not-allowed",
                             )}
-                            disabled={!assignedName}
+                            disabled={!assignedNames.length}
                             onClick={() => {
                               setDeliverTeacher(t);
                               setDeliverOpen(true);
                             }}
-                            title={assignedName ? "Ver credenciais" : "Alocar em um projeto para liberar"}
+                            title={assignedNames.length ? "Ver credenciais" : "Adicione em um projeto para liberar"}
                           >
                             <Copy className="h-4 w-4 mr-2" />
                             Credenciais
@@ -282,7 +300,7 @@ export default function AdminTeachers() {
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-12 rounded-2xl font-black border-slate-200 bg-white hover:bg-red-50 hover:text-red-700"
+                            className="h-12 rounded-2xl font-black border-red-200 bg-white text-red-600 hover:bg-red-50"
                             onClick={() => onDelete(t.id)}
                           >
                             <Trash2 className="h-4 w-4 mr-2" />

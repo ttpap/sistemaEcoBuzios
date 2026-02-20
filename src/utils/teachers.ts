@@ -2,7 +2,7 @@ import { TeacherRegistration } from "@/types/teacher";
 import { getProjects, getProjectScopedKey, migrateLegacyProjectDataToProjectIfNeeded } from "@/utils/projects";
 
 const GLOBAL_TEACHERS_KEY = "ecobuzios_teachers_global";
-const TEACHER_ASSIGNMENTS_KEY = "ecobuzios_teacher_assignments"; // teacherId -> projectId
+const TEACHER_ASSIGNMENTS_KEY = "ecobuzios_teacher_assignments"; // teacherId -> projectIds[]
 
 export const DEFAULT_TEACHER_PASSWORD = "EcoBuzios123";
 
@@ -37,16 +37,46 @@ export function writeGlobalTeachers(value: TeacherRegistration[]) {
   localStorage.setItem(GLOBAL_TEACHERS_KEY, JSON.stringify(value));
 }
 
-export function getTeacherAssignments(): Record<string, string> {
-  return safeParse<Record<string, string>>(localStorage.getItem(TEACHER_ASSIGNMENTS_KEY), {});
+export function getTeacherAssignments(): Record<string, string[]> {
+  const raw = safeParse<Record<string, unknown>>(localStorage.getItem(TEACHER_ASSIGNMENTS_KEY), {});
+
+  let changed = false;
+  const normalized: Record<string, string[]> = {};
+
+  for (const [teacherId, v] of Object.entries(raw)) {
+    if (typeof v === "string") {
+      normalized[teacherId] = v ? [v] : [];
+      changed = true;
+      continue;
+    }
+
+    if (Array.isArray(v)) {
+      const ids = v.filter((x): x is string => typeof x === "string" && Boolean(x.trim()));
+      normalized[teacherId] = Array.from(new Set(ids));
+      if (ids.length !== v.length) changed = true;
+      continue;
+    }
+
+    normalized[teacherId] = [];
+    changed = true;
+  }
+
+  if (changed) setTeacherAssignments(normalized);
+  return normalized;
 }
 
-export function setTeacherAssignments(map: Record<string, string>) {
+export function setTeacherAssignments(map: Record<string, string[]>) {
   localStorage.setItem(TEACHER_ASSIGNMENTS_KEY, JSON.stringify(map));
 }
 
+/** Returns all project IDs the teacher is assigned to. */
+export function getTeacherProjectIds(teacherId: string): string[] {
+  return getTeacherAssignments()[teacherId] || [];
+}
+
+/** Returns the first assigned project ID (kept for legacy callers). */
 export function getTeacherProjectId(teacherId: string): string | null {
-  return getTeacherAssignments()[teacherId] || null;
+  return getTeacherProjectIds(teacherId)[0] || null;
 }
 
 export function createTeacherCredentials(fullName: string) {
@@ -144,28 +174,38 @@ function removeTeacherFromAllClassesInProject(projectId: string, teacherId: stri
 }
 
 export function assignTeacherToProject(teacherId: string, projectId: string) {
+  // Backwards-compatible: "assign" now means "add to project" (teacher can be in multiple projects).
+  return addTeacherToProject(teacherId, projectId);
+}
+
+export function addTeacherToProject(teacherId: string, projectId: string) {
   const teacher = readGlobalTeachers([]).find((t) => t.id === teacherId);
   if (!teacher) return { ok: false as const, reason: "teacher_not_found" as const };
 
   migrateLegacyProjectDataToProjectIfNeeded(projectId);
 
   const map = getTeacherAssignments();
-  const prevProjectId = map[teacherId] || null;
-
-  // Move assignment
-  map[teacherId] = projectId;
+  const current = map[teacherId] || [];
+  const nextIds = Array.from(new Set([...(current || []), projectId]));
+  map[teacherId] = nextIds;
   setTeacherAssignments(map);
 
-  // Ensure teacher appears in the target project's scoped teachers list
   ensureTeacherInProjectScopedList(projectId, teacher);
 
-  // If moving from another project, clean up old project teacher list and class teacherIds
-  if (prevProjectId && prevProjectId !== projectId) {
-    removeTeacherFromProjectScopedList(prevProjectId, teacherId);
-    removeTeacherFromAllClassesInProject(prevProjectId, teacherId);
-  }
+  return { ok: true as const, teacher };
+}
 
-  return { ok: true as const, teacher, prevProjectId };
+export function removeTeacherFromProject(teacherId: string, projectId: string) {
+  const map = getTeacherAssignments();
+  const current = map[teacherId] || [];
+  const nextIds = current.filter((id) => id !== projectId);
+  map[teacherId] = nextIds;
+  setTeacherAssignments(map);
+
+  removeTeacherFromProjectScopedList(projectId, teacherId);
+  removeTeacherFromAllClassesInProject(projectId, teacherId);
+
+  return { ok: true as const };
 }
 
 /**
@@ -192,7 +232,8 @@ export function migrateScopedTeachersToGlobalIfNeeded() {
           authPassword: (t as any).authPassword || creds.password,
         });
       }
-      if (!assignments[t.id]) assignments[t.id] = p.id;
+      const current = assignments[t.id] || [];
+      if (!current.includes(p.id)) assignments[t.id] = [...current, p.id];
     }
   }
 
