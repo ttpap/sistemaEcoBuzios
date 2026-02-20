@@ -38,6 +38,11 @@ import CoordinatorTeachers from "@/pages/CoordinatorTeachers";
 import CoordinatorNewTeacher from "@/pages/CoordinatorNewTeacher";
 import CoordinatorEditTeacher from "@/pages/CoordinatorEditTeacher";
 import PublicStudentRegistration from "@/pages/PublicStudentRegistration";
+import StudentLogin from "@/pages/StudentLogin";
+import StudentSelectProject from "@/pages/StudentSelectProject";
+import StudentGate from "@/components/StudentGate";
+import StudentSidebar from "@/components/layout/StudentSidebar";
+import StudentDashboard from "@/pages/StudentDashboard";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +56,26 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/inscricao" element={<PublicStudentRegistration />} />
+
+          {/* Rotas do Aluno */}
+          <Route path="/aluno/login" element={<StudentLogin />} />
+          <Route
+            path="/aluno/*"
+            element={
+              <StudentGate>
+                <div className="flex min-h-screen bg-[#f8fafc]">
+                  <StudentSidebar />
+                  <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
+                    <Routes>
+                      <Route path="selecionar-projeto" element={<StudentSelectProject />} />
+                      <Route index element={<StudentDashboard />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                </div>
+              </StudentGate>
+            }
+          />
 
           <Route
             path="/professor/login"
