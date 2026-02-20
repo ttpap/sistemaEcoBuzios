@@ -2,15 +2,15 @@ import { findTeacherByLogin } from "@/utils/teachers";
 import { getTeacherProjectIds } from "@/utils/teachers";
 import { getActiveProjectId } from "@/utils/projects";
 
-const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores { teacherId, projectId }
+const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores { teacherId, projectId? }
 
 type TeacherSession = {
   teacherId: string;
-  projectId: string;
+  projectId?: string;
 };
 
 export type TeacherLoginResult =
-  | { ok: true; teacherId: string; projectIds: string[]; projectId: string }
+  | { ok: true; teacherId: string; projectIds: string[]; projectId?: string }
   | { ok: false; reason: "invalid_credentials" | "not_assigned" };
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -29,17 +29,21 @@ export function getTeacherSession(): TeacherSession | null {
   if (!raw.trim().startsWith("{")) {
     const teacherId = raw;
     const projectIds = getTeacherProjectIds(teacherId);
-    const projectId = projectIds[0] || "";
-    if (!teacherId || !projectId) return null;
 
-    const migrated: TeacherSession = { teacherId, projectId };
+    // If teacher has multiple projects, force selection on next access.
+    const migrated: TeacherSession =
+      projectIds.length === 1 ? { teacherId, projectId: projectIds[0] } : { teacherId };
+
     localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(migrated));
     return migrated;
   }
 
   const parsed = safeParse<TeacherSession | null>(raw, null);
-  if (!parsed?.teacherId || !parsed?.projectId) return null;
-  return parsed;
+  if (!parsed?.teacherId) return null;
+
+  // Normalize empty projectId
+  const projectId = (parsed.projectId || "").trim() || undefined;
+  return { teacherId: parsed.teacherId, ...(projectId ? { projectId } : {}) };
 }
 
 export function getTeacherSessionTeacherId(): string | null {
@@ -54,6 +58,13 @@ export function setTeacherSessionProjectId(projectId: string) {
   const cur = getTeacherSession();
   if (!cur) return;
   const next: TeacherSession = { ...cur, projectId };
+  localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(next));
+}
+
+export function clearTeacherSessionProjectId() {
+  const cur = getTeacherSession();
+  if (!cur) return;
+  const next: TeacherSession = { teacherId: cur.teacherId };
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -74,13 +85,19 @@ export function loginTeacher(input: { login: string; password: string }): Teache
   const projectIds = getTeacherProjectIds(teacher.id);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
-  const preferred = getActiveProjectId();
-  const projectId = preferred && projectIds.includes(preferred) ? preferred : projectIds[0];
+  // If only one project, set it immediately. If multiple, require selection.
+  let projectId: string | undefined;
+  if (projectIds.length === 1) {
+    projectId = projectIds[0];
+  } else {
+    const preferred = getActiveProjectId();
+    projectId = preferred && projectIds.includes(preferred) ? preferred : undefined;
+  }
 
-  const session: TeacherSession = { teacherId: teacher.id, projectId };
+  const session: TeacherSession = projectId ? { teacherId: teacher.id, projectId } : { teacherId: teacher.id };
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(session));
 
-  return { ok: true, teacherId: teacher.id, projectIds, projectId };
+  return { ok: true, teacherId: teacher.id, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutTeacher() {

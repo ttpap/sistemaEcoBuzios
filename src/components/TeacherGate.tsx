@@ -1,18 +1,32 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { getTeacherProjectIds } from "@/utils/teachers";
-import { getTeacherSessionProjectId, getTeacherSessionTeacherId, setTeacherSessionProjectId } from "@/utils/teacher-auth";
+import {
+  getTeacherSessionProjectId,
+  getTeacherSessionTeacherId,
+  setTeacherSessionProjectId,
+} from "@/utils/teacher-auth";
 import { getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 
 export default function TeacherGate({ children }: { children: React.ReactNode }) {
   const teacherId = useMemo(() => getTeacherSessionTeacherId(), []);
+  const location = useLocation();
 
   if (!teacherId) return <Navigate to="/login?role=teacher" replace />;
 
   const projectIds = getTeacherProjectIds(teacherId);
   if (!projectIds.length) return <Navigate to="/login?role=teacher" replace />;
+
+  // If teacher has multiple projects and hasn't explicitly selected one,
+  // force them to choose before accessing the area.
+  if (projectIds.length > 1 && !getTeacherSessionProjectId()) {
+    if (!location.pathname.startsWith("/professor/selecionar-projeto")) {
+      return <Navigate to="/professor/selecionar-projeto" replace />;
+    }
+    return <>{children}</>;
+  }
 
   const sessionProjectId = getTeacherSessionProjectId();
   const active = getActiveProjectId();

@@ -20,9 +20,10 @@ import {
   readGlobalTeachers,
   deleteGlobalTeacher,
   migrateScopedTeachersToGlobalIfNeeded,
+  removeTeacherFromProject,
 } from "@/utils/teachers";
 import { getProjects } from "@/utils/projects";
-import { Copy, GraduationCap, Plus, Search, Trash2, UserCog } from "lucide-react";
+import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X } from "lucide-react";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -101,6 +102,16 @@ export default function AdminTeachers() {
     deleteGlobalTeacher(id);
     refresh();
     showSuccess("Cadastro removido.");
+  };
+
+  const onRemoveFromProject = (teacherId: string, projectId: string) => {
+    const pname = projectNameById(projectId) || "este projeto";
+    const ok = window.confirm(`Remover o professor de ${pname}?`);
+    if (!ok) return;
+
+    removeTeacherFromProject(teacherId, projectId);
+    refresh();
+    showSuccess("Professor removido do projeto.");
   };
 
   const copy = async (text: string) => {
@@ -243,15 +254,29 @@ export default function AdminTeachers() {
                               {t.authLogin}
                             </Badge>
 
-                            {assignedNames.length > 0 ? (
-                              assignedNames.map((name) => (
-                                <Badge
-                                  key={name}
-                                  className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-black"
-                                >
-                                  Projeto: {name}
-                                </Badge>
-                              ))
+                            {assignedProjectIds.length > 0 ? (
+                              assignedProjectIds.map((pid) => {
+                                const name = projectNameById(pid) || pid;
+                                return (
+                                  <span
+                                    key={pid}
+                                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-black"
+                                  >
+                                    Projeto: {name}
+                                    <button
+                                      type="button"
+                                      className="ml-1 h-5 w-5 rounded-full bg-white/60 hover:bg-white border border-emerald-200 flex items-center justify-center"
+                                      title="Remover do projeto"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRemoveFromProject(t.id, pid);
+                                      }}
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </span>
+                                );
+                              })
                             ) : (
                               <Badge className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 font-black">
                                 Sem projeto
@@ -261,10 +286,7 @@ export default function AdminTeachers() {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                          <Select
-                            value={""}
-                            onValueChange={(v) => onAssign(t.id, v)}
-                          >
+                          <Select onValueChange={(v) => onAssign(t.id, v)}>
                             <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-black">
                               <SelectValue placeholder="Adicionar em projeto" />
                             </SelectTrigger>

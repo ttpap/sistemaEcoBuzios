@@ -25,6 +25,7 @@ import ProjectTheme from "@/components/ProjectTheme";
 import TeacherGate from "@/components/TeacherGate";
 import TeacherSidebar from "@/components/layout/TeacherSidebar";
 import AdminTeachers from "@/pages/AdminTeachers";
+import TeacherSelectProject from "@/pages/TeacherSelectProject";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +52,7 @@ const App = () => (
                   <TeacherSidebar />
                   <main className="flex-1 p-8 overflow-y-auto">
                     <Routes>
+                      <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
                       <Route
                         index
                         element={

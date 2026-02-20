@@ -63,7 +63,11 @@ export default function Login() {
     const res = loginTeacher({ login: login.trim(), password });
     if (res.ok === true) {
       showSuccess("Bem-vindo(a)! Acesso do professor liberado.");
-      navigate("/professor", { replace: true });
+      if (res.projectIds.length > 1) {
+        navigate("/professor/selecionar-projeto", { replace: true });
+      } else {
+        navigate("/professor", { replace: true });
+      }
       return;
     }
 
