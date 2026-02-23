@@ -20,7 +20,7 @@ type StudentSession = {
 
 export type StudentLoginResult =
   | { ok: true; studentId: string; projectIds: string[]; projectId?: string }
-  | { ok: false; reason: "invalid_credentials" | "not_assigned" };
+  | { ok: false; reason: "invalid_credentials" | "not_assigned" | "ambiguous_login" };
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -28,6 +28,10 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function normalizePassword(pw: string) {
+  return (pw || "").toLowerCase().replace(/\s+/g, "");
 }
 
 function getProjectClasses(projectId: string): SchoolClass[] {
@@ -61,20 +65,28 @@ export function findStudentByRegistration(registration: string): StudentRegistra
   return students.find((s) => String(s.registration || "").trim() === norm) || null;
 }
 
-export function findStudentByLogin(login: string): StudentRegistration | null {
+export function findStudentByLogin(login: string):
+  | { ok: true; student: StudentRegistration }
+  | { ok: false; reason: "not_found" | "ambiguous" } {
   const raw = (login || "").trim();
-  if (!raw) return null;
+  if (!raw) return { ok: false, reason: "not_found" };
 
-  // Accept either full matricula (YYYY-XXXX) or only the last 4 digits.
+  // If user typed full matricula (AAAA-XXXX), prefer exact match.
+  if (raw.includes("-")) {
+    const exact = findStudentByRegistration(raw);
+    if (!exact) return { ok: false, reason: "not_found" };
+    return { ok: true, student: exact };
+  }
+
+  // Otherwise accept last 4 digits, but only if it uniquely identifies a student.
   const last4 = getStudentLoginFromRegistration(raw);
-
   const students = readGlobalStudents<StudentRegistration[]>([]);
   const matches = students.filter((s) => getStudentLoginFromRegistration(String(s.registration || "")) === last4);
 
-  // To avoid logging in the wrong student if there are duplicates.
-  if (matches.length !== 1) return null;
+  if (matches.length === 0) return { ok: false, reason: "not_found" };
+  if (matches.length !== 1) return { ok: false, reason: "ambiguous" };
 
-  return matches[0] || null;
+  return { ok: true, student: matches[0] };
 }
 
 export function getStudentSession(): StudentSession | null {
@@ -118,14 +130,18 @@ export function loginStudent(input: { registration: string; password: string }):
   const registration = (input.registration || "").trim();
   const password = (input.password || "").trim();
 
-  const student = findStudentByLogin(registration);
-  if (!student) return { ok: false, reason: "invalid_credentials" };
+  const found = findStudentByLogin(registration);
+  if (!found.ok) {
+    const reason = "reason" in found ? found.reason : "not_found";
+    if (reason === "ambiguous") return { ok: false, reason: "ambiguous_login" };
+    return { ok: false, reason: "invalid_credentials" };
+  }
 
   // Default password for all students (simple model for now)
-  const ok = password === DEFAULT_STUDENT_PASSWORD;
+  const ok = normalizePassword(password) === normalizePassword(DEFAULT_STUDENT_PASSWORD);
   if (!ok) return { ok: false, reason: "invalid_credentials" };
 
-  const projectIds = getStudentProjectIds(student.id);
+  const projectIds = getStudentProjectIds(found.student.id);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
@@ -136,10 +152,12 @@ export function loginStudent(input: { registration: string; password: string }):
     projectId = preferred && projectIds.includes(preferred) ? preferred : undefined;
   }
 
-  const session: StudentSession = projectId ? { studentId: student.id, projectId } : { studentId: student.id };
+  const session: StudentSession = projectId
+    ? { studentId: found.student.id, projectId }
+    : { studentId: found.student.id };
   localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
 
-  return { ok: true, studentId: student.id, projectIds, ...(projectId ? { projectId } : {}) };
+  return { ok: true, studentId: found.student.id, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutStudent() {

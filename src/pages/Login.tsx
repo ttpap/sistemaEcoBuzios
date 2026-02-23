@@ -19,6 +19,7 @@ import {
   loginCoordinator,
   logoutCoordinator,
 } from "@/utils/coordinator-auth";
+import { isStudentLoggedIn, loginStudent, logoutStudent } from "@/utils/student-auth";
 import { showError, showSuccess } from "@/utils/toast";
 
 function useRoleHintFromQuery() {
@@ -65,6 +66,10 @@ export default function Login() {
     }
     if (isCoordinatorLoggedIn()) {
       navigate("/coordenador", { replace: true });
+      return;
+    }
+    if (isStudentLoggedIn()) {
+      navigate("/aluno", { replace: true });
     }
   }, [navigate]);
 
@@ -79,16 +84,45 @@ export default function Login() {
     if (isAdmin) {
       logoutTeacher();
       logoutCoordinator();
+      logoutStudent();
       showSuccess("Bem-vindo(a)! Acesso de administrador liberado.");
       navigate("/projetos", { replace: true });
       return;
     }
 
-    // 2) Try teacher
+    // 2) Try student (matrícula completa AAAA-XXXX ou só últimos 4 dígitos)
+    const looksLikeStudent = /^\d{4}-\d{4}$/.test(loginValue) || /^\d{1,4}$/.test(loginValue);
+    if (looksLikeStudent) {
+      const studentRes = loginStudent({ registration: loginValue, password: passwordValue });
+      if (studentRes.ok) {
+        logoutAdmin();
+        logoutTeacher();
+        logoutCoordinator();
+        showSuccess("Bem-vindo(a)! Acesso do aluno liberado.");
+        if (studentRes.projectIds.length > 1) {
+          navigate("/aluno/selecionar-projeto", { replace: true });
+        } else {
+          navigate("/aluno", { replace: true });
+        }
+        return;
+      }
+      if ("reason" in studentRes && studentRes.reason === "not_assigned") {
+        showError("Sua matrícula ainda não está vinculada a nenhuma turma/projeto. Procure um gestor.");
+        return;
+      }
+      if ("reason" in studentRes && studentRes.reason === "ambiguous_login") {
+        showError("Existem alunos com os mesmos 4 últimos dígitos. Entre com a matrícula completa (AAAA-XXXX). ");
+        return;
+      }
+      // Se parece aluno, mas não autenticou, cai pro erro padrão no fim.
+    }
+
+    // 3) Try teacher
     const teacherRes = loginTeacher({ login: loginValue, password: passwordValue });
     if (teacherRes.ok) {
       logoutAdmin();
       logoutCoordinator();
+      logoutStudent();
       showSuccess("Bem-vindo(a)! Acesso do professor liberado.");
       if (teacherRes.projectIds.length > 1) {
         navigate("/professor/selecionar-projeto", { replace: true });
@@ -104,11 +138,12 @@ export default function Login() {
       return;
     }
 
-    // 3) Try coordinator
+    // 4) Try coordinator
     const coordRes = loginCoordinator({ login: loginValue, password: passwordValue });
     if (coordRes.ok) {
       logoutAdmin();
       logoutTeacher();
+      logoutStudent();
       showSuccess("Bem-vindo(a)! Acesso do coordenador liberado.");
       if (coordRes.projectIds.length > 1) {
         navigate("/coordenador/selecionar-projeto", { replace: true });

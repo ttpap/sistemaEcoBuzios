@@ -40,6 +40,11 @@ export default function StudentLogin() {
       return;
     }
 
+    if ("reason" in res && res.reason === "ambiguous_login") {
+      showError("Existem alunos com os mesmos 4 últimos dígitos. Entre com a matrícula completa (AAAA-XXXX). ");
+      return;
+    }
+
     showError("Matrícula ou senha inválidos.");
   };
 
@@ -67,13 +72,14 @@ export default function StudentLogin() {
                   <Input
                     value={registration}
                     onChange={(e) => setRegistration(e.target.value)}
-                    placeholder="Ex.: 0011"
+                    placeholder="Ex.: 2026-0011 ou 0011"
                     className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
                     autoComplete="username"
                   />
                 </div>
                 <p className="text-[11px] font-bold text-slate-500">
-                  Use os <span className="font-black">4 últimos dígitos</span> da matrícula. Ex.: 2026-0011 → 0011
+                  Você pode usar a <span className="font-black">matrícula completa</span> (AAAA-XXXX) ou só os{' '}
+                  <span className="font-black">4 últimos dígitos</span>.
                 </p>
               </div>
 
