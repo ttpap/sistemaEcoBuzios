@@ -15,6 +15,7 @@ import { showSuccess } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
 import type { CoordinatorRegistration } from "@/types/coordinator";
 import { createGlobalCoordinator, updateGlobalCoordinator } from "@/utils/coordinators";
+import { lookupCep } from "@/utils/cep";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -90,24 +91,22 @@ export default function CoordinatorForm({ initialData }: CoordinatorFormProps) {
   }, [selectedBank]);
 
   useEffect(() => {
-    const fetchCep = async () => {
-      const cleanCep = cep?.replace(/\D/g, "");
-      if (cleanCep?.length === 8) {
-        try {
-          const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-          const data = await response.json();
-          if (!data.erro) {
-            form.setValue("street", data.logradouro);
-            form.setValue("neighborhood", data.bairro);
-            form.setValue("city", data.localidade);
-            form.setValue("uf", data.uf);
-          }
-        } catch {
-          // ignore
-        }
-      }
+    let cancelled = false;
+
+    const run = async () => {
+      const res = await lookupCep(cep || "");
+      if (cancelled || !res) return;
+
+      form.setValue("street", res.street || "", { shouldDirty: true, shouldValidate: true });
+      form.setValue("neighborhood", res.neighborhood || "", { shouldDirty: true, shouldValidate: true });
+      form.setValue("city", res.city || "Armação dos Búzios", { shouldDirty: true, shouldValidate: true });
+      form.setValue("uf", res.uf || "RJ", { shouldDirty: true, shouldValidate: true });
     };
-    fetchCep();
+
+    run();
+    return () => {
+      cancelled = true;
+    };
   }, [cep, form]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
