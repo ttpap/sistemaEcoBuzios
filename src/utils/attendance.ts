@@ -58,24 +58,12 @@ export function findAttendanceByClassAndDate(classId: string, date: string) {
   return getAllAttendance().find((s) => s.classId === classId && s.date === date);
 }
 
-export function ensureStudentRecords(
-  session: AttendanceSession,
-  currentStudentIds: string[],
-  defaultStatus: AttendanceStatus = "presente"
-): AttendanceSession {
-  // If session has a snapshot, we DO NOT expand it with new students.
-  // This preserves the historical truth for reports.
-  const targetIds = session.studentIds && session.studentIds.length > 0 ? session.studentIds : currentStudentIds;
+export function ensureStudentRecords(session: AttendanceSession, currentStudentIds: string[]): AttendanceSession {
+  // Mantém snapshot de quem estava na turma no dia.
+  // NÃO preenche presença/falta automaticamente: registros podem ficar em branco.
+  if (session.studentIds && session.studentIds.length > 0) return session;
 
-  const records = { ...session.records };
-  let changed = false;
+  if (!currentStudentIds || currentStudentIds.length === 0) return session;
 
-  for (const id of targetIds) {
-    if (!records[id]) {
-      records[id] = defaultStatus;
-      changed = true;
-    }
-  }
-
-  return changed ? { ...session, records } : session;
+  return { ...session, studentIds: [...currentStudentIds] };
 }

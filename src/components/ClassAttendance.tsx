@@ -139,7 +139,7 @@ export default function ClassAttendance({
     [sessions, selectedId]
   );
 
-  // Keep records in sync with enrolled students (e.g., if new students are added after a session is created)
+  // Keep snapshot in sync with enrolled students (does NOT auto-mark presence)
   useEffect(() => {
     if (!selectedSession) {
       setDraftRecords(null);
@@ -147,13 +147,13 @@ export default function ClassAttendance({
       return;
     }
 
-    const synced = ensureStudentRecords(selectedSession, studentIds, "presente");
+    const synced = ensureStudentRecords(selectedSession, studentIds);
     if (synced !== selectedSession) {
       upsertAttendanceSession(synced);
       setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
     }
 
-    setDraftRecords({ ...(synced.records || {}) });
+    setDraftRecords({ ...(synced.records || {}) } as Record<string, AttendanceStatus>);
     setIsDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSession?.id, studentIds.join(",")]);
@@ -180,16 +180,25 @@ export default function ClassAttendance({
 
   const summary = useMemo(() => {
     if (!selectedSession || !draftRecords) return null;
+
+    const targetIds =
+      selectedSession.studentIds && selectedSession.studentIds.length > 0
+        ? selectedSession.studentIds
+        : studentIds;
+
     const counts: Record<AttendanceStatus, number> = {
       presente: 0,
       falta: 0,
       atrasado: 0,
       justificada: 0,
     };
-    for (const sid of studentIds) {
-      const st = draftRecords[sid] || "presente";
+
+    for (const sid of targetIds) {
+      const st = draftRecords[sid];
+      if (!st) continue; // em branco
       counts[st] += 1;
     }
+
     return counts;
   }, [selectedSession?.id, studentIds.join(","), draftRecords, isDirty]);
 
@@ -209,10 +218,10 @@ export default function ClassAttendance({
       classId,
       date,
       createdAt: new Date().toISOString(),
-      records: studentIds.reduce((acc, sid) => {
-        acc[sid] = "presente";
-        return acc;
-      }, {} as Record<string, AttendanceStatus>),
+      // snapshot
+      studentIds: [...studentIds],
+      // começa em branco: professor marca e salva
+      records: {},
     };
 
     // Persist by rewriting full list to keep ordering predictable
@@ -231,8 +240,19 @@ export default function ClassAttendance({
   const updateStudentStatus = (studentId: string, status: AttendanceStatus) => {
     if (!selectedSession) return;
     setDraftRecords((prev) => {
-      const base = prev || { ...(selectedSession.records || {}) };
+      const base = prev || ({ ...(selectedSession.records || {}) } as Record<string, AttendanceStatus>);
       return { ...base, [studentId]: status };
+    });
+    setIsDirty(true);
+  };
+
+  const clearStudentStatus = (studentId: string) => {
+    if (!selectedSession) return;
+    setDraftRecords((prev) => {
+      const base = prev || ({ ...(selectedSession.records || {}) } as Record<string, AttendanceStatus>);
+      const next = { ...base };
+      delete next[studentId];
+      return next;
     });
     setIsDirty(true);
   };
@@ -242,6 +262,7 @@ export default function ClassAttendance({
 
     const next: AttendanceSession = {
       ...selectedSession,
+      finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),
       records: { ...draftRecords },
     };
 
@@ -454,10 +475,18 @@ export default function ClassAttendance({
                     <Badge
                       className={cn(
                         "rounded-full border-none font-black",
-                        isDirty ? "bg-amber-600 text-white" : "bg-emerald-600 text-white"
+                        !selectedSession.finalizedAt
+                          ? "bg-sky-600 text-white"
+                          : isDirty
+                            ? "bg-amber-600 text-white"
+                            : "bg-emerald-600 text-white"
                       )}
                     >
-                      {isDirty ? "Alterações não salvas" : "Salvo"}
+                      {!selectedSession.finalizedAt
+                        ? "Rascunho (não salva)"
+                        : isDirty
+                          ? "Alterações não salvas"
+                          : "Salvo"}
                     </Badge>
                   )}
                 </div>
@@ -468,7 +497,7 @@ export default function ClassAttendance({
                   <Button
                     className="rounded-2xl font-black gap-2"
                     onClick={saveSession}
-                    disabled={!isDirty}
+                    disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
                   >
                     <Save className="h-4 w-4" />
                     Salvar chamada
@@ -509,8 +538,15 @@ export default function ClassAttendance({
                   </div>
                 ) : (
                   students.map((st) => {
-                    const status = draftRecords?.[st.id] || selectedSession.records?.[st.id] || "presente";
+                    const status = (draftRecords?.[st.id] || selectedSession.records?.[st.id] || null) as
+                      | AttendanceStatus
+                      | null;
                     const abs = monthlyAbsencesByStudent.get(st.id) || 0;
+
+                    const projectId = getActiveProjectId();
+                    const justification = projectId && selectedSession
+                      ? getJustificationForStudent(projectId, classId, selectedSession.date, st.id)
+                      : null;
 
                     return (
                       <div
@@ -553,47 +589,80 @@ export default function ClassAttendance({
                                 <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
                                   Matrícula {st.registration}
                                 </Badge>
+                                {justification && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setJustificationText(justification.message);
+                                      setJustificationOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black hover:bg-sky-600/15"
+                                    title="Ver justificativa"
+                                  >
+                                    <FileCheck2 className="h-3.5 w-3.5" />
+                                    Justificativa
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
 
                           <div className="md:pl-4 md:border-l md:border-slate-100">
-                            <ToggleGroup
-                              type="single"
-                              value={status}
-                              onValueChange={(v) => {
-                                if (!v) return;
-                                updateStudentStatus(st.id, v as AttendanceStatus);
-                              }}
-                              className="flex flex-wrap justify-start md:justify-end gap-2"
-                            >
-                              {statusMeta.map((m) => (
-                                <ToggleGroupItem
-                                  key={m.value}
-                                  value={m.value}
-                                  className={cn(
-                                    "rounded-2xl h-11 px-4 font-black border border-slate-200 bg-white text-slate-700",
-                                    "hover:bg-slate-50",
-                                    m.className
-                                  )}
-                                  aria-label={m.label}
-                                >
-                                  <span className="inline-flex items-center gap-2">
-                                    {m.icon}
-                                    <span className="hidden sm:inline">{m.label}</span>
-                                    <span className="sm:hidden">
-                                      {m.value === "presente"
-                                        ? "Pres."
-                                        : m.value === "falta"
-                                          ? "Falta"
-                                          : m.value === "atrasado"
-                                            ? "Atr."
-                                            : "Just."}
+                            <div className="flex flex-wrap items-center justify-start md:justify-end gap-2">
+                              {!selectedSession.finalizedAt ? (
+                                <Badge className="rounded-full bg-sky-600/10 text-sky-700 border-none font-black">
+                                  Rascunho
+                                </Badge>
+                              ) : null}
+
+                              <ToggleGroup
+                                type="single"
+                                value={status || ""}
+                                onValueChange={(v) => {
+                                  if (!v) return;
+                                  updateStudentStatus(st.id, v as AttendanceStatus);
+                                }}
+                                className="flex flex-wrap justify-start md:justify-end gap-2"
+                              >
+                                {statusMeta.map((m) => (
+                                  <ToggleGroupItem
+                                    key={m.value}
+                                    value={m.value}
+                                    className={cn(
+                                      "rounded-2xl h-11 px-4 font-black border border-slate-200 bg-white text-slate-700",
+                                      "hover:bg-slate-50",
+                                      m.className
+                                    )}
+                                    aria-label={m.label}
+                                  >
+                                    <span className="inline-flex items-center gap-2">
+                                      {m.icon}
+                                      <span className="hidden sm:inline">{m.label}</span>
+                                      <span className="sm:hidden">
+                                        {m.value === "presente"
+                                          ? "Pres."
+                                          : m.value === "falta"
+                                            ? "Falta"
+                                            : m.value === "atrasado"
+                                              ? "Atr."
+                                              : "Just."}
+                                      </span>
                                     </span>
-                                  </span>
-                                </ToggleGroupItem>
-                              ))}
-                            </ToggleGroup>
+                                  </ToggleGroupItem>
+                                ))}
+                              </ToggleGroup>
+
+                              {status ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="rounded-2xl font-black"
+                                  onClick={() => clearStudentStatus(st.id)}
+                                >
+                                  Limpar
+                                </Button>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </div>

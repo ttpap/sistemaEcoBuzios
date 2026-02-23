@@ -31,7 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export default function CoordinatorSidebar() {
+export default function CoordinatorSidebar({
+  mode = "desktop",
+  onNavigate,
+}: {
+  mode?: "desktop" | "mobile";
+  onNavigate?: () => void;
+}) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -80,7 +86,12 @@ export default function CoordinatorSidebar() {
   };
 
   return (
-    <div className="w-64 bg-[#f5f0e6]/90 backdrop-blur-xl border-r border-slate-200 h-screen sticky top-0 flex flex-col">
+    <div
+      className={cn(
+        "bg-[#f5f0e6]/90 backdrop-blur-xl border-r border-slate-200 flex flex-col",
+        mode === "desktop" ? "w-64 h-screen sticky top-0" : "w-full h-full",
+      )}
+    >
       <div className="p-6 pt-10">
         <div className="rounded-[2rem] bg-white/70 border border-slate-200/60 shadow-sm p-4">
           <div className="flex items-center gap-3">
@@ -128,6 +139,7 @@ export default function CoordinatorSidebar() {
           <Link
             key={item.path}
             to={item.path}
+            onClick={() => onNavigate?.()}
             className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300",
               location.pathname === item.path

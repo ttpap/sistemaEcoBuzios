@@ -76,7 +76,13 @@ function isStudentCurrentlyInClass(cls: SchoolClass, studentId: string) {
   return Array.isArray(cls.studentIds) ? cls.studentIds.includes(studentId) : false;
 }
 
-function statusPill(status: AttendanceStatus) {
+function statusPill(status: AttendanceStatus | null, variant: "draft" | "final") {
+  if (!status) {
+    return variant === "draft"
+      ? { label: "Aguardando chamada", className: "bg-sky-600 text-white" }
+      : { label: "Em branco", className: "bg-slate-100 text-slate-700" };
+  }
+
   switch (status) {
     case "presente":
       return { label: "Presente", className: "bg-emerald-600 text-white" };
@@ -89,7 +95,8 @@ function statusPill(status: AttendanceStatus) {
   }
 }
 
-function statusIcon(status: AttendanceStatus) {
+function statusIcon(status: AttendanceStatus | null) {
+  if (!status) return null;
   switch (status) {
     case "presente":
       return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
@@ -109,8 +116,13 @@ type StudentDayEntry = {
   period: SchoolClass["period"];
   startTime: string;
   endTime: string;
-  status: AttendanceStatus;
+  /**
+   * Se a chamada ainda não foi salva pelo professor (finalizedAt vazio), o status fica em branco.
+   * Mesmo após salvar, se o professor não marcou o aluno, permanece em branco.
+   */
+  status: AttendanceStatus | null;
   sessionId: string;
+  isDraft: boolean;
 };
 
 export default function StudentDashboard() {
@@ -125,6 +137,14 @@ export default function StudentDashboard() {
   }, [studentId]);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+
+  const todayYmd = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }, []);
 
   const teachersById = useMemo(() => {
     const map = new Map<string, TeacherRegistration>();
@@ -177,7 +197,12 @@ export default function StudentDashboard() {
       const cls = classById.get(sess.classId);
       if (!cls) continue;
 
-      const status = (sess.records?.[studentId] || "presente") as AttendanceStatus;
+      const isDraft = !sess.finalizedAt;
+
+      // Regra: aluno só "se considera presente/faltou/etc" após a chamada ser salva.
+      // Enquanto não for salva (draft), fica em branco.
+      const status = isDraft ? null : ((sess.records?.[studentId] ?? null) as AttendanceStatus | null);
+
       const entry: StudentDayEntry = {
         ymd: sess.date,
         classId: cls.id,
@@ -187,6 +212,7 @@ export default function StudentDashboard() {
         endTime: cls.endTime,
         status,
         sessionId: sess.id,
+        isDraft,
       };
 
       const arr = map.get(sess.date) || [];
@@ -242,6 +268,20 @@ export default function StudentDashboard() {
     return dates;
   }, [entriesByDate, selectedMonthKey]);
 
+  const monthDaysWithDraft = useMemo(() => {
+    const dates: Date[] = [];
+    if (!selectedMonthKey) return dates;
+
+    for (const [ymd, entries] of entriesByDate.entries()) {
+      if (monthKey(ymd) !== selectedMonthKey) continue;
+      const hasDraft = entries.some((e) => e.isDraft);
+      if (!hasDraft) continue;
+      const d = new Date(`${ymd}T00:00:00`);
+      if (!Number.isNaN(d.getTime())) dates.push(d);
+    }
+    return dates;
+  }, [entriesByDate, selectedMonthKey]);
+
   const login = useMemo(() => {
     if (!student?.registration) return "";
     return getStudentLoginFromRegistration(String(student.registration));
@@ -252,14 +292,16 @@ export default function StudentDashboard() {
   const [justifyTarget, setJustifyTarget] = useState<StudentDayEntry | null>(null);
   const [justifyText, setJustifyText] = useState("");
 
-  const existingJustification = useMemo(() => {
-    if (!projectId || !justifyTarget || !studentId) return null;
-    return getJustificationForStudent(projectId, justifyTarget.classId, justifyTarget.ymd, studentId);
-  }, [projectId, justifyTarget, studentId]);
-
   const openJustify = (entry: StudentDayEntry) => {
     setJustifyTarget(entry);
-    setJustifyText(existingJustification?.message || "");
+
+    if (projectId && studentId) {
+      const existing = getJustificationForStudent(projectId, entry.classId, entry.ymd, studentId);
+      setJustifyText(existing?.message || "");
+    } else {
+      setJustifyText("");
+    }
+
     setJustifyOpen(true);
   };
 
@@ -276,14 +318,18 @@ export default function StudentDashboard() {
       return;
     }
 
+    const existing = getJustificationForStudent(projectId, justifyTarget.classId, justifyTarget.ymd, studentId);
+
     const j: StudentJustification = {
-      id: existingJustification?.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`),
+      id:
+        existing?.id ||
+        (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`),
       projectId,
       classId: justifyTarget.classId,
       studentId,
       date: justifyTarget.ymd,
       message: msg,
-      createdAt: existingJustification?.createdAt || new Date().toISOString(),
+      createdAt: existing?.createdAt || new Date().toISOString(),
     };
 
     upsertStudentJustification(projectId, j);
@@ -376,16 +422,21 @@ export default function StudentDashboard() {
                   modifiers={{
                     hasAula: monthDaysWithEntries,
                     hasFalta: monthDaysWithAbsence,
+                    hasDraft: monthDaysWithDraft,
                   }}
                   modifiersClassNames={{
                     hasAula: "bg-primary text-primary-foreground hover:bg-primary",
                     hasFalta: "bg-rose-600 text-white hover:bg-rose-600",
+                    hasDraft: "bg-sky-600 text-white hover:bg-sky-600",
                   }}
                   className="w-full"
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-black">
                     <span className="h-2 w-2 rounded-full bg-primary" /> Dia com aula
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black">
+                    <span className="h-2 w-2 rounded-full bg-sky-600" /> Chamada criada (ainda não salva)
                   </span>
                   <span className="inline-flex items-center gap-2 rounded-full bg-rose-600/10 text-rose-700 px-3 py-1 text-xs font-black">
                     <span className="h-2 w-2 rounded-full bg-rose-600" /> Falta
@@ -411,8 +462,10 @@ export default function StudentDashboard() {
                 ) : (
                   <div className="grid gap-3">
                     {selectedEntries.map((e) => {
-                      const pill = statusPill(e.status);
-                      const canJustify = e.status === "falta";
+                      const pill = statusPill(e.status, e.isDraft ? "draft" : "final");
+
+                      const isFutureOrToday = e.ymd >= todayYmd;
+                      const canJustify = isFutureOrToday || e.status === "falta" || e.status === null;
 
                       const teacherNames = (myClasses.find((c) => c.id === e.classId)?.teacherIds || [])
                         .map((id) => teachersById.get(id)?.fullName)
@@ -470,9 +523,9 @@ export default function StudentDashboard() {
                                 </Button>
                               )}
 
-                              {e.status !== "falta" && (
+                              {statusIcon(e.status) ? (
                                 <span className="text-xs font-bold text-slate-500">{statusIcon(e.status)}</span>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
