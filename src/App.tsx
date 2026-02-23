@@ -38,7 +38,6 @@ import CoordinatorTeachers from "@/pages/CoordinatorTeachers";
 import CoordinatorNewTeacher from "@/pages/CoordinatorNewTeacher";
 import CoordinatorEditTeacher from "@/pages/CoordinatorEditTeacher";
 import PublicStudentRegistration from "@/pages/PublicStudentRegistration";
-import StudentLogin from "@/pages/StudentLogin";
 import StudentSelectProject from "@/pages/StudentSelectProject";
 import StudentGate from "@/components/StudentGate";
 import StudentSidebar from "@/components/layout/StudentSidebar";
@@ -58,7 +57,7 @@ const App = () => (
           <Route path="/inscricao" element={<PublicStudentRegistration />} />
 
           {/* Rotas do Aluno */}
-          <Route path="/aluno/login" element={<StudentLogin />} />
+          <Route path="/aluno/login" element={<Navigate to="/login" replace />} />
           <Route
             path="/aluno/*"
             element={

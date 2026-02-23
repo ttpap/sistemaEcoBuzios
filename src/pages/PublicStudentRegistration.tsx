@@ -160,7 +160,7 @@ export default function PublicStudentRegistration() {
                     <Button
                       variant="outline"
                       className="rounded-2xl font-black h-12 px-6"
-                      onClick={() => navigate("/aluno/login")}
+                      onClick={() => navigate("/login")}
                     >
                       Ir para área do aluno
                     </Button>

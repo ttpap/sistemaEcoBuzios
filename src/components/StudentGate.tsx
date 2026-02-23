@@ -14,10 +14,10 @@ export default function StudentGate({ children }: { children: React.ReactNode })
   const studentId = useMemo(() => getStudentSessionStudentId(), []);
   const location = useLocation();
 
-  if (!studentId) return <Navigate to="/aluno/login" replace />;
+  if (!studentId) return <Navigate to="/login" replace />;
 
   const projectIds = getStudentProjectIds(studentId);
-  if (!projectIds.length) return <Navigate to="/aluno/login" replace />;
+  if (!projectIds.length) return <Navigate to="/login" replace />;
 
   if (projectIds.length > 1 && !getStudentSessionProjectId()) {
     if (!location.pathname.startsWith("/aluno/selecionar-projeto")) {

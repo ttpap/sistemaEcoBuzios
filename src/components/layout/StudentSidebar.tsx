@@ -17,7 +17,7 @@ export default function StudentSidebar() {
 
   const onLogout = () => {
     logoutStudent();
-    navigate("/aluno/login");
+    navigate("/login");
   };
 
   return (
