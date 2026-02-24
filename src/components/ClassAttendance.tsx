@@ -327,6 +327,12 @@ export default function ClassAttendance({
     setIsStudentDetailsOpen(true);
   };
 
+  const latestSession = sessions[0] || null;
+
+  const otherSessions = useMemo(() => {
+    return sessions.filter((s) => s.id !== selectedId);
+  }, [sessions, selectedId]);
+
   return (
     <div className="space-y-6">
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => (!o ? setDeleteTarget(null) : null)}>
@@ -351,12 +357,11 @@ export default function ClassAttendance({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* 1) Nova chamada */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-primary tracking-tight">Chamada</h2>
-          <p className="text-slate-500 font-medium">
-            Registre presença, falta e atrasos por dia.
-          </p>
+          <p className="text-slate-500 font-medium">Registre presença, falta e atrasos por dia.</p>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -386,11 +391,7 @@ export default function ClassAttendance({
                     {selectedDate ? selectedDate.toLocaleDateString("pt-BR") : "Escolha uma data"}
                   </span>
                 </div>
-                <Button
-                  className="rounded-2xl font-black"
-                  disabled={!selectedDate}
-                  onClick={createSession}
-                >
+                <Button className="rounded-2xl font-black" disabled={!selectedDate} onClick={createSession}>
                   Criar
                 </Button>
               </div>
@@ -399,371 +400,411 @@ export default function ClassAttendance({
         </Dialog>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        {/* Lista de chamadas */}
-        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamadas</p>
-            <p className="text-sm font-bold text-slate-600 mt-1">Últimas no topo</p>
+      {/* 2) Dia da última chamada criada */}
+      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
+              <p className="mt-2 text-2xl font-black text-primary tracking-tight">
+                {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {latestSession ? (
+                  <Badge
+                    className={cn(
+                      "rounded-full border-none font-black",
+                      !latestSession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+                    )}
+                  >
+                    {!latestSession.finalizedAt ? "Rascunho" : "Salva"}
+                  </Badge>
+                ) : (
+                  <Badge className="rounded-full border-none bg-slate-100 text-slate-700 font-black">Sem chamadas</Badge>
+                )}
+
+                {latestSession ? (
+                  <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
+                    Criada em {new Date(latestSession.createdAt).toLocaleString("pt-BR")}
+                  </Badge>
+                ) : null}
+
+                {latestSession ? (() => {
+                  const justCount = justificationCountByDate.get(latestSession.date) || 0;
+                  return justCount > 0 ? (
+                    <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
+                      <FileCheck2 className="h-3.5 w-3.5 mr-2" />
+                      {justCount} justificativa(s)
+                    </Badge>
+                  ) : null;
+                })() : null}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:items-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-2xl font-black border-slate-200 bg-white"
+                disabled={!latestSession}
+                onClick={() => latestSession && setSelectedId(latestSession.id)}
+              >
+                Abrir última chamada
+              </Button>
+              {latestSession && selectedSession?.id === latestSession.id ? (
+                <span className="text-xs font-bold text-slate-500">Você já está visualizando a última chamada.</span>
+              ) : null}
+            </div>
           </div>
-          <ScrollArea className="h-[360px] lg:h-[560px]">
-            <div className="p-4 space-y-3">
-              {sessions.length === 0 ? (
-                <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center">
-                  <CalendarDays className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-500">Nenhuma chamada criada.</p>
-                  <p className="text-xs text-slate-400 mt-1">Clique em "Nova chamada".</p>
+        </div>
+      </Card>
+
+      {/* 3) A chamada do dia (selecionada) */}
+      <Card className="border-none shadow-2xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
+        <div className="p-6 sm:p-8 border-b border-slate-100 bg-white">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada do dia</p>
+              <div className="flex flex-wrap items-center gap-3 mt-1">
+                <p className="text-xl font-black text-primary">
+                  {selectedSession
+                    ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR")
+                    : "—"}
+                </p>
+                {selectedSession && (
+                  <Badge
+                    className={cn(
+                      "rounded-full border-none font-black",
+                      !selectedSession.finalizedAt
+                        ? "bg-sky-600 text-white"
+                        : isDirty
+                          ? "bg-amber-600 text-white"
+                          : "bg-emerald-600 text-white",
+                    )}
+                  >
+                    {!selectedSession.finalizedAt
+                      ? "Rascunho (não salva)"
+                      : isDirty
+                        ? "Alterações não salvas"
+                        : "Salvo"}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 md:items-end">
+              {selectedSession && (
+                <Button
+                  className="rounded-2xl font-black gap-2"
+                  onClick={saveSession}
+                  disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
+                >
+                  <Save className="h-4 w-4" />
+                  Salvar chamada
+                </Button>
+              )}
+
+              {selectedSession && summary && (
+                <div className="flex flex-wrap gap-2 justify-start md:justify-end">
+                  <Badge className="rounded-full border-none bg-emerald-600 text-white font-black">
+                    {summary.presente} presente(s)
+                  </Badge>
+                  <Badge className="rounded-full border-none bg-rose-600 text-white font-black">
+                    {summary.falta} falta(s)
+                  </Badge>
+                  <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
+                    {summary.atrasado} atrasado(s)
+                  </Badge>
+                  <Badge className="rounded-full border-none bg-sky-600 text-white font-black">
+                    {summary.justificada} justificada(s)
+                  </Badge>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {!selectedSession ? (
+          <div className="p-10 text-center bg-slate-50/50">
+            <CalendarDays className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+            <p className="text-sm font-bold text-slate-500">Crie ou selecione uma chamada para começar.</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[520px] lg:h-[560px]">
+            <div className="p-4 sm:p-6 space-y-4">
+              {justificationsForSelected.length > 0 ? (
+                <div className="rounded-[2rem] border border-sky-200 bg-sky-50/60 p-4 sm:p-5">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-sky-700">
+                        Justificativas recebidas
+                      </p>
+                      <p className="mt-1 text-sm font-black text-slate-900">
+                        {justificationsForSelected.length} para esta chamada ({selectedSession.date})
+                      </p>
+                    </div>
+                    <Badge className="rounded-full border-none bg-sky-600 text-white font-black w-fit">
+                      {justificationsForSelected.length}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 grid gap-2">
+                    {justificationsForSelected.slice(0, 4).map((j) => (
+                      <button
+                        key={j.id}
+                        type="button"
+                        onClick={() => {
+                          setJustificationText(j.message);
+                          setJustificationOpen(true);
+                        }}
+                        className="w-full text-left rounded-[1.5rem] border border-sky-200 bg-white px-4 py-3 hover:bg-sky-50 transition-colors"
+                        title="Abrir justificativa"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-black text-slate-900 truncate">
+                            {studentNameById.get(j.studentId) || "Aluno"}
+                          </p>
+                          <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black">
+                            <FileCheck2 className="h-3.5 w-3.5" /> Ver
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                    {justificationsForSelected.length > 4 ? (
+                      <p className="text-xs font-bold text-sky-700/90">
+                        +{justificationsForSelected.length - 4} outra(s) (veja nos alunos abaixo)
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {students.length === 0 ? (
+                <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center">
+                  <p className="text-sm font-bold text-slate-500">Nenhum aluno matriculado na turma.</p>
                 </div>
               ) : (
-                sessions.map((s) => {
-                  const d = parseYMD(s.date);
-                  const day = d ? String(d.getDate()).padStart(2, "0") : s.date.slice(-2);
-                  const mon = d
-                    ? new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d)
-                    : s.date.slice(5, 7);
+                students.map((st) => {
+                  const status = (draftRecords?.[st.id] || selectedSession.records?.[st.id] || null) as
+                    | AttendanceStatus
+                    | null;
+                  const abs = monthlyAbsencesByStudent.get(st.id) || 0;
 
-                  const justCount = justificationCountByDate.get(s.date) || 0;
+                  const justification = activeProjectId && selectedSession
+                    ? getJustificationForStudent(activeProjectId, classId, selectedSession.date, st.id)
+                    : null;
 
-                  const isActive = s.id === selectedId;
                   return (
-                    <button
-                      key={s.id}
-                      onClick={() => setSelectedId(s.id)}
-                      className={cn(
-                        "w-full text-left rounded-[1.75rem] border p-4 transition-all",
-                        isActive
-                          ? "border-primary/30 bg-primary/5 shadow-md"
-                          : "border-slate-100 bg-white hover:border-primary/20 hover:bg-slate-50"
-                      )}
+                    <div
+                      key={st.id}
+                      className="rounded-[2rem] border border-slate-100 bg-white p-4 sm:p-5 shadow-sm"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "h-12 w-12 rounded-2xl flex items-center justify-center font-black",
-                              isActive ? "bg-primary text-white" : "bg-slate-100 text-slate-700"
-                            )}
+                      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <button
+                            className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0"
+                            onClick={() => openStudentDetails(st)}
+                            title="Abrir ficha do aluno"
                           >
-                            <div className="leading-none text-center">
-                              <div className="text-base">{day}</div>
-                              <div
-                                className={cn(
-                                  "text-[10px] uppercase tracking-widest",
-                                  isActive ? "text-white/80" : "text-slate-400"
-                                )}
+                            {st.photo ? (
+                              <img src={st.photo} alt={st.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                              st.fullName.charAt(0)
+                            )}
+                          </button>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-base font-black text-primary truncate">
+                                {displaySocialName(st)}
+                              </p>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary shrink-0"
+                                onClick={() => openStudentDetails(st)}
+                                title="Ver ficha"
                               >
-                                {mon}
-                              </div>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <p className="text-sm font-bold text-slate-600 truncate">{st.fullName}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="rounded-full border-slate-200 text-slate-600 font-bold"
+                              >
+                                {abs} falta(s) em {monthLabel}
+                              </Badge>
+                              <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
+                                Matrícula {st.registration}
+                              </Badge>
+                              {justification && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setJustificationText(justification.message);
+                                    setJustificationOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black hover:bg-sky-600/15"
+                                  title="Ver justificativa"
+                                >
+                                  <FileCheck2 className="h-3.5 w-3.5" />
+                                  Justificativa
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-700">{d ? d.toLocaleDateString("pt-BR") : s.date}</p>
-                            <p className="text-xs font-bold text-slate-400">Criada em {new Date(s.createdAt).toLocaleString("pt-BR")}</p>
-                            {justCount > 0 ? (
-                              <div className="mt-2">
-                                <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-[11px] font-black">
-                                  <FileCheck2 className="h-3.5 w-3.5" />
-                                  {justCount} justificativa(s)
-                                </span>
-                              </div>
+                        </div>
+
+                        <div className="md:pl-4 md:border-l md:border-slate-100">
+                          <div className="flex flex-wrap items-center justify-start md:justify-end gap-2">
+                            {!selectedSession.finalizedAt ? (
+                              <Badge className="rounded-full bg-sky-600/10 text-sky-700 border-none font-black">
+                                Rascunho
+                              </Badge>
+                            ) : null}
+
+                            <ToggleGroup
+                              type="single"
+                              value={status || ""}
+                              onValueChange={(v) => {
+                                if (!v) return;
+                                updateStudentStatus(st.id, v as AttendanceStatus);
+                              }}
+                              className="flex flex-wrap justify-start md:justify-end gap-2"
+                            >
+                              {statusMeta.map((m) => (
+                                <ToggleGroupItem
+                                  key={m.value}
+                                  value={m.value}
+                                  className={cn(
+                                    "rounded-2xl h-11 px-4 font-black border border-slate-200 bg-white text-slate-700",
+                                    "hover:bg-slate-50",
+                                    m.className,
+                                  )}
+                                  aria-label={m.label}
+                                >
+                                  <span className="inline-flex items-center gap-2">
+                                    {m.icon}
+                                    <span className="hidden sm:inline">{m.label}</span>
+                                    <span className="sm:hidden">
+                                      {m.value === "presente"
+                                        ? "Pres."
+                                        : m.value === "falta"
+                                          ? "Falta"
+                                          : m.value === "atrasado"
+                                            ? "Atr."
+                                            : "Just."}
+                                    </span>
+                                  </span>
+                                </ToggleGroupItem>
+                              ))}
+                            </ToggleGroup>
+
+                            {status ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-2xl font-black"
+                                onClick={() => clearStudentStatus(st.id)}
+                              >
+                                Limpar
+                              </Button>
                             ) : null}
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              "rounded-2xl",
-                              isActive
-                                ? "text-rose-700 hover:text-rose-800 hover:bg-rose-600/10"
-                                : "text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
-                            )}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setDeleteTarget(s);
-                            }}
-                            title="Apagar dia"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-
-                          {isActive && (
-                            <Badge className="rounded-full bg-secondary text-primary font-black border-none">Selecionada</Badge>
-                          )}
-                        </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               )}
             </div>
           </ScrollArea>
-        </Card>
+        )}
+      </Card>
 
-        {/* Conteúdo da chamada */}
-        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden">
-          <div className="p-6 border-b border-slate-100 bg-white">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada do dia</p>
-                <div className="flex flex-wrap items-center gap-3 mt-1">
-                  <p className="text-xl font-black text-primary">
-                    {selectedSession
-                      ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR")
-                      : "—"}
-                  </p>
-                  {selectedSession && (
-                    <Badge
-                      className={cn(
-                        "rounded-full border-none font-black",
-                        !selectedSession.finalizedAt
-                          ? "bg-sky-600 text-white"
-                          : isDirty
-                            ? "bg-amber-600 text-white"
-                            : "bg-emerald-600 text-white"
-                      )}
-                    >
-                      {!selectedSession.finalizedAt
-                        ? "Rascunho (não salva)"
-                        : isDirty
-                          ? "Alterações não salvas"
-                          : "Salvo"}
-                    </Badge>
-                  )}
-                </div>
+      {/* 4) Todas as outras chamadas criadas */}
+      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
+        <div className="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/50">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Todas as chamadas</p>
+          <p className="text-sm font-bold text-slate-600 mt-1">
+            {otherSessions.length === 0 ? "Nenhuma outra chamada além da selecionada." : "Clique para abrir."}
+          </p>
+        </div>
+
+        <ScrollArea className="h-[280px] sm:h-[320px]">
+          <div className="p-4 space-y-3">
+            {otherSessions.length === 0 ? (
+              <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center">
+                <p className="text-sm font-bold text-slate-500">Sem outras chamadas.</p>
               </div>
+            ) : (
+              otherSessions.map((s) => {
+                const d = parseYMD(s.date);
+                const justCount = justificationCountByDate.get(s.date) || 0;
+                const isLatest = latestSession?.id === s.id;
 
-              <div className="flex flex-col gap-2 md:items-end">
-                {selectedSession && (
-                  <Button
-                    className="rounded-2xl font-black gap-2"
-                    onClick={saveSession}
-                    disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedId(s.id)}
+                    className={cn(
+                      "w-full text-left rounded-[2rem] border p-4 transition-colors",
+                      "border-slate-100 bg-white hover:border-primary/20 hover:bg-slate-50",
+                    )}
                   >
-                    <Save className="h-4 w-4" />
-                    Salvar chamada
-                  </Button>
-                )}
-
-                {selectedSession && summary && (
-                  <div className="flex flex-wrap gap-2 justify-start md:justify-end">
-                    <Badge className="rounded-full border-none bg-emerald-600 text-white font-black">
-                      {summary.presente} presente(s)
-                    </Badge>
-                    <Badge className="rounded-full border-none bg-rose-600 text-white font-black">
-                      {summary.falta} falta(s)
-                    </Badge>
-                    <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
-                      {summary.atrasado} atrasado(s)
-                    </Badge>
-                    <Badge className="rounded-full border-none bg-sky-600 text-white font-black">
-                      {summary.justificada} justificada(s)
-                    </Badge>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {!selectedSession ? (
-            <div className="p-10 text-center bg-slate-50/50">
-              <CalendarDays className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-500">Selecione uma chamada para começar.</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[520px] lg:h-[560px]">
-              <div className="p-4 sm:p-6 space-y-4">
-                {justificationsForSelected.length > 0 ? (
-                  <div className="rounded-[2rem] border border-sky-200 bg-sky-50/60 p-4 sm:p-5">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-sky-700">
-                          Justificativas recebidas
+                        <p className="text-base font-black text-slate-900">
+                          {d ? d.toLocaleDateString("pt-BR") : s.date}
                         </p>
-                        <p className="mt-1 text-sm font-black text-slate-900">
-                          {justificationsForSelected.length} para esta chamada ({selectedSession.date})
-                        </p>
-                      </div>
-                      <Badge className="rounded-full border-none bg-sky-600 text-white font-black w-fit">
-                        {justificationsForSelected.length}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-3 grid gap-2">
-                      {justificationsForSelected.slice(0, 4).map((j) => (
-                        <button
-                          key={j.id}
-                          type="button"
-                          onClick={() => {
-                            setJustificationText(j.message);
-                            setJustificationOpen(true);
-                          }}
-                          className="w-full text-left rounded-[1.5rem] border border-sky-200 bg-white px-4 py-3 hover:bg-sky-50 transition-colors"
-                          title="Abrir justificativa"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-black text-slate-900 truncate">
-                              {studentNameById.get(j.studentId) || "Aluno"}
-                            </p>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black">
-                              <FileCheck2 className="h-3.5 w-3.5" /> Ver
-                            </span>
-                          </div>
-                        </button>
-                      ))}
-                      {justificationsForSelected.length > 4 ? (
-                        <p className="text-xs font-bold text-sky-700/90">
-                          +{justificationsForSelected.length - 4} outra(s) (veja nos alunos abaixo)
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-
-                {students.length === 0 ? (
-                  <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center">
-                    <p className="text-sm font-bold text-slate-500">Nenhum aluno matriculado na turma.</p>
-                  </div>
-                ) : (
-                  students.map((st) => {
-                    const status = (draftRecords?.[st.id] || selectedSession.records?.[st.id] || null) as
-                      | AttendanceStatus
-                      | null;
-                    const abs = monthlyAbsencesByStudent.get(st.id) || 0;
-
-                    const justification = activeProjectId && selectedSession
-                      ? getJustificationForStudent(activeProjectId, classId, selectedSession.date, st.id)
-                      : null;
-
-                    return (
-                      <div
-                        key={st.id}
-                        className="rounded-[2rem] border border-slate-100 bg-white p-4 sm:p-5 shadow-sm"
-                      >
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                          <div className="flex items-center gap-4 min-w-0">
-                            <button
-                              className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0"
-                              onClick={() => openStudentDetails(st)}
-                              title="Abrir ficha do aluno"
-                            >
-                              {st.photo ? (
-                                <img src={st.photo} alt={st.fullName} className="w-full h-full object-cover" />
-                              ) : (
-                                st.fullName.charAt(0)
-                              )}
-                            </button>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-base font-black text-primary truncate">
-                                  {displaySocialName(st)}
-                                </p>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary shrink-0"
-                                  onClick={() => openStudentDetails(st)}
-                                  title="Ver ficha"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <p className="text-sm font-bold text-slate-600 truncate">{st.fullName}</p>
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className="rounded-full border-slate-200 text-slate-600 font-bold">
-                                  {abs} falta(s) em {monthLabel}
-                                </Badge>
-                                <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
-                                  Matrícula {st.registration}
-                                </Badge>
-                                {justification && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setJustificationText(justification.message);
-                                      setJustificationOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black hover:bg-sky-600/15"
-                                    title="Ver justificativa"
-                                  >
-                                    <FileCheck2 className="h-3.5 w-3.5" />
-                                    Justificativa
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="md:pl-4 md:border-l md:border-slate-100">
-                            <div className="flex flex-wrap items-center justify-start md:justify-end gap-2">
-                              {!selectedSession.finalizedAt ? (
-                                <Badge className="rounded-full bg-sky-600/10 text-sky-700 border-none font-black">
-                                  Rascunho
-                                </Badge>
-                              ) : null}
-
-                              <ToggleGroup
-                                type="single"
-                                value={status || ""}
-                                onValueChange={(v) => {
-                                  if (!v) return;
-                                  updateStudentStatus(st.id, v as AttendanceStatus);
-                                }}
-                                className="flex flex-wrap justify-start md:justify-end gap-2"
-                              >
-                                {statusMeta.map((m) => (
-                                  <ToggleGroupItem
-                                    key={m.value}
-                                    value={m.value}
-                                    className={cn(
-                                      "rounded-2xl h-11 px-4 font-black border border-slate-200 bg-white text-slate-700",
-                                      "hover:bg-slate-50",
-                                      m.className
-                                    )}
-                                    aria-label={m.label}
-                                  >
-                                    <span className="inline-flex items-center gap-2">
-                                      {m.icon}
-                                      <span className="hidden sm:inline">{m.label}</span>
-                                      <span className="sm:hidden">
-                                        {m.value === "presente"
-                                          ? "Pres."
-                                          : m.value === "falta"
-                                            ? "Falta"
-                                            : m.value === "atrasado"
-                                              ? "Atr."
-                                              : "Just."}
-                                      </span>
-                                    </span>
-                                  </ToggleGroupItem>
-                                ))}
-                              </ToggleGroup>
-
-                              {status ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="rounded-2xl font-black"
-                                  onClick={() => clearStudentStatus(st.id)}
-                                >
-                                  Limpar
-                                </Button>
-                              ) : null}
-                            </div>
-                          </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Badge
+                            className={cn(
+                              "rounded-full border-none font-black",
+                              !s.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+                            )}
+                          >
+                            {!s.finalizedAt ? "Rascunho" : "Salva"}
+                          </Badge>
+                          {isLatest ? (
+                            <Badge className="rounded-full border-none bg-secondary/20 text-primary font-black">
+                              Última
+                            </Badge>
+                          ) : null}
+                          {justCount > 0 ? (
+                            <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
+                              <FileCheck2 className="h-3.5 w-3.5 mr-2" />
+                              {justCount} justificativa(s)
+                            </Badge>
+                          ) : null}
                         </div>
+                        <p className="mt-2 text-xs font-bold text-slate-500">
+                          Criada em {new Date(s.createdAt).toLocaleString("pt-BR")}
+                        </p>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          )}
-        </Card>
-      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-2xl text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteTarget(s);
+                        }}
+                        title="Apagar dia"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
+      </Card>
 
       <Dialog open={justificationOpen} onOpenChange={setJustificationOpen}>
         <DialogContent className="rounded-[2rem]">
