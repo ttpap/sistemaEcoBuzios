@@ -765,31 +765,26 @@ export default function ClassAttendance({
                                 if (!v) return;
                                 updateStudentStatus(st.id, v as AttendanceStatus);
                               }}
-                              className="flex flex-wrap justify-start md:justify-end gap-2"
+                              className={cn(
+                                "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start md:justify-end",
+                                "w-full sm:w-auto"
+                              )}
                             >
                               {statusMeta.map((m) => (
                                 <ToggleGroupItem
                                   key={m.value}
                                   value={m.value}
                                   className={cn(
-                                    "rounded-2xl h-11 px-4 font-black border border-slate-200 bg-white text-slate-700",
+                                    "justify-start rounded-2xl min-h-11 px-3 sm:px-4 font-black border border-slate-200 bg-white text-slate-700",
                                     "hover:bg-slate-50",
-                                    m.className,
+                                    "whitespace-normal leading-tight text-[12px] sm:text-sm",
+                                    m.className
                                   )}
                                   aria-label={m.label}
                                 >
                                   <span className="inline-flex items-center gap-2">
                                     {m.icon}
-                                    <span className="hidden sm:inline">{m.label}</span>
-                                    <span className="sm:hidden">
-                                      {m.value === "presente"
-                                        ? "Pres."
-                                        : m.value === "falta"
-                                          ? "Falta"
-                                          : m.value === "atrasado"
-                                            ? "Atr."
-                                            : "Just."}
-                                    </span>
+                                    <span>{m.label}</span>
                                   </span>
                                 </ToggleGroupItem>
                               ))}
@@ -799,7 +794,7 @@ export default function ClassAttendance({
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="rounded-2xl font-black"
+                                className="rounded-2xl font-black w-full sm:w-auto"
                                 onClick={() => clearStudentStatus(st.id)}
                               >
                                 Limpar
