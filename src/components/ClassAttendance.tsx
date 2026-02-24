@@ -29,6 +29,8 @@ import {
   upsertAttendanceSession,
   deleteAttendanceSession,
 } from "@/utils/attendance";
+import { getActiveProjectId } from "@/utils/projects";
+import { getJustificationForStudent } from "@/utils/student-justifications";
 import { StudentRegistration } from "@/types/student";
 import { showSuccess } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
@@ -127,6 +129,10 @@ export default function ClassAttendance({
   // Student details from attendance screen
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
+
+  // Student justification viewer
+  const [justificationOpen, setJustificationOpen] = useState(false);
+  const [justificationText, setJustificationText] = useState("");
 
   useEffect(() => {
     const list = getAttendanceForClass(classId);
@@ -674,6 +680,22 @@ export default function ClassAttendance({
           )}
         </Card>
       </div>
+
+      <Dialog open={justificationOpen} onOpenChange={setJustificationOpen}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-primary">Justificativa do aluno</DialogTitle>
+          </DialogHeader>
+          <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
+            <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap">{justificationText}</p>
+          </div>
+          <div className="flex justify-end">
+            <Button className="rounded-2xl font-black" onClick={() => setJustificationOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <StudentDetailsDialog
         student={selectedStudent}
