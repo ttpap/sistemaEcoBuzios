@@ -119,6 +119,7 @@ export default function ClassAttendance({
 }) {
   const studentIds = useMemo(() => students.map((s) => s.id), [students]);
   const activeProjectId = getActiveProjectId();
+  const todayYmd = useMemo(() => toYMD(new Date()), []);
 
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -142,13 +143,22 @@ export default function ClassAttendance({
   useEffect(() => {
     const list = getAttendanceForClass(classId);
     setSessions(list);
-    setSelectedId((prev) => prev || list[0]?.id || null);
-  }, [classId]);
+    setSelectedId((prev) => {
+      // Mantém seleção se ainda existir.
+      if (prev && list.some((s) => s.id === prev)) return prev;
+
+      // Prioridade: chamada do dia (hoje).
+      const today = list.find((s) => s.date === todayYmd);
+      return today?.id || list[0]?.id || null;
+    });
+  }, [classId, todayYmd]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
     [sessions, selectedId]
   );
+
+  const todaySession = useMemo(() => sessions.find((s) => s.date === todayYmd) || null, [sessions, todayYmd]);
 
   const justificationCountByDate = useMemo(() => {
     const map = new Map<string, number>();
@@ -400,64 +410,132 @@ export default function ClassAttendance({
         </Dialog>
       </div>
 
-      {/* 2) Dia da última chamada criada */}
-      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
-        <div className="p-6 sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
-              <p className="mt-2 text-2xl font-black text-primary tracking-tight">
-                {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {latestSession ? (
-                  <Badge
-                    className={cn(
-                      "rounded-full border-none font-black",
-                      !latestSession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
-                    )}
+      {/* Topo: sempre mostrar a chamada do dia (hoje) */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada de hoje</p>
+                <p className="mt-2 text-2xl font-black text-primary tracking-tight">
+                  {new Date(todayYmd + "T00:00:00").toLocaleDateString("pt-BR")}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {todaySession ? (
+                    <>
+                      <Badge
+                        className={cn(
+                          "rounded-full border-none font-black",
+                          !todaySession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+                        )}
+                      >
+                        {!todaySession.finalizedAt ? "Rascunho" : "Salva"}
+                      </Badge>
+                      <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
+                        Criada em {new Date(todaySession.createdAt).toLocaleString("pt-BR")}
+                      </Badge>
+                      {(() => {
+                        const justCount = justificationCountByDate.get(todayYmd) || 0;
+                        return justCount > 0 ? (
+                          <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
+                            <FileCheck2 className="h-3.5 w-3.5 mr-2" />
+                            {justCount} justificativa(s)
+                          </Badge>
+                        ) : null;
+                      })()}
+                    </>
+                  ) : (
+                    <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
+                      Ainda não criada
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:items-end gap-2">
+                {todaySession ? (
+                  <Button
+                    type="button"
+                    className="rounded-2xl font-black shadow-lg shadow-primary/20"
+                    onClick={() => setSelectedId(todaySession.id)}
                   >
-                    {!latestSession.finalizedAt ? "Rascunho" : "Salva"}
-                  </Badge>
+                    Abrir chamada de hoje
+                  </Button>
                 ) : (
-                  <Badge className="rounded-full border-none bg-slate-100 text-slate-700 font-black">Sem chamadas</Badge>
+                  <Button
+                    type="button"
+                    className="rounded-2xl font-black shadow-lg shadow-primary/20"
+                    onClick={() => {
+                      setSelectedDate(new Date());
+                      setCreateOpen(true);
+                    }}
+                  >
+                    Criar chamada de hoje
+                  </Button>
                 )}
 
-                {latestSession ? (
-                  <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
-                    Criada em {new Date(latestSession.createdAt).toLocaleString("pt-BR")}
-                  </Badge>
+                {todaySession && selectedSession?.id === todaySession.id ? (
+                  <span className="text-xs font-bold text-slate-500">Você já está visualizando a chamada de hoje.</span>
                 ) : null}
-
-                {latestSession ? (() => {
-                  const justCount = justificationCountByDate.get(latestSession.date) || 0;
-                  return justCount > 0 ? (
-                    <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
-                      <FileCheck2 className="h-3.5 w-3.5 mr-2" />
-                      {justCount} justificativa(s)
-                    </Badge>
-                  ) : null;
-                })() : null}
               </div>
             </div>
+          </div>
+        </Card>
 
-            <div className="flex flex-col sm:items-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-2xl font-black border-slate-200 bg-white"
-                disabled={!latestSession}
-                onClick={() => latestSession && setSelectedId(latestSession.id)}
-              >
-                Abrir última chamada
-              </Button>
-              {latestSession && selectedSession?.id === latestSession.id ? (
-                <span className="text-xs font-bold text-slate-500">Você já está visualizando a última chamada.</span>
-              ) : null}
+        {/* Mantém o contexto da última chamada criada */}
+        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
+          <div className="p-6 sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
+                <p className="mt-2 text-2xl font-black text-primary tracking-tight">
+                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {latestSession ? (
+                    <>
+                      <Badge
+                        className={cn(
+                          "rounded-full border-none font-black",
+                          !latestSession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
+                        )}
+                      >
+                        {!latestSession.finalizedAt ? "Rascunho" : "Salva"}
+                      </Badge>
+                      <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
+                        Criada em {new Date(latestSession.createdAt).toLocaleString("pt-BR")}
+                      </Badge>
+                      {(() => {
+                        const justCount = justificationCountByDate.get(latestSession.date) || 0;
+                        return justCount > 0 ? (
+                          <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
+                            <FileCheck2 className="h-3.5 w-3.5 mr-2" />
+                            {justCount} justificativa(s)
+                          </Badge>
+                        ) : null;
+                      })()}
+                    </>
+                  ) : (
+                    <Badge className="rounded-full border-none bg-slate-100 text-slate-700 font-black">Sem chamadas</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:items-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-2xl font-black border-slate-200 bg-white"
+                  disabled={!latestSession}
+                  onClick={() => latestSession && setSelectedId(latestSession.id)}
+                >
+                  Abrir última chamada
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
       {/* 3) A chamada do dia (selecionada) */}
       <Card className="border-none shadow-2xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
