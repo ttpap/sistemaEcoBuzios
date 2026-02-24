@@ -7,6 +7,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   BarChart,
   Bar,
@@ -85,9 +87,50 @@ export default function Dashboard() {
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
+  const [justificationsOpen, setJustificationsOpen] = useState(false);
 
   const today = new Date();
   const thisMonth = monthKey(today);
+
+  const projectId = useMemo(() => getActiveProjectId(), [location.pathname]);
+
+  const justificationItems = useMemo(() => {
+    if (!projectId) return [] as Array<{
+      id: string;
+      classId: string;
+      className: string;
+      studentId: string;
+      studentName: string;
+      date: string;
+      message: string;
+      createdAt: string;
+    }>;
+
+    const clsById = new Map(classes.map((c) => [c.id, c.name] as const));
+    const stById = new Map(students.map((s) => [s.id, s.socialName || s.preferredName || s.fullName] as const));
+
+    const all = getAllStudentJustifications(projectId)
+      .slice()
+      .sort((a, b) => {
+        const byDate = b.date.localeCompare(a.date);
+        if (byDate !== 0) return byDate;
+        return (b.createdAt || "").localeCompare(a.createdAt || "");
+      });
+
+    return all.map((j) => ({
+      id: j.id,
+      classId: j.classId,
+      className: clsById.get(j.classId) || "Turma",
+      studentId: j.studentId,
+      studentName: stById.get(j.studentId) || "Aluno",
+      date: j.date,
+      message: j.message,
+      createdAt: j.createdAt,
+    }));
+  }, [projectId, classes, students]);
+
+  const justificationCount = justificationItems.length;
+  const topJustifications = justificationItems.slice(0, 3);
 
   useEffect(() => {
     // Project-scoped
@@ -108,16 +151,6 @@ export default function Dashboard() {
     for (const s of students) map.set(s.id, s);
     return map;
   }, [students]);
-
-  const recentJustifications = useMemo(() => {
-    const projectId = getActiveProjectId();
-    if (!projectId) return [];
-
-    return getAllStudentJustifications(projectId)
-      .slice()
-      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
-      .slice(0, 12);
-  }, [classes, students]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -277,7 +310,114 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {justificationCount > 0 && (
+        <>
+          <Alert
+            variant="destructive"
+            className="rounded-[2.25rem] border-rose-200 bg-rose-50 text-rose-900 [&>svg]:text-rose-700"
+          >
+            <FileCheck2 className="h-5 w-5" />
+            <div className="flex-1">
+              <AlertTitle className="font-black">
+                {justificationCount} justificativa(s) de falta enviada(s) no projeto
+              </AlertTitle>
+              <AlertDescription className="mt-2">
+                <div className="space-y-2">
+                  {topJustifications.map((j) => (
+                    <div
+                      key={j.id}
+                      className="rounded-[1.5rem] border border-rose-200/70 bg-white/70 p-3"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-rose-900 truncate">
+                            {j.studentName} • {j.className}
+                          </p>
+                          <p className="text-xs font-bold text-rose-800/90 mt-1">
+                            Data: {new Date(j.date + "T00:00:00").toLocaleDateString("pt-BR")}
+                          </p>
+                          <p className="mt-2 text-xs font-bold text-rose-900/90 line-clamp-2 whitespace-pre-wrap">
+                            {j.message}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-2xl font-black border-rose-200 bg-white text-rose-800 hover:bg-rose-50"
+                          onClick={() => navigate(`${base}/turmas/${j.classId}`)}
+                        >
+                          Ver turma <ExternalLink className="h-4 w-4 ml-2" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <Button
+                      type="button"
+                      className="rounded-2xl font-black bg-rose-600 hover:bg-rose-700 text-white"
+                      onClick={() => setJustificationsOpen(true)}
+                    >
+                      Ver todas ({justificationCount})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-2xl font-black border-rose-200 bg-white text-rose-800 hover:bg-rose-50"
+                      onClick={() => navigate(`${base}/turmas`)}
+                    >
+                      Ir para Turmas
+                    </Button>
+                  </div>
+                </div>
+              </AlertDescription>
+            </div>
+          </Alert>
+
+          <Dialog open={justificationsOpen} onOpenChange={setJustificationsOpen}>
+            <DialogContent className="rounded-[2rem] max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black text-primary">
+                  Justificativas de falta ({justificationCount})
+                </DialogTitle>
+              </DialogHeader>
+
+              <ScrollArea className="h-[60vh] pr-4">
+                <div className="space-y-3">
+                  {justificationItems.map((j) => (
+                    <div key={j.id} className="rounded-[1.75rem] border border-slate-100 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-slate-900 truncate">
+                            {j.studentName} • {j.className}
+                          </p>
+                          <p className="text-xs font-bold text-slate-500 mt-1">
+                            {new Date(j.date + "T00:00:00").toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="rounded-2xl font-black"
+                          onClick={() => {
+                            setJustificationsOpen(false);
+                            navigate(`${base}/turmas/${j.classId}`);
+                          }}
+                        >
+                          Abrir
+                        </Button>
+                      </div>
+                      <p className="mt-3 text-sm font-bold text-slate-700 whitespace-pre-wrap">{j.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
+
       <StudentDetailsDialog
         student={selectedStudent}
         isOpen={isStudentDialogOpen}
@@ -336,7 +476,7 @@ export default function Dashboard() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <CardTitle className="text-2xl md:text-3xl font-black text-primary flex items-center gap-3">
-                <span className="h-12 w-12 rounded-[1.6rem] bg-sky-500/10 border border-sky-500/15 text-sky-700 flex items-center justify-center">
+                <span className="h-12 w-12 rounded-[1.6rem] bg-rose-500/10 border border-rose-500/15 text-rose-700 flex items-center justify-center">
                   <FileCheck2 className="h-6 w-6" />
                 </span>
                 Justificativas de falta
@@ -346,24 +486,24 @@ export default function Dashboard() {
               </p>
             </div>
 
-            <Badge className="rounded-full px-4 py-2 bg-sky-500/10 text-sky-700 border border-sky-500/15 font-black w-fit">
-              {recentJustifications.length} recente(s)
+            <Badge className="rounded-full px-4 py-2 bg-rose-500/10 text-rose-700 border border-rose-500/15 font-black w-fit">
+              {justificationCount} total
             </Badge>
           </div>
         </CardHeader>
 
         <CardContent className="p-6 md:p-8 pt-0">
-          {recentJustifications.length === 0 ? (
+          {justificationCount === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
               <p className="text-sm font-bold text-slate-500">Nenhuma justificativa enviada ainda.</p>
             </div>
           ) : (
             <ScrollArea className="max-h-[360px] pr-3">
               <div className="space-y-3">
-                {recentJustifications.map((j) => {
+                {justificationItems.slice(0, 12).map((j) => {
                   const cls = classesById.get(j.classId);
                   const st = studentsById.get(j.studentId);
-                  const displayName = st?.socialName || st?.preferredName || st?.fullName || "Aluno";
+                  const displayName = st?.socialName || st?.preferredName || st?.fullName || j.studentName;
 
                   const dateLabel = (() => {
                     const parts = String(j.date || "").split("-");
@@ -374,7 +514,7 @@ export default function Dashboard() {
                   return (
                     <div
                       key={j.id}
-                      className="rounded-[2rem] border border-slate-100 bg-white p-4 sm:p-5 shadow-sm"
+                      className="rounded-[2rem] border border-rose-200 bg-rose-50/40 p-4 sm:p-5 shadow-sm"
                     >
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
