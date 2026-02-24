@@ -28,6 +28,12 @@ import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/uti
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
 
+function makeId() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c: any = typeof crypto !== "undefined" ? crypto : null;
+  return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
   municipal: [
     "E. M. Paulo Freire",
@@ -278,7 +284,7 @@ const StudentForm = ({
 
       const newStudent = {
         ...studentData,
-        id: crypto.randomUUID(),
+        id: makeId(),
         registrationDate: new Date().toISOString(),
         registration: registration,
         status: 'Ativo',
