@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -121,6 +121,8 @@ export default function ClassAttendance({
   const activeProjectId = getActiveProjectId();
   const todayYmd = useMemo(() => toYMD(new Date()), []);
 
+  const attendancePanelRef = useRef<HTMLDivElement | null>(null);
+
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -139,6 +141,19 @@ export default function ClassAttendance({
   // Student justification viewer
   const [justificationOpen, setJustificationOpen] = useState(false);
   const [justificationText, setJustificationText] = useState("");
+
+  const openSession = useCallback((sessionId: string, opts?: { scroll?: boolean }) => {
+    setSelectedId(sessionId);
+
+    if (!opts?.scroll) return;
+
+    // Wait a tick so the selected panel updates, then scroll it into view.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        attendancePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+  }, []);
 
   useEffect(() => {
     const list = getAttendanceForClass(classId);
@@ -252,7 +267,7 @@ export default function ClassAttendance({
 
     const existing = findAttendanceByClassAndDate(classId, date);
     if (existing) {
-      setSelectedId(existing.id);
+      openSession(existing.id, { scroll: true });
       setCreateOpen(false);
       return;
     }
@@ -275,7 +290,7 @@ export default function ClassAttendance({
 
     const list = getAttendanceForClass(classId);
     setSessions(list);
-    setSelectedId(session.id);
+    openSession(session.id, { scroll: true });
     setCreateOpen(false);
     setSelectedDate(undefined);
     showSuccess("Chamada criada. Marque os status e clique em Salvar.");
@@ -457,7 +472,7 @@ export default function ClassAttendance({
                   <Button
                     type="button"
                     className="rounded-2xl font-black shadow-lg shadow-primary/20"
-                    onClick={() => setSelectedId(todaySession.id)}
+                    onClick={() => openSession(todaySession.id, { scroll: true })}
                   >
                     Abrir chamada de hoje
                   </Button>
@@ -527,7 +542,7 @@ export default function ClassAttendance({
                   variant="outline"
                   className="rounded-2xl font-black border-slate-200 bg-white"
                   disabled={!latestSession}
-                  onClick={() => latestSession && setSelectedId(latestSession.id)}
+                  onClick={() => latestSession && openSession(latestSession.id, { scroll: true })}
                 >
                   Abrir última chamada
                 </Button>
@@ -538,6 +553,7 @@ export default function ClassAttendance({
       </div>
 
       {/* 3) A chamada do dia (selecionada) */}
+      <div ref={attendancePanelRef} />
       <Card className="border-none shadow-2xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
         <div className="p-6 sm:p-8 border-b border-slate-100 bg-white">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -825,7 +841,7 @@ export default function ClassAttendance({
                 return (
                   <button
                     key={s.id}
-                    onClick={() => setSelectedId(s.id)}
+                    onClick={() => openSession(s.id, { scroll: true })}
                     className={cn(
                       "w-full text-left rounded-[2rem] border p-4 transition-colors",
                       "border-slate-100 bg-white hover:border-primary/20 hover:bg-slate-50",
