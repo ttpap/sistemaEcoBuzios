@@ -30,7 +30,11 @@ import {
   deleteAttendanceSession,
 } from "@/utils/attendance";
 import { getActiveProjectId } from "@/utils/projects";
-import { getJustificationForStudent } from "@/utils/student-justifications";
+import {
+  getAllStudentJustifications,
+  getJustificationForStudent,
+  getJustificationsForClassDate,
+} from "@/utils/student-justifications";
 import { StudentRegistration } from "@/types/student";
 import { showSuccess } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
@@ -114,6 +118,7 @@ export default function ClassAttendance({
   students: StudentRegistration[];
 }) {
   const studentIds = useMemo(() => students.map((s) => s.id), [students]);
+  const activeProjectId = getActiveProjectId();
 
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -144,6 +149,29 @@ export default function ClassAttendance({
     () => sessions.find((s) => s.id === selectedId) || null,
     [sessions, selectedId]
   );
+
+  const justificationCountByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!activeProjectId) return map;
+
+    for (const j of getAllStudentJustifications(activeProjectId)) {
+      if (j.classId !== classId) continue;
+      map.set(j.date, (map.get(j.date) || 0) + 1);
+    }
+
+    return map;
+  }, [activeProjectId, classId]);
+
+  const justificationsForSelected = useMemo(() => {
+    if (!activeProjectId || !selectedSession) return [];
+    return getJustificationsForClassDate(activeProjectId, classId, selectedSession.date);
+  }, [activeProjectId, classId, selectedSession?.id]);
+
+  const studentNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of students) map.set(s.id, displaySocialName(s));
+    return map;
+  }, [students]);
 
   // Keep snapshot in sync with enrolled students (does NOT auto-mark presence)
   useEffect(() => {
@@ -394,6 +422,8 @@ export default function ClassAttendance({
                     ? new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(d)
                     : s.date.slice(5, 7);
 
+                  const justCount = justificationCountByDate.get(s.date) || 0;
+
                   const isActive = s.id === selectedId;
                   return (
                     <button
@@ -429,6 +459,14 @@ export default function ClassAttendance({
                           <div>
                             <p className="text-sm font-black text-slate-700">{d ? d.toLocaleDateString("pt-BR") : s.date}</p>
                             <p className="text-xs font-bold text-slate-400">Criada em {new Date(s.createdAt).toLocaleString("pt-BR")}</p>
+                            {justCount > 0 ? (
+                              <div className="mt-2">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-[11px] font-black">
+                                  <FileCheck2 className="h-3.5 w-3.5" />
+                                  {justCount} justificativa(s)
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
 
@@ -538,6 +576,53 @@ export default function ClassAttendance({
           ) : (
             <ScrollArea className="h-[520px] lg:h-[560px]">
               <div className="p-4 sm:p-6 space-y-4">
+                {justificationsForSelected.length > 0 ? (
+                  <div className="rounded-[2rem] border border-sky-200 bg-sky-50/60 p-4 sm:p-5">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-sky-700">
+                          Justificativas recebidas
+                        </p>
+                        <p className="mt-1 text-sm font-black text-slate-900">
+                          {justificationsForSelected.length} para esta chamada ({selectedSession.date})
+                        </p>
+                      </div>
+                      <Badge className="rounded-full border-none bg-sky-600 text-white font-black w-fit">
+                        {justificationsForSelected.length}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 grid gap-2">
+                      {justificationsForSelected.slice(0, 4).map((j) => (
+                        <button
+                          key={j.id}
+                          type="button"
+                          onClick={() => {
+                            setJustificationText(j.message);
+                            setJustificationOpen(true);
+                          }}
+                          className="w-full text-left rounded-[1.5rem] border border-sky-200 bg-white px-4 py-3 hover:bg-sky-50 transition-colors"
+                          title="Abrir justificativa"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-black text-slate-900 truncate">
+                              {studentNameById.get(j.studentId) || "Aluno"}
+                            </p>
+                            <span className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black">
+                              <FileCheck2 className="h-3.5 w-3.5" /> Ver
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                      {justificationsForSelected.length > 4 ? (
+                        <p className="text-xs font-bold text-sky-700/90">
+                          +{justificationsForSelected.length - 4} outra(s) (veja nos alunos abaixo)
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
                 {students.length === 0 ? (
                   <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center">
                     <p className="text-sm font-bold text-slate-500">Nenhum aluno matriculado na turma.</p>
@@ -549,9 +634,8 @@ export default function ClassAttendance({
                       | null;
                     const abs = monthlyAbsencesByStudent.get(st.id) || 0;
 
-                    const projectId = getActiveProjectId();
-                    const justification = projectId && selectedSession
-                      ? getJustificationForStudent(projectId, classId, selectedSession.date, st.id)
+                    const justification = activeProjectId && selectedSession
+                      ? getJustificationForStudent(activeProjectId, classId, selectedSession.date, st.id)
                       : null;
 
                     return (
