@@ -110,6 +110,7 @@ export default function Dashboard() {
     const stById = new Map(students.map((s) => [s.id, s.socialName || s.preferredName || s.fullName] as const));
 
     const all = getAllStudentJustifications(projectId)
+      .filter((j) => String(j.date || "").startsWith(thisMonth))
       .slice()
       .sort((a, b) => {
         const byDate = b.date.localeCompare(a.date);
@@ -127,7 +128,7 @@ export default function Dashboard() {
       message: j.message,
       createdAt: j.createdAt,
     }));
-  }, [projectId, classes, students]);
+  }, [projectId, classes, students, thisMonth]);
 
   const justificationCount = justificationItems.length;
   const topJustifications = justificationItems.slice(0, 3);
@@ -469,97 +470,6 @@ export default function Dashboard() {
           );
         })}
       </div>
-
-      {/* Justificativas recentes */}
-      <Card className="border-none shadow-2xl shadow-slate-200/40 bg-white rounded-[2.75rem] overflow-hidden">
-        <CardHeader className="p-6 md:p-8 pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl md:text-3xl font-black text-primary flex items-center gap-3">
-                <span className="h-12 w-12 rounded-[1.6rem] bg-rose-500/10 border border-rose-500/15 text-rose-700 flex items-center justify-center">
-                  <FileCheck2 className="h-6 w-6" />
-                </span>
-                Justificativas de falta
-              </CardTitle>
-              <p className="text-slate-500 font-medium mt-2">
-                Enviadas pelos alunos (projeto ativo).
-              </p>
-            </div>
-
-            <Badge className="rounded-full px-4 py-2 bg-rose-500/10 text-rose-700 border border-rose-500/15 font-black w-fit">
-              {justificationCount} total
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-6 md:p-8 pt-0">
-          {justificationCount === 0 ? (
-            <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/50 p-10 text-center">
-              <p className="text-sm font-bold text-slate-500">Nenhuma justificativa enviada ainda.</p>
-            </div>
-          ) : (
-            <ScrollArea className="max-h-[360px] pr-3">
-              <div className="space-y-3">
-                {justificationItems.slice(0, 12).map((j) => {
-                  const cls = classesById.get(j.classId);
-                  const st = studentsById.get(j.studentId);
-                  const displayName = st?.socialName || st?.preferredName || st?.fullName || j.studentName;
-
-                  const dateLabel = (() => {
-                    const parts = String(j.date || "").split("-");
-                    if (parts.length !== 3) return String(j.date || "");
-                    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-                  })();
-
-                  return (
-                    <div
-                      key={j.id}
-                      className="rounded-[2rem] border border-rose-200 bg-rose-50/40 p-4 sm:p-5 shadow-sm"
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center rounded-full bg-slate-900/5 text-slate-700 px-3 py-1 text-xs font-black">
-                              {dateLabel}
-                            </span>
-                            <span className="inline-flex items-center rounded-full bg-primary/10 text-primary border border-primary/15 px-3 py-1 text-xs font-black">
-                              {cls?.name || "Turma"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => st && (setSelectedStudent(st), setIsStudentDialogOpen(true))}
-                              className="inline-flex items-center rounded-full bg-secondary/15 text-primary border border-secondary/25 px-3 py-1 text-xs font-black hover:bg-secondary/20"
-                              title="Abrir ficha do aluno"
-                            >
-                              {displayName}
-                            </button>
-                          </div>
-
-                          <p className="mt-3 text-sm font-bold text-slate-700 whitespace-pre-wrap break-words">
-                            {j.message}
-                          </p>
-                        </div>
-
-                        <div className="shrink-0 flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="rounded-2xl font-black border-slate-200 bg-white"
-                            onClick={() => navigate(`${base}/turmas/${j.classId}`)}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Abrir turma
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
 
       {/* BIRTHDAYS (HIGHLIGHT) */}
       <Card className="border-none shadow-2xl shadow-primary/10 bg-white rounded-[2.75rem] overflow-hidden">
