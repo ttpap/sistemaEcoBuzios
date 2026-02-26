@@ -1,0 +1,8 @@
+[build]
+  command = "pnpm run build"
+  publish = "dist"
+  install_command = "pnpm install --no-frozen-lockfile"
+
+[build.environment]
+  # Ensure Netlify uses corepack-managed pnpm
+  PNPM_HOME = "/opt/buildhome/.local/share/pnpm"
