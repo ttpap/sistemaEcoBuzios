@@ -477,9 +477,6 @@ const StudentForm = ({
               <FormField control={form.control} name="cep" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">CEP *</FormLabel><FormControl><Input placeholder="00000-000" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
-              <FormField control={form.control} name="enelClientNumber" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Nº Cliente ENEL</FormLabel><FormControl><Input placeholder="Ex: 123456789" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
-              )} />
               <FormField control={form.control} name="street" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Logradouro *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
@@ -500,7 +497,24 @@ const StudentForm = ({
           </CardContent>
         </Card>
 
-        {/* 5. Saúde */}
+        {/* 5. Utilidades */}
+        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
+          <CardContent className="p-10">
+            <SectionHeader icon={Info} title="5. Utilidades" subtitle="Informações de referência" />
+            <div className="grid gap-8 md:grid-cols-3">
+              <FormField control={form.control} name="enelClientNumber" render={({ field }) => (
+                <FormItem className="md:col-span-1">
+                  <FormLabel className="font-bold">Nº Cliente ENEL</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: 123456789" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" />
+                  </FormControl>
+                </FormItem>
+              )} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 6. Saúde */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
           <CardContent className="p-10">
             <SectionHeader icon={HeartPulse} title="5. Saúde" subtitle="Informações Médicas e Cuidados" />
