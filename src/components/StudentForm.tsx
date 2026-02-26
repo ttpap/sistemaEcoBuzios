@@ -126,7 +126,7 @@ const formSchema = z.object({
   genderOther: z.string().optional(),
   race: z.string().min(1, "Selecione a cor/raça"),
   photo: z.string().optional(),
-  
+
   guardianName: z.string().optional(),
   guardianKinship: z.string().optional(),
   guardianPhone: z.string().optional(),
@@ -142,6 +142,8 @@ const formSchema = z.object({
   neighborhood: z.string().min(1, "Obrigatório"),
   city: z.string().default("Armação dos Búzios"),
   uf: z.string().default("RJ"),
+
+  enelClientNumber: z.string().optional().or(z.literal("")),
 
   bloodType: z.string().optional(),
   hasAllergy: z.boolean().default(false),
@@ -198,6 +200,7 @@ const StudentForm = ({
       hasPhysicalRestriction: false,
       practicedActivity: false,
       familyHeartHistory: false,
+      imageAuthorization: "authorized",
     },
   });
 
@@ -473,6 +476,9 @@ const StudentForm = ({
             <div className="grid gap-8 md:grid-cols-4">
               <FormField control={form.control} name="cep" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">CEP *</FormLabel><FormControl><Input placeholder="00000-000" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="enelClientNumber" render={({ field }) => (
+                <FormItem><FormLabel className="font-bold">Nº Cliente ENEL</FormLabel><FormControl><Input placeholder="Ex: 123456789" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="street" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Logradouro *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>

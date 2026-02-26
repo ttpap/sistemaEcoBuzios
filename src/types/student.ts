@@ -34,6 +34,9 @@ export interface StudentRegistration {
   city: string;
   uf: string;
 
+  // Utilidades
+  enelClientNumber?: string;
+
   // 5. Saúde
   bloodType?: string;
   hasAllergy: boolean;
