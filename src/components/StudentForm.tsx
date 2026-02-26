@@ -115,12 +115,10 @@ const DOCUMENTS = [
 const formSchema = z.object({
   fullName: z.string().min(3, "Nome muito curto"),
   socialName: z.string().optional(),
-  preferredName: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   cpf: z.string().optional(),
   birthDate: z.string().min(1, "Obrigatório"),
   age: z.number().min(0),
-  phone: z.string().min(1, "Obrigatório"),
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.string().min(1, "Selecione o gênero"),
   genderOther: z.string().optional(),
@@ -257,6 +255,7 @@ const StudentForm = ({
 
     const studentData = {
       ...values,
+      enelClientNumber: (values.enelClientNumber || "").replace(/\D/g, "").trim() || undefined,
       schoolName: finalSchoolName || values.schoolName
     };
 
@@ -351,9 +350,6 @@ const StudentForm = ({
               <FormField control={form.control} name="socialName" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Nome Social</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
-              <FormField control={form.control} name="preferredName" render={({ field }) => (
-                <FormItem className="md:col-span-2"><FormLabel className="font-bold">Como gostaria de ser chamado(a)?</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
-              )} />
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">E-mail</FormLabel><FormControl><Input type="email" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
@@ -366,17 +362,14 @@ const StudentForm = ({
               <FormField control={form.control} name="age" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Idade</FormLabel><FormControl><Input type="number" {...field} disabled className="h-12 rounded-xl bg-slate-100 font-black text-primary" /></FormControl></FormItem>
               )} />
-              <FormField control={form.control} name="phone" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Telefone Fixo</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
-              )} />
               <FormField control={form.control} name="cellPhone" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Celular / WhatsApp *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem className="md:col-span-3"><FormLabel className="font-bold">Celular / WhatsApp *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
-              
+
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem className="md:col-span-3"><FormLabel className="font-bold">Gênero *</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-wrap gap-8 mt-2">{['Mulher cis', 'Mulher trans', 'Homem cis', 'Homem trans', 'Não-binário', 'Outro'].map((g) => (<div key={g} className="flex items-center space-x-2"><RadioGroupItem value={g} id={`gender-${g}`} /><label htmlFor={`gender-${g}`} className="text-sm font-bold text-slate-600">{g}</label></div>))}</RadioGroup></FormControl></FormItem>
               )} />
-              
+
               <FormField control={form.control} name="race" render={({ field }) => (
                 <FormItem className="md:col-span-3"><FormLabel className="font-bold">Cor / Raça *</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-wrap gap-8 mt-2">{['Branca', 'Preta', 'Amarela', 'Parda', 'Indígena'].map((r) => (<div key={r} className="flex items-center space-x-2"><RadioGroupItem value={r} id={`race-${r}`} /><label htmlFor={`race-${r}`} className="text-sm font-bold text-slate-600">{r}</label></div>))}</RadioGroup></FormControl></FormItem>
               )} />
@@ -506,7 +499,13 @@ const StudentForm = ({
                 <FormItem className="md:col-span-1">
                   <FormLabel className="font-bold">Nº Cliente ENEL</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: 123456789" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" />
+                    <Input
+                      placeholder="Somente números"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      {...field}
+                      className="h-12 rounded-xl bg-slate-50/50 border-slate-100"
+                    />
                   </FormControl>
                 </FormItem>
               )} />
@@ -517,7 +516,7 @@ const StudentForm = ({
         {/* 6. Saúde */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
           <CardContent className="p-10">
-            <SectionHeader icon={HeartPulse} title="5. Saúde" subtitle="Informações Médicas e Cuidados" />
+            <SectionHeader icon={HeartPulse} title="6. Saúde" subtitle="Informações Médicas e Cuidados" />
             <div className="grid gap-10 md:grid-cols-2">
               <FormField control={form.control} name="bloodType" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Tipo Sanguíneo</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100"><SelectValue placeholder="Selecione" /></SelectTrigger></FormControl><SelectContent>{['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -593,11 +592,11 @@ const StudentForm = ({
           </CardContent>
         </Card>
 
-        {/* 6. Imagem */}
+        {/* 7. Imagem */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
           <CardContent className="p-10">
             <div className="flex items-center justify-between mb-8">
-              <SectionHeader icon={Camera} title="6. Imagem" subtitle="Autorização de Uso" />
+              <SectionHeader icon={Camera} title="7. Imagem" subtitle="Autorização de Uso" />
               <Dialog>
                 <DialogTrigger asChild><Button variant="outline" size="sm" className="rounded-xl gap-2 font-bold"><Info className="h-4 w-4" /> Ler Termo</Button></DialogTrigger>
                 <DialogContent className="rounded-[2rem]"><DialogHeader><DialogTitle className="font-black">Termo de Autorização de Uso de Imagem</DialogTitle></DialogHeader><div className="text-sm text-slate-600 leading-relaxed p-4">Autorizo a EcoBúzios a utilizar, de forma gratuita, a imagem e voz do aluno para fins institucionais, pedagógicos e de divulgação em redes sociais, sites e materiais impressos da instituição.</div></DialogContent>
@@ -609,10 +608,10 @@ const StudentForm = ({
           </CardContent>
         </Card>
 
-        {/* 7. Documentação */}
+        {/* 8. Documentação */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
           <CardContent className="p-10">
-            <SectionHeader icon={FileText} title="7. Documentação" subtitle="Checklist de Entrega" />
+            <SectionHeader icon={FileText} title="8. Documentação" subtitle="Checklist de Entrega" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {DOCUMENTS.map((doc) => (
                 <FormField key={doc} control={form.control} name="docsDelivered" render={({ field }) => (
