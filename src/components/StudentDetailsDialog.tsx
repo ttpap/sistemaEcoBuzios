@@ -131,7 +131,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
           "p-0 overflow-hidden border-none shadow-2xl flex flex-col min-h-0 " +
           "rounded-[2.25rem] sm:rounded-[2.75rem] " +
           "w-[calc(100vw-1.5rem)] sm:w-[calc(100vw-2rem)] md:max-w-5xl " +
-          "h-[calc(100vh-1.5rem)] sm:h-[calc(100vh-2rem)]"
+          // 100dvh evita corte em mobile (barra do navegador)
+          "h-[calc(100dvh-1.5rem)] sm:h-[calc(100dvh-2rem)]"
         }
       >
         <DialogHeader className="p-6 sm:p-8 bg-primary text-white shrink-0">
@@ -187,7 +188,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
         </DialogHeader>
 
         <ScrollArea className="flex-1 min-h-0">
-          <div className="p-5 sm:p-6 md:p-8">
+          <div className="p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
             <Tabs defaultValue="pessoais" className="w-full">
               <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">
