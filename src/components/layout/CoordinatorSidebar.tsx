@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
+import { requireSupabase } from "@/integrations/supabase/client";
 import {
   getCoordinatorSessionCoordinatorId,
   logoutCoordinator,
@@ -70,8 +71,8 @@ export default function CoordinatorSidebar({
       activeProject?.imageUrl?.startsWith("data:image/jpeg"),
   );
 
-  const onLogout = () => {
-    logoutCoordinator();
+  const onLogout = async () => {
+    await requireSupabase().auth.signOut();
     navigate("/login?role=coordinator");
   };
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
+import { requireSupabase } from "@/integrations/supabase/client";
 import { logoutTeacher, getTeacherSessionTeacherId, setTeacherSessionProjectId } from "@/utils/teacher-auth";
 import { getTeacherProjectIds } from "@/utils/teachers";
 import {
@@ -66,8 +67,8 @@ export default function TeacherSidebar({
       activeProject?.imageUrl?.startsWith("data:image/jpeg"),
   );
 
-  const onLogout = () => {
-    logoutTeacher();
+  const onLogout = async () => {
+    await requireSupabase().auth.signOut();
     navigate("/login?role=teacher");
   };
 

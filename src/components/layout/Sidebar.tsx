@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { clearActiveProjectId, getActiveProject } from '@/utils/projects';
+import { requireSupabase } from '@/integrations/supabase/client';
 import { logoutAdmin } from '@/utils/admin-auth';
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
@@ -52,9 +53,9 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       activeProject?.imageUrl?.startsWith('data:image/jpeg'),
   );
 
-  const onLogout = () => {
+  const onLogout = async () => {
     clearActiveProjectId();
-    logoutAdmin();
+    await requireSupabase().auth.signOut();
     navigate('/login');
   };
 

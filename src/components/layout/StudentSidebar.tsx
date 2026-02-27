@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CalendarDays, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
+import { requireSupabase } from "@/integrations/supabase/client";
 import { logoutStudent } from "@/utils/student-auth";
 
 export default function StudentSidebar({
@@ -21,8 +22,8 @@ export default function StudentSidebar({
     { icon: CalendarDays, label: "Calendário", path: "/aluno" },
   ];
 
-  const onLogout = () => {
-    logoutStudent();
+  const onLogout = async () => {
+    await requireSupabase().auth.signOut();
     navigate("/login");
   };
 

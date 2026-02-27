@@ -44,410 +44,413 @@ import StudentSidebar from "@/components/layout/StudentSidebar";
 import StudentDashboard from "@/pages/StudentDashboard";
 import AppShell from "@/components/layout/AppShell";
 import DbStatus from "@/pages/DbStatus";
+import { AuthProvider } from "@/context/AuthContext";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <ProjectTheme />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/inscricao" element={<PublicStudentRegistration />} />
-          <Route path="/db-status" element={<DbStatus />} />
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <ProjectTheme />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/inscricao" element={<PublicStudentRegistration />} />
+            <Route path="/db-status" element={<DbStatus />} />
 
-          {/* Rotas do Aluno */}
-          <Route path="/aluno/login" element={<Navigate to="/login" replace />} />
-          <Route
-            path="/aluno/*"
-            element={
-              <StudentGate>
-                <AppShell
-                  title="Área do aluno"
-                  sidebar={({ mode, onNavigate }) => (
-                    <StudentSidebar mode={mode} onNavigate={onNavigate} />
-                  )}
-                >
-                  <Routes>
-                    <Route path="selecionar-projeto" element={<StudentSelectProject />} />
-                    <Route index element={<StudentDashboard />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AppShell>
-              </StudentGate>
-            }
-          />
+            {/* Rotas do Aluno */}
+            <Route path="/aluno/login" element={<Navigate to="/login" replace />} />
+            <Route
+              path="/aluno/*"
+              element={
+                <StudentGate>
+                  <AppShell
+                    title="Área do aluno"
+                    sidebar={({ mode, onNavigate }) => (
+                      <StudentSidebar mode={mode} onNavigate={onNavigate} />
+                    )}
+                  >
+                    <Routes>
+                      <Route path="selecionar-projeto" element={<StudentSelectProject />} />
+                      <Route index element={<StudentDashboard />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppShell>
+                </StudentGate>
+              }
+            />
 
-          <Route
-            path="/professor/login"
-            element={<Navigate to="/login?role=teacher" replace />}
-          />
+            <Route
+              path="/professor/login"
+              element={<Navigate to="/login?role=teacher" replace />}
+            />
 
-          <Route
-            path="/professor/*"
-            element={
-              <TeacherGate>
-                <AppShell
-                  title="Área do professor"
-                  sidebar={({ mode, onNavigate }) => (
-                    <TeacherSidebar mode={mode} onNavigate={onNavigate} />
-                  )}
-                >
-                  <Routes>
-                    <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
-                    <Route path="conta" element={<TeacherAccount />} />
-                    <Route
-                      index
-                      element={
-                        <ActiveProjectGate>
-                          <Dashboard />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos"
-                      element={
-                        <ActiveProjectGate>
-                          <Students />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos/novo"
-                      element={
-                        <ActiveProjectGate>
-                          <NewStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas"
-                      element={
-                        <ActiveProjectGate>
-                          <Classes />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/nova"
-                      element={
-                        <ActiveProjectGate>
-                          <NewClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <ClassDetails />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios"
-                      element={
-                        <ActiveProjectGate>
-                          <Reports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios/mensais"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios/mensais/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AppShell>
-              </TeacherGate>
-            }
-          />
+            <Route
+              path="/professor/*"
+              element={
+                <TeacherGate>
+                  <AppShell
+                    title="Área do professor"
+                    sidebar={({ mode, onNavigate }) => (
+                      <TeacherSidebar mode={mode} onNavigate={onNavigate} />
+                    )}
+                  >
+                    <Routes>
+                      <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
+                      <Route path="conta" element={<TeacherAccount />} />
+                      <Route
+                        index
+                        element={
+                          <ActiveProjectGate>
+                            <Dashboard />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos"
+                        element={
+                          <ActiveProjectGate>
+                            <Students />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <NewStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas"
+                        element={
+                          <ActiveProjectGate>
+                            <Classes />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/nova"
+                        element={
+                          <ActiveProjectGate>
+                            <NewClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <ClassDetails />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios"
+                        element={
+                          <ActiveProjectGate>
+                            <Reports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/mensais"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/mensais/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppShell>
+                </TeacherGate>
+              }
+            />
 
-          <Route
-            path="/*"
-            element={
-              <AdminGate>
-                <AppShell
-                  title="Admin"
-                  sidebar={({ mode, onNavigate }) => (
-                    <Sidebar mode={mode} onNavigate={onNavigate} />
-                  )}
-                >
-                  <Routes>
-                    <Route path="/projetos" element={<Projects />} />
+            <Route
+              path="/*"
+              element={
+                <AdminGate>
+                  <AppShell
+                    title="Admin"
+                    sidebar={({ mode, onNavigate }) => (
+                      <Sidebar mode={mode} onNavigate={onNavigate} />
+                    )}
+                  >
+                    <Routes>
+                      <Route path="/projetos" element={<Projects />} />
 
-                    <Route path="/professores" element={<AdminTeachers />} />
-                    <Route path="/professores/novo" element={<NewTeacher />} />
-                    <Route path="/professores/editar/:id" element={<EditTeacher />} />
+                      <Route path="/professores" element={<AdminTeachers />} />
+                      <Route path="/professores/novo" element={<NewTeacher />} />
+                      <Route path="/professores/editar/:id" element={<EditTeacher />} />
 
-                    <Route path="/coordenadores" element={<AdminCoordinators />} />
-                    <Route path="/coordenadores/novo" element={<NewCoordinator />} />
-                    <Route path="/coordenadores/editar/:id" element={<EditCoordinator />} />
+                      <Route path="/coordenadores" element={<AdminCoordinators />} />
+                      <Route path="/coordenadores/novo" element={<NewCoordinator />} />
+                      <Route path="/coordenadores/editar/:id" element={<EditCoordinator />} />
 
-                    <Route
-                      path="/"
-                      element={
-                        <ActiveProjectGate>
-                          <Dashboard />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/alunos"
-                      element={
-                        <ActiveProjectGate>
-                          <Students />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/alunos/novo"
-                      element={
-                        <ActiveProjectGate>
-                          <NewStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/alunos/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/turmas"
-                      element={
-                        <ActiveProjectGate>
-                          <Classes />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/turmas/nova"
-                      element={
-                        <ActiveProjectGate>
-                          <NewClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/turmas/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/turmas/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <ClassDetails />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/relatorios"
-                      element={
-                        <ActiveProjectGate>
-                          <Reports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/relatorios/mensais"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="/relatorios/mensais/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
+                      <Route
+                        path="/"
+                        element={
+                          <ActiveProjectGate>
+                            <Dashboard />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos"
+                        element={
+                          <ActiveProjectGate>
+                            <Students />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <NewStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/alunos/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/turmas"
+                        element={
+                          <ActiveProjectGate>
+                            <Classes />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/turmas/nova"
+                        element={
+                          <ActiveProjectGate>
+                            <NewClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/turmas/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/turmas/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <ClassDetails />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios"
+                        element={
+                          <ActiveProjectGate>
+                            <Reports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios/mensais"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="/relatorios/mensais/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
 
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AppShell>
-              </AdminGate>
-            }
-          />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppShell>
+                </AdminGate>
+              }
+            />
 
-          <Route
-            path="/coordenador/*"
-            element={
-              <CoordinatorGate>
-                <AppShell
-                  title="Área do coordenador"
-                  sidebar={({ mode, onNavigate }) => (
-                    <CoordinatorSidebar mode={mode} onNavigate={onNavigate} />
-                  )}
-                >
-                  <Routes>
-                    <Route path="selecionar-projeto" element={<CoordinatorSelectProject />} />
-                    <Route path="conta" element={<CoordinatorAccount />} />
-                    <Route
-                      index
-                      element={
-                        <ActiveProjectGate>
-                          <Dashboard />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos"
-                      element={
-                        <ActiveProjectGate>
-                          <Students />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos/novo"
-                      element={
-                        <ActiveProjectGate>
-                          <NewStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="alunos/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditStudent />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas"
-                      element={
-                        <ActiveProjectGate>
-                          <Classes />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/nova"
-                      element={
-                        <ActiveProjectGate>
-                          <NewClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <EditClass />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="turmas/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <ClassDetails />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios"
-                      element={
-                        <ActiveProjectGate>
-                          <Reports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios/mensais"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="relatorios/mensais/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <MonthlyReports />
-                        </ActiveProjectGate>
-                      }
-                    />
+            <Route
+              path="/coordenador/*"
+              element={
+                <CoordinatorGate>
+                  <AppShell
+                    title="Área do coordenador"
+                    sidebar={({ mode, onNavigate }) => (
+                      <CoordinatorSidebar mode={mode} onNavigate={onNavigate} />
+                    )}
+                  >
+                    <Routes>
+                      <Route path="selecionar-projeto" element={<CoordinatorSelectProject />} />
+                      <Route path="conta" element={<CoordinatorAccount />} />
+                      <Route
+                        index
+                        element={
+                          <ActiveProjectGate>
+                            <Dashboard />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos"
+                        element={
+                          <ActiveProjectGate>
+                            <Students />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <NewStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditStudent />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas"
+                        element={
+                          <ActiveProjectGate>
+                            <Classes />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/nova"
+                        element={
+                          <ActiveProjectGate>
+                            <NewClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <EditClass />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <ClassDetails />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios"
+                        element={
+                          <ActiveProjectGate>
+                            <Reports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/mensais"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/mensais/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <MonthlyReports />
+                          </ActiveProjectGate>
+                        }
+                      />
 
-                    {/* coordenador - professores */}
-                    <Route
-                      path="professores"
-                      element={
-                        <ActiveProjectGate>
-                          <CoordinatorTeachers />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="professores/novo"
-                      element={
-                        <ActiveProjectGate>
-                          <CoordinatorNewTeacher />
-                        </ActiveProjectGate>
-                      }
-                    />
-                    <Route
-                      path="professores/editar/:id"
-                      element={
-                        <ActiveProjectGate>
-                          <CoordinatorEditTeacher />
-                        </ActiveProjectGate>
-                      }
-                    />
+                      {/* coordenador - professores */}
+                      <Route
+                        path="professores"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorTeachers />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="professores/novo"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorNewTeacher />
+                          </ActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="professores/editar/:id"
+                        element={
+                          <ActiveProjectGate>
+                            <CoordinatorEditTeacher />
+                          </ActiveProjectGate>
+                        }
+                      />
 
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AppShell>
-              </CoordinatorGate>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </AppShell>
+                </CoordinatorGate>
+              }
+            />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

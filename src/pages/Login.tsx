@@ -1,166 +1,54 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Lock, User } from "lucide-react";
-import Logo from "@/components/Logo";
-import { isAdminLoggedIn, loginAdmin, logoutAdmin } from "@/utils/admin-auth";
-import {
-  isTeacherLoggedIn,
-  loginTeacher,
-  logoutTeacher,
-} from "@/utils/teacher-auth";
-import {
-  isCoordinatorLoggedIn,
-  loginCoordinator,
-  logoutCoordinator,
-} from "@/utils/coordinator-auth";
-import { isStudentLoggedIn, loginStudent, logoutStudent } from "@/utils/student-auth";
-import { showError, showSuccess } from "@/utils/toast";
+import { Auth } from "@supabase/auth-ui-react";
+import { ThemeSupa } from "@supabase/auth-ui-shared";
 
-function useRoleHintFromQuery() {
-  const location = useLocation();
-  return useMemo(() => {
-    const sp = new URLSearchParams(location.search);
-    const r = (sp.get("role") || "").toLowerCase();
-    if (r === "admin") return "admin" as const;
-    if (r === "teacher" || r === "professor") return "teacher" as const;
-    if (r === "coordinator" || r === "coordenador") return "coordinator" as const;
-    return null;
-  }, [location.search]);
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { TriangleAlert } from "lucide-react";
+
+function routeForRole(role: string) {
+  if (role === "admin") return "/projetos";
+  if (role === "teacher") return "/professor";
+  if (role === "coordinator") return "/coordenador";
+  if (role === "student") return "/aluno";
+  return "/projetos";
 }
 
 export default function Login() {
   const navigate = useNavigate();
-  const roleHint = useRoleHintFromQuery();
+  const location = useLocation();
+  const { loading, session, profile } = useAuth();
 
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
+  const hasConfig = Boolean(
+    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
+  );
 
-  const loginTrimmed = login.trim().toLowerCase();
-  const placeholder = useMemo(() => {
-    if (loginTrimmed === "pap") return "Pap";
-    if (loginTrimmed.startsWith("prof.")) return "Ex.: prof.nome.sobrenome.123";
-    if (loginTrimmed.startsWith("coord.")) return "Ex.: coord.nome.sobrenome.123";
-
-    if (roleHint === "admin") return "Pap";
-    if (roleHint === "teacher") return "Ex.: prof.nome.sobrenome.123";
-    if (roleHint === "coordinator") return "Ex.: coord.nome.sobrenome.123";
-
-    return "Digite seu usuário";
-  }, [loginTrimmed, roleHint]);
+  const roleHint = useMemo(() => {
+    const sp = new URLSearchParams(location.search);
+    const r = (sp.get("role") || "").toLowerCase();
+    if (r === "admin") return "admin";
+    if (r === "teacher" || r === "professor") return "teacher";
+    if (r === "coordinator" || r === "coordenador") return "coordinator";
+    if (r === "student" || r === "aluno") return "student";
+    return null;
+  }, [location.search]);
 
   useEffect(() => {
-    // If already logged in, route accordingly.
-    if (isAdminLoggedIn()) {
-      navigate("/projetos", { replace: true });
-      return;
-    }
-    if (isTeacherLoggedIn()) {
-      navigate("/professor", { replace: true });
-      return;
-    }
-    if (isCoordinatorLoggedIn()) {
-      navigate("/coordenador", { replace: true });
-      return;
-    }
-    if (isStudentLoggedIn()) {
-      navigate("/aluno", { replace: true });
-    }
-  }, [navigate]);
+    if (loading) return;
+    if (!session) return;
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    // Se o usuário logou, mas ainda não tem profile/role, não redireciona.
+    if (!profile?.role) return;
 
-    const loginValue = login.trim();
-    const passwordValue = password;
-
-    // 1) Try admin
-    const isAdmin = loginAdmin({ login: loginValue, password: passwordValue });
-    if (isAdmin) {
-      logoutTeacher();
-      logoutCoordinator();
-      logoutStudent();
-      showSuccess("Bem-vindo(a)! Acesso de administrador liberado.");
-      navigate("/projetos", { replace: true });
-      return;
-    }
-
-    // 2) Try student (matrícula completa AAAA-XXXX ou só últimos 4 dígitos)
-    const looksLikeStudent = /^\d{4}-\d{4}$/.test(loginValue) || /^\d{1,4}$/.test(loginValue);
-    if (looksLikeStudent) {
-      const studentRes = loginStudent({ registration: loginValue, password: passwordValue });
-      if (studentRes.ok) {
-        logoutAdmin();
-        logoutTeacher();
-        logoutCoordinator();
-        showSuccess("Bem-vindo(a)! Acesso do aluno liberado.");
-        if (studentRes.projectIds.length > 1) {
-          navigate("/aluno/selecionar-projeto", { replace: true });
-        } else {
-          navigate("/aluno", { replace: true });
-        }
-        return;
-      }
-      if ("reason" in studentRes && studentRes.reason === "not_assigned") {
-        showError("Sua matrícula ainda não está vinculada a nenhuma turma/projeto. Procure um gestor.");
-        return;
-      }
-      if ("reason" in studentRes && studentRes.reason === "ambiguous_login") {
-        showError("Existem alunos com os mesmos 4 últimos dígitos. Entre com a matrícula completa (AAAA-XXXX). ");
-        return;
-      }
-      // Se parece aluno, mas não autenticou, cai pro erro padrão no fim.
-    }
-
-    // 3) Try teacher
-    const teacherRes = loginTeacher({ login: loginValue, password: passwordValue });
-    if (teacherRes.ok) {
-      logoutAdmin();
-      logoutCoordinator();
-      logoutStudent();
-      showSuccess("Bem-vindo(a)! Acesso do professor liberado.");
-      if (teacherRes.projectIds.length > 1) {
-        navigate("/professor/selecionar-projeto", { replace: true });
-      } else {
-        navigate("/professor", { replace: true });
-      }
-      return;
-    }
-    if ("reason" in teacherRes && teacherRes.reason === "not_assigned") {
-      showError(
-        "Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.",
-      );
-      return;
-    }
-
-    // 4) Try coordinator
-    const coordRes = loginCoordinator({ login: loginValue, password: passwordValue });
-    if (coordRes.ok) {
-      logoutAdmin();
-      logoutTeacher();
-      logoutStudent();
-      showSuccess("Bem-vindo(a)! Acesso do coordenador liberado.");
-      if (coordRes.projectIds.length > 1) {
-        navigate("/coordenador/selecionar-projeto", { replace: true });
-      } else {
-        navigate("/coordenador", { replace: true });
-      }
-      return;
-    }
-    if ("reason" in coordRes && coordRes.reason === "not_assigned") {
-      showError(
-        "Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.",
-      );
-      return;
-    }
-
-    showError("Login ou senha inválidos.");
-  };
+    navigate(routeForRole(profile.role), { replace: true });
+  }, [loading, session, profile, navigate]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6">
@@ -170,62 +58,92 @@ export default function Login() {
             <Logo className="w-full" />
           </div>
           <h1 className="mt-5 text-2xl sm:text-3xl font-black tracking-tight text-primary">
-            Sistema de Gestão Pedagógica EcoBuzios
+            EcoBúzios
           </h1>
           <p className="mt-2 text-slate-500 font-medium">
-            Digite seu usuário e senha. O sistema identifica seu perfil automaticamente.
+            Acesso seguro via Supabase (email e senha).
           </p>
+          {roleHint ? (
+            <div className="mt-3">
+              <Badge className="rounded-full border-none bg-secondary text-primary font-black px-3">
+                Perfil: {roleHint}
+              </Badge>
+            </div>
+          ) : null}
         </div>
 
-        <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="p-6 md:p-8 pb-2">
-            <CardTitle className="text-lg font-black text-slate-800">Acesso</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 md:p-8 pt-4">
-            <form onSubmit={onSubmit} className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                  Usuário
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value)}
-                    placeholder={placeholder}
-                    className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                    autoComplete="username"
-                  />
-                </div>
+        {!hasConfig ? (
+          <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-lg font-black text-slate-800">
+                Supabase não configurado
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              <div className="rounded-[1.75rem] border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-900">
+                Defina as variáveis <span className="font-black">VITE_SUPABASE_URL</span> e
+                <span className="font-black"> VITE_SUPABASE_ANON_KEY</span> na Vercel e faça redeploy.
               </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">
-                  Senha
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Digite sua senha"
-                    type="password"
-                    className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                    autoComplete="current-password"
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20">
-                Entrar
+              <Button
+                className="mt-4 w-full rounded-2xl font-black"
+                variant="outline"
+                onClick={() => navigate("/db-status")}
+              >
+                Ver diagnóstico
               </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-lg font-black text-slate-800">Entrar</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {session && !profile ? (
+                <div className="mb-4 rounded-[1.75rem] border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-start gap-3 text-amber-900">
+                    <TriangleAlert className="mt-0.5 h-5 w-5" />
+                    <div>
+                      <p className="text-sm font-black">Acesso ainda não liberado</p>
+                      <p className="mt-1 text-sm font-bold text-amber-900/90">
+                        Seu usuário foi autenticado, mas ainda não existe um perfil em
+                        <span className="font-black"> profiles</span> com o seu papel (admin/professor/etc.).
+                        Peça ao administrador para cadastrar.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
-              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                Se aparecer a mensagem de "acesso não liberado", peça ao administrador para alocar você em um projeto.
+              <Auth
+                supabaseClient={supabase!}
+                providers={[]}
+                appearance={{
+                  theme: ThemeSupa,
+                  style: {
+                    button: { borderRadius: "16px", fontWeight: "800" },
+                    input: { borderRadius: "16px" },
+                    anchor: { fontWeight: "800" },
+                  },
+                  variables: {
+                    default: {
+                      colors: {
+                        brand: "#3b82f6",
+                        brandAccent: "#2563eb",
+                      },
+                    },
+                  },
+                }}
+                theme="light"
+              />
+
+              <div className="mt-4 rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
+                Se você é o administrador, crie seu usuário em Authentication → Users e depois insira
+                seu perfil na tabela <span className="font-black">profiles</span> com role <span className="font-black">admin</span>.
               </div>
-            </form>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
