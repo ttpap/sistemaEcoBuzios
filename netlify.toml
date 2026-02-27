@@ -6,3 +6,8 @@
 [build.environment]
   # Ensure Netlify uses corepack-managed pnpm
   PNPM_HOME = "/opt/buildhome/.local/share/pnpm"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
