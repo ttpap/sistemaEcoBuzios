@@ -43,6 +43,7 @@ import StudentGate from "@/components/StudentGate";
 import StudentSidebar from "@/components/layout/StudentSidebar";
 import StudentDashboard from "@/pages/StudentDashboard";
 import AppShell from "@/components/layout/AppShell";
+import DbStatus from "@/pages/DbStatus";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const App = () => (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/inscricao" element={<PublicStudentRegistration />} />
+          <Route path="/db-status" element={<DbStatus />} />
 
           {/* Rotas do Aluno */}
           <Route path="/aluno/login" element={<Navigate to="/login" replace />} />
