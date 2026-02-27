@@ -193,7 +193,13 @@ create table if not exists attendance_session_students (
   primary key (session_id, student_id)
 );
 
-create type attendance_status as enum ('presente', 'falta', 'atrasado', 'justificada');
+-- Postgres não tem "create type if not exists" em todas as versões.
+do $$
+begin
+  create type attendance_status as enum ('presente', 'falta', 'atrasado', 'justificada');
+exception
+  when duplicate_object then null;
+end $$;
 
 create table if not exists attendance_records (
   session_id uuid not null references attendance_sessions(id) on delete cascade,
