@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,20 +14,11 @@ export default function DbStatus() {
     | null
   >(null);
 
-  const hasConfig = Boolean(
+  const hasEnvConfig = Boolean(
     import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
   );
 
   const run = React.useCallback(async () => {
-    if (!supabase) {
-      setResult({
-        ok: false,
-        error:
-          "Supabase não configurado no deploy. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY na Vercel e faça redeploy.",
-      });
-      return;
-    }
-
     setLoading(true);
     try {
       const { count, error } = await supabase
@@ -94,15 +85,23 @@ export default function DbStatus() {
                 <Badge
                   className={
                     "border-none font-black " +
-                    (hasConfig ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900")
+                    (hasEnvConfig
+                      ? "bg-emerald-100 text-emerald-900"
+                      : "bg-amber-100 text-amber-900")
                   }
                 >
-                  {hasConfig ? "OK" : "FALTANDO"}
+                  {hasEnvConfig ? "OK" : "NÃO DEFINIDAS"}
                 </Badge>
                 <span className="text-sm font-bold text-slate-600">
                   VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
                 </span>
               </div>
+              {supabaseUsingFallbackConfig ? (
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  O app está usando a configuração padrão embutida. Se quiser trocar de projeto, defina
+                  as variáveis na Vercel e faça redeploy.
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-white p-5">
@@ -135,13 +134,17 @@ export default function DbStatus() {
             </div>
           </div>
 
-          {!hasConfig ? (
-            <div className="mt-6 rounded-[2rem] border border-red-200 bg-red-50 p-5">
-              <div className="flex items-start gap-3 text-red-900">
+          {!hasEnvConfig ? (
+            <div className="mt-6 rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
+              <div className="flex items-start gap-3 text-amber-950">
                 <TriangleAlert className="mt-0.5 h-5 w-5" />
                 <div>
-                  <p className="text-sm font-black">Como corrigir na Vercel</p>
-                  <ol className="mt-2 list-decimal pl-5 text-sm font-bold text-red-900/90 space-y-1">
+                  <p className="text-sm font-black">Opcional: configurar na Vercel</p>
+                  <p className="mt-1 text-sm font-bold text-amber-950/90">
+                    Se você quiser apontar para outro projeto Supabase, defina as variáveis abaixo na
+                    Vercel e faça redeploy.
+                  </p>
+                  <ol className="mt-2 list-decimal pl-5 text-sm font-bold text-amber-950/90 space-y-1">
                     <li>
                       Vercel → Project → <span className="font-black">Settings</span> →
                       <span className="font-black"> Environment Variables</span>
