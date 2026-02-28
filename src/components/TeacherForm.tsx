@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { createGlobalTeacher, updateGlobalTeacher } from '@/utils/teachers';
 import { lookupCep } from '@/utils/cep';
+import { upsertTeacher } from "@/integrations/supabase/teachers";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -125,25 +126,41 @@ const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: Te
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const finalBank = values.bank === "outro" ? values.customBank : values.bank;
+    const run = async () => {
+      const finalBank = values.bank === "outro" ? values.customBank : values.bank;
 
-    const teacherData = {
-      ...values,
-      bank: finalBank,
-    } as any;
-    delete (teacherData as any).customBank;
+      const teacherData = {
+        ...values,
+        bank: finalBank,
+      } as any;
+      delete (teacherData as any).customBank;
 
-    if (initialData) {
-      updateGlobalTeacher(initialData.id, teacherData);
-      showSuccess("Cadastro atualizado!");
-      onAfterSave?.(initialData.id, "update");
-    } else {
-      const created = createGlobalTeacher(teacherData);
-      showSuccess("Cadastro realizado! Login e senha foram gerados.");
-      onAfterSave?.(created.id, "create");
-    }
+      if (initialData) {
+        const updated = updateGlobalTeacher(initialData.id, teacherData) as TeacherRegistration;
+        try {
+          await upsertTeacher(updated);
+        } catch {
+          // Se falhar, mantém pelo menos o cache local.
+        }
 
-    navigate(backPath);
+        showSuccess("Cadastro atualizado!");
+        onAfterSave?.(initialData.id, "update");
+      } else {
+        const created = createGlobalTeacher(teacherData);
+        try {
+          await upsertTeacher(created);
+        } catch {
+          // Se falhar, mantém pelo menos o cache local.
+        }
+
+        showSuccess("Cadastro realizado! Login e senha foram gerados.");
+        onAfterSave?.(created.id, "create");
+      }
+
+      navigate(backPath);
+    };
+
+    void run();
   }
 
   const SectionHeader = ({ icon: Icon, title }: { icon: any, title: string }) => (

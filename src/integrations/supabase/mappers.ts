@@ -1,5 +1,7 @@
 import type { StudentRegistration } from "@/types/student";
 import type { SchoolClass } from "@/types/class";
+import type { TeacherRegistration } from "@/types/teacher";
+import type { CoordinatorRegistration } from "@/types/coordinator";
 
 export function mapStudentRowToModel(row: any): StudentRegistration {
   return {
@@ -129,5 +131,137 @@ export function mapClassRowToModel(row: any): SchoolClass {
     registrationDate: row.registration_date,
     status: row.status,
     complementaryInfo: row.complementary_info ?? undefined,
+  };
+}
+
+export function mapTeacherRowToModel(row: any): TeacherRegistration {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    cpf: row.cpf ?? undefined,
+    rg: row.rg ?? undefined,
+    cnpj: row.cnpj ?? undefined,
+    email: row.email,
+    cellPhone: row.cell_phone,
+    gender: row.gender,
+    photo: row.photo ?? undefined,
+
+    cep: row.cep,
+    street: row.street,
+    number: row.number,
+    complement: row.complement ?? undefined,
+    neighborhood: row.neighborhood,
+    city: row.city,
+    uf: row.uf,
+
+    bank: row.bank,
+    agency: row.agency,
+    account: row.account,
+    pixKey: row.pix_key,
+
+    authLogin: row.auth_login,
+    authPassword: row.auth_password,
+
+    registrationDate: row.registration_date,
+    status: row.status,
+  };
+}
+
+export function mapTeacherModelToRow(values: TeacherRegistration) {
+  return {
+    id: values.id,
+    full_name: values.fullName,
+    cpf: values.cpf ?? null,
+    rg: values.rg ?? null,
+    cnpj: values.cnpj ?? null,
+    email: values.email,
+    cell_phone: values.cellPhone,
+    gender: values.gender,
+    photo: values.photo ?? null,
+
+    cep: values.cep,
+    street: values.street,
+    number: values.number,
+    complement: values.complement ?? null,
+    neighborhood: values.neighborhood,
+    city: values.city,
+    uf: values.uf,
+
+    bank: values.bank,
+    agency: values.agency,
+    account: values.account,
+    pix_key: values.pixKey,
+
+    auth_login: values.authLogin,
+    auth_password: values.authPassword,
+
+    registration_date: values.registrationDate,
+    status: values.status,
+  };
+}
+
+export function mapCoordinatorRowToModel(row: any): CoordinatorRegistration {
+  return {
+    id: row.id,
+    fullName: row.full_name,
+    cpf: row.cpf ?? undefined,
+    rg: row.rg ?? undefined,
+    cnpj: row.cnpj ?? undefined,
+    email: row.email,
+    cellPhone: row.cell_phone,
+    gender: row.gender,
+    photo: row.photo ?? undefined,
+
+    cep: row.cep,
+    street: row.street,
+    number: row.number,
+    complement: row.complement ?? undefined,
+    neighborhood: row.neighborhood,
+    city: row.city,
+    uf: row.uf,
+
+    bank: row.bank,
+    agency: row.agency,
+    account: row.account,
+    pixKey: row.pix_key,
+
+    authLogin: row.auth_login,
+    authPassword: row.auth_password,
+
+    registrationDate: row.registration_date,
+    status: row.status,
+  };
+}
+
+export function mapCoordinatorModelToRow(values: CoordinatorRegistration) {
+  return {
+    id: values.id,
+    full_name: values.fullName,
+    cpf: values.cpf ?? null,
+    rg: values.rg ?? null,
+    cnpj: values.cnpj ?? null,
+    email: values.email,
+    cell_phone: values.cellPhone,
+    gender: values.gender,
+    photo: values.photo ?? null,
+
+    cep: values.cep,
+    street: values.street,
+    number: values.number,
+    complement: values.complement ?? null,
+    neighborhood: values.neighborhood,
+    city: values.city,
+    uf: values.uf,
+
+    bank: values.bank,
+    agency: values.agency,
+    account: values.account,
+    pix_key: values.pixKey,
+
+    auth_login: values.authLogin,
+    auth_password: values.authPassword,
+
+    registration_date: values.registrationDate,
+    status: values.status,
   };
 }
