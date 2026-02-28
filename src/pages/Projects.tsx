@@ -26,6 +26,7 @@ import {
 import { showError, showSuccess } from "@/utils/toast";
 import {
   createProject,
+  fetchProjects,
   getActiveProjectId,
   getProjectScopedKey,
   getProjects,
@@ -102,35 +103,45 @@ export default function Projects() {
   const activeId = useMemo(() => getActiveProjectId(), [projects]);
 
   useEffect(() => {
-    setProjects(getProjects());
-    setStudents(readGlobalStudents<StudentRegistration[]>([]));
-    setSystemLogoState(getSystemLogo() || "");
+    const run = async () => {
+      setProjects(await fetchProjects());
+      setStudents(readGlobalStudents<StudentRegistration[]>([]));
+      setSystemLogoState(getSystemLogo() || "");
+    };
+    void run();
   }, []);
 
   const refresh = () => {
-    setProjects(getProjects());
-    setStudents(readGlobalStudents<StudentRegistration[]>([]));
-    setSystemLogoState(getSystemLogo() || "");
+    const run = async () => {
+      setProjects(await fetchProjects());
+      setStudents(readGlobalStudents<StudentRegistration[]>([]));
+      setSystemLogoState(getSystemLogo() || "");
+    };
+    void run();
   };
 
   const onCreate = () => {
-    const n = name.trim();
-    if (!n) {
-      showError("Informe o nome do projeto.");
-      return;
-    }
+    const run = async () => {
+      const n = name.trim();
+      if (!n) {
+        showError("Informe o nome do projeto.");
+        return;
+      }
 
-    migrateLegacyStudentsToGlobalIfNeeded();
-    const p = createProject({ name: n, imageUrl });
-    migrateLegacyProjectDataToProjectIfNeeded(p.id);
+      migrateLegacyStudentsToGlobalIfNeeded();
+      const p = await createProject({ name: n, imageUrl });
+      migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
-    setName("");
-    setImageUrl("");
-    setImageFileName("");
-    refresh();
+      setName("");
+      setImageUrl("");
+      setImageFileName("");
+      refresh();
 
-    showSuccess("Projeto criado e selecionado.");
-    navigate("/");
+      showSuccess("Projeto criado e selecionado.");
+      navigate("/");
+    };
+
+    void run();
   };
 
   const onSelect = (p: Project) => {
@@ -198,28 +209,32 @@ export default function Projects() {
   };
 
   const onSaveEdit = () => {
-    const n = editName.trim();
-    if (!n) {
-      showError("Informe o nome do projeto.");
-      return;
-    }
+    const run = async () => {
+      const n = editName.trim();
+      if (!n) {
+        showError("Informe o nome do projeto.");
+        return;
+      }
 
-    const updated = updateProject(editProjectId, {
-      name: n,
-      imageUrl: editImageUrl.trim() ? editImageUrl : null,
-    });
+      const updated = await updateProject(editProjectId, {
+        name: n,
+        imageUrl: editImageUrl.trim() ? editImageUrl : null,
+      });
 
-    if (!updated) {
-      showError("Projeto não encontrado.");
-      return;
-    }
+      if (!updated) {
+        showError("Projeto não encontrado.");
+        return;
+      }
 
-    // if image changed, ensure the theme is recomputed
-    invalidateProjectTheme(editProjectId);
+      // if image changed, ensure the theme is recomputed
+      invalidateProjectTheme(editProjectId);
 
-    setEditOpen(false);
-    refresh();
-    showSuccess("Projeto atualizado.");
+      setEditOpen(false);
+      refresh();
+      showSuccess("Projeto atualizado.");
+    };
+
+    void run();
   };
 
   const onPickSystemLogo = (file: File | null) => {

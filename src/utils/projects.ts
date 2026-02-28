@@ -1,4 +1,5 @@
 import { Project } from "@/types/project";
+import { supabase } from "@/integrations/supabase/client";
 
 const PROJECTS_KEY = "ecobuzios_projects";
 const ACTIVE_PROJECT_KEY = "ecobuzios_active_project";
@@ -17,6 +18,7 @@ export function makeId() {
   return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// Synchronous getter used across the app (local cache).
 export function getProjects(): Project[] {
   return safeParse<Project[]>(localStorage.getItem(PROJECTS_KEY), []);
 }
@@ -25,8 +27,28 @@ export function saveProjects(projects: Project[]) {
   localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
-export function createProject(input: { name: string; imageUrl?: string }) {
-  const projects = getProjects();
+export async function fetchProjects(): Promise<Project[]> {
+  if (!supabase) return getProjects();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id,name,image_url,created_at")
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return getProjects();
+
+  const projects = data.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    imageUrl: p.image_url ?? undefined,
+    createdAt: p.created_at,
+  })) as Project[];
+
+  saveProjects(projects);
+  return projects;
+}
+
+export async function createProject(input: { name: string; imageUrl?: string }) {
   const next: Project = {
     id: makeId(),
     name: input.name.trim(),
@@ -34,20 +56,76 @@ export function createProject(input: { name: string; imageUrl?: string }) {
     createdAt: new Date().toISOString(),
   };
 
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("projects")
+      .insert({
+        id: next.id,
+        name: next.name,
+        image_url: next.imageUrl ?? null,
+      })
+      .select("id,name,image_url,created_at")
+      .single();
+
+    if (!error && data) {
+      const p: Project = {
+        id: data.id,
+        name: data.name,
+        imageUrl: data.image_url ?? undefined,
+        createdAt: data.created_at,
+      };
+
+      const current = getProjects();
+      saveProjects([p, ...current.filter((x) => x.id !== p.id)]);
+      setActiveProjectId(p.id);
+      return p;
+    }
+  }
+
+  const projects = getProjects();
   const updated = [next, ...projects];
   saveProjects(updated);
   setActiveProjectId(next.id);
   return next;
 }
 
-export function updateProject(projectId: string, patch: { name?: string; imageUrl?: string | null }) {
+export async function updateProject(projectId: string, patch: { name?: string; imageUrl?: string | null }) {
+  const name = patch.name !== undefined ? patch.name.trim() : undefined;
+  const imageUrl =
+    patch.imageUrl === undefined ? undefined : patch.imageUrl === null ? null : patch.imageUrl.trim() || null;
+
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("projects")
+      .update({
+        ...(name !== undefined ? { name } : null),
+        ...(patch.imageUrl !== undefined ? { image_url: imageUrl } : null),
+      })
+      .eq("id", projectId)
+      .select("id,name,image_url,created_at")
+      .single();
+
+    if (!error && data) {
+      const updated: Project = {
+        id: data.id,
+        name: data.name,
+        imageUrl: data.image_url ?? undefined,
+        createdAt: data.created_at,
+      };
+
+      const current = getProjects();
+      saveProjects(current.map((p) => (p.id === projectId ? updated : p)));
+      return updated;
+    }
+  }
+
   const projects = getProjects();
   const current = projects.find((p) => p.id === projectId);
   if (!current) return null;
 
   const next: Project = {
     ...current,
-    name: patch.name !== undefined ? patch.name.trim() : current.name,
+    name: name !== undefined ? name : current.name,
     imageUrl:
       patch.imageUrl === undefined
         ? current.imageUrl

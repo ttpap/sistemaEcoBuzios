@@ -24,6 +24,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { fetchStudents, deleteStudent } from "@/integrations/supabase/students";
 
 const Students = () => {
   const navigate = useNavigate();
@@ -38,30 +39,57 @@ const Students = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = readGlobalStudents<StudentRegistration[]>([]);
-    setClasses(readScoped<SchoolClass[]>('classes', []));
+    const run = async () => {
+      setClasses(readScoped<SchoolClass[]>('classes', []));
 
-    // Garante que as matrículas estejam no padrão YYYY-XXXX e que o sufixo XXXX seja ÚNICO
-    // (o login do aluno é baseado nos 4 últimos dígitos).
-    const normalized = normalizeStudentRegistrations(saved);
+      const remote = await fetchStudents();
+      if (remote.length > 0) {
+        // Fonte de verdade: Supabase. Mantém cache local para o restante do app que ainda não migrou.
+        const normalized = normalizeStudentRegistrations(remote);
+        if (normalized.changed) {
+          // Não regrava no Supabase aqui para evitar alterar matrículas existentes sem confirmação.
+          writeGlobalStudents(normalized.students);
+          setStudents(normalized.students);
+        } else {
+          writeGlobalStudents(remote);
+          setStudents(remote);
+        }
+        return;
+      }
 
-    if (normalized.changed) {
-      writeGlobalStudents(normalized.students);
-      setStudents(normalized.students);
-    } else {
-      setStudents(saved);
-    }
+      // Fallback (legado)
+      const saved = readGlobalStudents<StudentRegistration[]>([]);
+      const normalized = normalizeStudentRegistrations(saved);
+      if (normalized.changed) {
+        writeGlobalStudents(normalized.students);
+        setStudents(normalized.students);
+      } else {
+        setStudents(saved);
+      }
+    };
 
+    void run();
   }, []);
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este aluno?")) {
+    const run = async () => {
+      if (!window.confirm("Tem certeza que deseja excluir este aluno?")) return;
+
+      try {
+        await deleteStudent(id);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível excluir no Supabase.");
+        return;
+      }
+
       const updated = students.filter(s => s.id !== id);
       writeGlobalStudents(updated);
 
       setStudents(updated);
       showSuccess("Aluno removido com sucesso.");
-    }
+    };
+
+    void run();
   };
 
   const seedTestStudents = () => {
@@ -212,7 +240,7 @@ const Students = () => {
           </Button>
           <Button
             className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
-            onClick={() => navigate(`${base}/alunos/novo`)}
+            onClick={() => navigate(`${base}/alunos/novo`) }
           >
             <Plus className="h-5 w-5" />
             Novo Aluno
