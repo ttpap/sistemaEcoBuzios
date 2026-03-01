@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { createGlobalTeacher, updateGlobalTeacher } from '@/utils/teachers';
@@ -136,11 +136,14 @@ const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: Te
       delete (teacherData as any).customBank;
 
       if (initialData) {
+        const before = { ...(initialData as TeacherRegistration) };
         const updated = updateGlobalTeacher(initialData.id, teacherData) as TeacherRegistration;
         try {
           await upsertTeacher(updated);
-        } catch {
-          // Se falhar, mantém pelo menos o cache local.
+        } catch (e: any) {
+          updateGlobalTeacher(initialData.id, before);
+          showError(e?.message || "Não foi possível salvar no Supabase.");
+          return;
         }
 
         showSuccess("Cadastro atualizado!");
@@ -149,8 +152,16 @@ const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: Te
         const created = createGlobalTeacher(teacherData);
         try {
           await upsertTeacher(created);
-        } catch {
-          // Se falhar, mantém pelo menos o cache local.
+        } catch (e: any) {
+          // rollback local
+          try {
+            const { deleteGlobalTeacher } = await import("@/utils/teachers");
+            deleteGlobalTeacher(created.id);
+          } catch {
+            // ignore
+          }
+          showError(e?.message || "Não foi possível salvar no Supabase.");
+          return;
         }
 
         showSuccess("Cadastro realizado! Login e senha foram gerados.");

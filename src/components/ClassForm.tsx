@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { readScoped, writeScoped } from '@/utils/storage';
@@ -68,10 +68,6 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
       };
 
       if (initialData) {
-        const updatedLocal = existing.map((c: any) =>
-          c.id === initialData.id ? { ...c, ...classData } : c,
-        );
-
         const updatedRemote: SchoolClass = {
           ...(initialData as any),
           ...classData,
@@ -79,9 +75,14 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
 
         try {
           await upsertClassRemote(projectId, updatedRemote);
-        } catch {
-          // mantém cache local se falhar
+        } catch (e: any) {
+          showError(e?.message || 'Não foi possível salvar no Supabase.');
+          return;
         }
+
+        const updatedLocal = existing.map((c: any) =>
+          c.id === initialData.id ? { ...c, ...classData } : c,
+        );
 
         writeScoped('classes', updatedLocal);
         showSuccess("Turma atualizada!");
@@ -95,8 +96,9 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
 
         try {
           await upsertClassRemote(projectId, newClass);
-        } catch {
-          // mantém cache local se falhar
+        } catch (e: any) {
+          showError(e?.message || 'Não foi possível salvar no Supabase.');
+          return;
         }
 
         writeScoped('classes', [...existing, newClass]);
