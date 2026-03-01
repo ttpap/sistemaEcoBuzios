@@ -21,15 +21,19 @@ import { SchoolClass } from '@/types/class';
 
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
-import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
+import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { fetchStudents, deleteStudent } from "@/integrations/supabase/students";
+import { getActiveProjectId } from '@/utils/projects';
+import { fetchClassesRemote } from '@/integrations/supabase/classes';
+import { useAuth } from '@/context/AuthContext';
 
 const Students = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const { profile } = useAuth();
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -40,7 +44,19 @@ const Students = () => {
 
   useEffect(() => {
     const run = async () => {
-      setClasses(readScoped<SchoolClass[]>('classes', []));
+      // Carrega turmas do projeto (necessário para filtrar alunos por projeto)
+      const projectId = getActiveProjectId();
+      if (projectId) {
+        const remoteClasses = await fetchClassesRemote(projectId);
+        if (remoteClasses.length) {
+          writeScoped('classes', remoteClasses);
+          setClasses(remoteClasses);
+        } else {
+          setClasses(readScoped<SchoolClass[]>('classes', []));
+        }
+      } else {
+        setClasses(readScoped<SchoolClass[]>('classes', []));
+      }
 
       const remote = await fetchStudents();
       if (remote.length > 0) {
@@ -202,9 +218,12 @@ const Students = () => {
   }, [classes]);
 
   const visibleStudents = useMemo(() => {
-    // dentro do projeto, só aparecem alunos vinculados a turmas do projeto
+    // Admin vê todos os alunos
+    if (profile?.role === 'admin') return students;
+
+    // Professor/Coordenador: dentro do projeto, só aparecem alunos vinculados a turmas do projeto
     return students.filter((s) => allowedStudentIds.has(s.id));
-  }, [students, allowedStudentIds]);
+  }, [students, allowedStudentIds, profile?.role]);
 
   const filtered = visibleStudents.filter(s =>
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
