@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,8 @@ import {
 import type { StudentRegistration } from "@/types/student";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
-import type { AttendanceSession, AttendanceStatus } from "@/types/attendance";
-import { getAllAttendance } from "@/utils/attendance";
+import type { AttendanceSession } from "@/types/attendance";
+import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
 import { getActiveProject, getActiveProjectId } from "@/utils/projects";
 import {
   type StudentJustification,
@@ -133,6 +133,21 @@ export default function StudentDashboard() {
   const project = getActiveProject();
   const projectId = getActiveProjectId();
 
+  const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!projectId) {
+        setAttendanceSessions([]);
+        return;
+      }
+      const remote = await fetchAttendanceSessionsRemote(projectId);
+      setAttendanceSessions(remote);
+    };
+
+    void run();
+  }, [projectId]);
+
   const student = useMemo(() => {
     if (!studentId) return null;
     const all = readGlobalStudents<StudentRegistration[]>([]);
@@ -164,18 +179,11 @@ export default function StudentDashboard() {
   const myClassIds = useMemo(() => new Set(myClasses.map((c) => c.id)), [myClasses]);
 
   const myAttendanceSessions = useMemo(() => {
-    let all: AttendanceSession[] = [];
-    try {
-      all = getAllAttendance();
-    } catch {
-      all = [];
-    }
-
-    return all
+    return attendanceSessions
       .filter((s) => myClassIds.has(s.classId))
       .slice()
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [myClassIds]);
+  }, [attendanceSessions, myClassIds]);
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, StudentDayEntry[]>();

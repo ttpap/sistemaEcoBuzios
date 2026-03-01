@@ -156,17 +156,24 @@ export default function ClassAttendance({
   }, []);
 
   useEffect(() => {
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
-    setSelectedId((prev) => {
-      // Mantém seleção se ainda existir.
-      if (prev && list.some((s) => s.id === prev)) return prev;
+    const run = async () => {
+      if (!activeProjectId) {
+        setSessions([]);
+        setSelectedId(null);
+        return;
+      }
 
-      // Prioridade: chamada do dia (hoje).
-      const today = list.find((s) => s.date === todayYmd);
-      return today?.id || list[0]?.id || null;
-    });
-  }, [classId, todayYmd]);
+      const list = await fetchAttendanceSessionsRemote(activeProjectId, classId);
+      setSessions(list);
+      setSelectedId((prev) => {
+        if (prev && list.some((s) => s.id === prev)) return prev;
+        const today = list.find((s) => s.date === todayYmd);
+        return today?.id || list[0]?.id || null;
+      });
+    };
+
+    void run();
+  }, [activeProjectId, classId, todayYmd]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
@@ -222,7 +229,7 @@ export default function ClassAttendance({
 
   const monthlyAbsencesByStudent = useMemo(() => {
     if (!monthKey) return new Map<string, number>();
-    const all = getAttendanceForClass(classId).filter((s) => monthKeyFromYmd(s.date) === monthKey);
+    const all = sessions.filter((s) => monthKeyFromYmd(s.date) === monthKey);
     const map = new Map<string, number>();
 
     for (const sess of all) {
@@ -235,7 +242,7 @@ export default function ClassAttendance({
     }
 
     return map;
-  }, [classId, monthKey, sessions.length]);
+  }, [monthKey, sessions]);
 
   const summary = useMemo(() => {
     if (!selectedSession || !draftRecords) return null;
@@ -262,38 +269,42 @@ export default function ClassAttendance({
   }, [selectedSession?.id, studentIds.join(","), draftRecords, isDirty]);
 
   const createSession = () => {
-    if (!selectedDate) return;
-    const date = toYMD(selectedDate);
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!selectedDate) return;
+      const date = toYMD(selectedDate);
 
-    const existing = findAttendanceByClassAndDate(classId, date);
-    if (existing) {
-      openSession(existing.id, { scroll: true });
+      const existing = sessions.find((s) => s.date === date);
+      if (existing) {
+        openSession(existing.id, { scroll: true });
+        setCreateOpen(false);
+        return;
+      }
+
+      const session: AttendanceSession = {
+        id: makeId(),
+        classId,
+        date,
+        createdAt: new Date().toISOString(),
+        studentIds: [...studentIds],
+        records: {},
+      };
+
+      await upsertAttendanceSessionRemote(activeProjectId, session);
+
+      const next = [session, ...sessions].sort((a, b) => {
+        const byDate = b.date.localeCompare(a.date);
+        if (byDate !== 0) return byDate;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+      setSessions(next);
+      openSession(session.id, { scroll: true });
       setCreateOpen(false);
-      return;
-    }
-
-    const session: AttendanceSession = {
-      id: makeId(),
-      classId,
-      date,
-      createdAt: new Date().toISOString(),
-      // snapshot
-      studentIds: [...studentIds],
-      // começa em branco: professor marca e salva
-      records: {},
+      setSelectedDate(undefined);
+      showSuccess("Chamada criada. Marque os status e clique em Salvar.");
     };
 
-    // Persist by rewriting full list to keep ordering predictable
-    const all = getAllAttendance();
-    const next = [session, ...all];
-    saveAllAttendance(next);
-
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
-    openSession(session.id, { scroll: true });
-    setCreateOpen(false);
-    setSelectedDate(undefined);
-    showSuccess("Chamada criada. Marque os status e clique em Salvar.");
+    void run();
   };
 
   const updateStudentStatus = (studentId: string, status: AttendanceStatus) => {
@@ -317,34 +328,45 @@ export default function ClassAttendance({
   };
 
   const saveSession = () => {
-    if (!selectedSession || !draftRecords) return;
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!selectedSession || !draftRecords) return;
 
-    const next: AttendanceSession = {
-      ...selectedSession,
-      finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),
-      records: { ...draftRecords },
+      const next: AttendanceSession = {
+        ...selectedSession,
+        finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),
+        records: { ...draftRecords },
+      };
+
+      await upsertAttendanceSessionRemote(activeProjectId, next);
+      setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
+      setIsDirty(false);
+      showSuccess("Chamada salva com sucesso.");
     };
 
-    upsertAttendanceSession(next);
-    setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
-    setIsDirty(false);
-    showSuccess("Chamada salva com sucesso.");
+    void run();
   };
 
   const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteAttendanceSession(deleteTarget.id);
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!deleteTarget) return;
 
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
+      await deleteAttendanceSessionRemote(deleteTarget.id);
 
-    setSelectedId((prev) => {
-      if (prev !== deleteTarget.id) return prev;
-      return list[0]?.id || null;
-    });
+      const list = sessions.filter((s) => s.id !== deleteTarget.id);
+      setSessions(list);
 
-    setDeleteTarget(null);
-    showSuccess("Dia de chamada removido.");
+      setSelectedId((prev) => {
+        if (prev !== deleteTarget.id) return prev;
+        return list[0]?.id || null;
+      });
+
+      setDeleteTarget(null);
+      showSuccess("Dia de chamada removido.");
+    };
+
+    void run();
   };
 
   const openStudentDetails = (student: StudentRegistration) => {
@@ -504,7 +526,7 @@ export default function ClassAttendance({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
                 <p className="mt-2 text-2xl font-black text-primary tracking-tight">
-                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—" }
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {latestSession ? (
@@ -563,7 +585,7 @@ export default function ClassAttendance({
                 <p className="text-xl font-black text-primary">
                   {selectedSession
                     ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR")
-                    : "—"}
+                    : "—" }
                 </p>
                 {selectedSession && (
                   <Badge

@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { showSuccess, showError } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { useAuth } from "@/context/AuthContext";
 
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
@@ -193,16 +194,17 @@ interface StudentFormProps {
   onCompleted?: (result: { registration: string; login: string; password: string }) => void;
 }
 
-const StudentForm = ({
-  initialData,
-  redirectTo,
-  hideDiscard = false,
-  submitLabel,
-  onCompleted,
+const StudentForm = ({ 
+  initialData, 
+  redirectTo, 
+  onCompleted, 
+  submitLabel, 
+  hideDiscard 
 }: StudentFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
+  const { session } = useAuth();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
@@ -346,6 +348,13 @@ const StudentForm = ({
       // só tenta persistir se o client existir.
       if (!supabase) return;
 
+      // Fluxo público (sem sessão): grava via Edge Function (service role) para não depender de SELECT/RLS.
+      if (!session) {
+        const { error } = await supabase.functions.invoke("public-student-signup", { body: row });
+        if (error) throw error;
+        return;
+      }
+
       if (initialData) {
         // Atualiza por id quando for um UUID válido
         if (!isUuid(String(initialData.id || ""))) return;
@@ -358,7 +367,7 @@ const StudentForm = ({
         return;
       }
 
-      // Inserção pública (autoinscrição) pode sofrer conflito de matrícula; tentamos algumas vezes.
+      // Inserção (usuário autenticado)
       const { error } = await supabase.from("students").insert(row);
       if (error) throw error;
     };
