@@ -31,14 +31,19 @@ import {
 import type { StudentRegistration } from "@/types/student";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
-import type { AttendanceSession } from "@/types/attendance";
+import type { AttendanceSession, AttendanceStatus } from "@/types/attendance";
 import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
+
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+
 import { getActiveProject, getActiveProjectId } from "@/utils/projects";
+import type { StudentJustification } from "@/integrations/supabase/student-justifications";
 import {
-  type StudentJustification,
-  getJustificationForStudent,
-  upsertStudentJustification,
-} from "@/utils/student-justifications";
+  fetchStudentJustificationsRemote,
+  upsertStudentJustificationRemote,
+} from "@/integrations/supabase/student-justifications";
+
 import { showError, showSuccess } from "@/utils/toast";
 
 function formatDatePt(ymd: string) {
@@ -127,32 +132,60 @@ type StudentDayEntry = {
 };
 
 export default function StudentDashboard() {
-  const studentId = useMemo(() => getStudentSessionStudentId(), []);
+  const { session, profile } = useAuth();
+
+  const localStudentId = useMemo(() => getStudentSessionStudentId(), []);
+  const effectiveStudentId = profile?.student_id || localStudentId;
 
   // sempre ler do storage atual
   const project = getActiveProject();
   const projectId = getActiveProjectId();
 
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
+  const [justifications, setJustifications] = useState<StudentJustification[]>([]);
+
+  useEffect(() => {
+    // Tenta vincular o usuário Supabase ao student_id (profiles) usando o id salvo localmente.
+    // Isso é necessário para as políticas de RLS de student_justifications (student_id = current_student_id()).
+    const run = async () => {
+      if (!session?.user?.id) return;
+      if (profile?.student_id) return;
+      if (!localStudentId) return;
+
+      await supabase
+        .from("profiles")
+        .update({ student_id: localStudentId })
+        .eq("user_id", session.user.id);
+    };
+
+    void run();
+  }, [session?.user?.id, profile?.student_id, localStudentId]);
 
   useEffect(() => {
     const run = async () => {
       if (!projectId) {
         setAttendanceSessions([]);
+        setJustifications([]);
         return;
       }
-      const remote = await fetchAttendanceSessionsRemote(projectId);
-      setAttendanceSessions(remote);
+
+      const [remoteAttendance, remoteJust] = await Promise.all([
+        fetchAttendanceSessionsRemote(projectId),
+        fetchStudentJustificationsRemote(projectId),
+      ]);
+
+      setAttendanceSessions(remoteAttendance);
+      setJustifications(remoteJust);
     };
 
     void run();
   }, [projectId]);
 
   const student = useMemo(() => {
-    if (!studentId) return null;
+    if (!effectiveStudentId) return null;
     const all = readGlobalStudents<StudentRegistration[]>([]);
-    return all.find((s) => s.id === studentId) || null;
-  }, [studentId]);
+    return all.find((s) => s.id === effectiveStudentId) || null;
+  }, [effectiveStudentId]);
 
   const login = useMemo(() => {
     if (!student?.registration) return "";
@@ -171,10 +204,10 @@ export default function StudentDashboard() {
   }, []);
 
   const myClasses = useMemo(() => {
-    if (!studentId) return [] as SchoolClass[];
+    if (!effectiveStudentId) return [] as SchoolClass[];
     const all = readScoped<SchoolClass[]>("classes", []);
-    return all.filter((c) => (c.status || "").toLowerCase() !== "inativo" && isStudentCurrentlyInClass(c, studentId));
-  }, [studentId]);
+    return all.filter((c) => (c.status || "").toLowerCase() !== "inativo" && isStudentCurrentlyInClass(c, effectiveStudentId));
+  }, [effectiveStudentId]);
 
   const myClassIds = useMemo(() => new Set(myClasses.map((c) => c.id)), [myClasses]);
 
@@ -187,7 +220,7 @@ export default function StudentDashboard() {
 
   const entriesByDate = useMemo(() => {
     const map = new Map<string, StudentDayEntry[]>();
-    if (!studentId) return map;
+    if (!effectiveStudentId) return map;
 
     const classById = new Map<string, SchoolClass>();
     for (const c of myClasses) classById.set(c.id, c);
@@ -197,7 +230,7 @@ export default function StudentDashboard() {
       if (!cls) continue;
 
       const isDraft = !sess.finalizedAt;
-      const status = isDraft ? null : ((sess.records?.[studentId] ?? null) as AttendanceStatus | null);
+      const status = isDraft ? null : ((sess.records?.[effectiveStudentId] ?? null) as AttendanceStatus | null);
 
       const entry: StudentDayEntry = {
         ymd: sess.date,
@@ -221,7 +254,7 @@ export default function StudentDashboard() {
     }
 
     return map;
-  }, [myAttendanceSessions, myClasses, studentId]);
+  }, [myAttendanceSessions, myClasses, effectiveStudentId]);
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
@@ -254,8 +287,15 @@ export default function StudentDashboard() {
     setJustifyTarget(entry);
 
     const currentProjectId = getActiveProjectId();
-    if (currentProjectId && studentId) {
-      const existing = getJustificationForStudent(currentProjectId, entry.classId, entry.ymd, studentId);
+    if (currentProjectId && effectiveStudentId) {
+      const existing =
+        justifications.find(
+          (j) =>
+            j.projectId === currentProjectId &&
+            j.classId === entry.classId &&
+            j.date === entry.ymd &&
+            j.studentId === effectiveStudentId,
+        ) || null;
       setJustifyText(existing?.message || "");
     } else {
       setJustifyText("");
@@ -265,36 +305,47 @@ export default function StudentDashboard() {
   };
 
   const saveJustification = () => {
-    const currentProjectId = getActiveProjectId();
-    if (!currentProjectId) {
-      showError("Nenhum projeto ativo.");
-      return;
-    }
-    if (!studentId || !justifyTarget) return;
+    const run = async () => {
+      const currentProjectId = getActiveProjectId();
+      if (!currentProjectId) return;
+      if (!effectiveStudentId) return;
+      if (!justifyTarget) return;
 
-    const msg = justifyText.trim();
-    if (!msg) {
-      showError("Escreva a justificativa.");
-      return;
-    }
+      const now = new Date().toISOString();
+      const existing =
+        justifications.find(
+          (j) =>
+            j.projectId === currentProjectId &&
+            j.classId === justifyTarget.classId &&
+            j.date === justifyTarget.ymd &&
+            j.studentId === effectiveStudentId,
+        ) || null;
 
-    const existing = getJustificationForStudent(currentProjectId, justifyTarget.classId, justifyTarget.ymd, studentId);
+      const next: StudentJustification = {
+        id: existing?.id || crypto.randomUUID(),
+        projectId: currentProjectId,
+        classId: justifyTarget.classId,
+        studentId: effectiveStudentId,
+        date: justifyTarget.ymd,
+        message: justifyText.trim(),
+        createdAt: existing?.createdAt || now,
+      };
 
-    const j: StudentJustification = {
-      id:
-        existing?.id ||
-        (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`),
-      projectId: currentProjectId,
-      classId: justifyTarget.classId,
-      studentId,
-      date: justifyTarget.ymd,
-      message: msg,
-      createdAt: existing?.createdAt || new Date().toISOString(),
+      try {
+        await upsertStudentJustificationRemote(next);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível enviar a justificativa.");
+        return;
+      }
+
+      const updated = [next, ...justifications.filter((j) => j.id !== next.id)];
+      setJustifications(updated);
+
+      setJustifyOpen(false);
+      showSuccess("Justificativa enviada.");
     };
 
-    upsertStudentJustification(currentProjectId, j);
-    showSuccess("Justificativa enviada! Ela aparece na chamada.");
-    setJustifyOpen(false);
+    void run();
   };
 
   const onCopy = (label: string, value: string) => {
@@ -479,9 +530,16 @@ export default function StudentDashboard() {
                         .filter(Boolean) as string[];
 
                       const currentProjectId = getActiveProjectId();
-                      const justification = currentProjectId
-                        ? getJustificationForStudent(currentProjectId, e.classId, e.ymd, studentId || "")
-                        : null;
+                      const justification =
+                        currentProjectId && effectiveStudentId
+                          ? justifications.find(
+                              (j) =>
+                                j.projectId === currentProjectId &&
+                                j.classId === e.classId &&
+                                j.date === e.ymd &&
+                                j.studentId === effectiveStudentId,
+                            ) || null
+                          : null;
 
                       return (
                         <div key={`${e.sessionId}:${e.classId}`} className="rounded-[2rem] border border-slate-100 bg-white p-5">

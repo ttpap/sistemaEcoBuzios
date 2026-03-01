@@ -20,21 +20,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AttendanceSession, AttendanceStatus } from "@/types/attendance";
-import {
-  ensureStudentRecords,
-  findAttendanceByClassAndDate,
-  getAttendanceForClass,
-  getAllAttendance,
-  saveAllAttendance,
-  upsertAttendanceSession,
-  deleteAttendanceSession,
-} from "@/utils/attendance";
 import { getActiveProjectId } from "@/utils/projects";
 import {
-  getAllStudentJustifications,
-  getJustificationForStudent,
-  getJustificationsForClassDate,
-} from "@/utils/student-justifications";
+  fetchAttendanceSessionsRemote,
+  upsertAttendanceSessionRemote,
+  deleteAttendanceSessionRemote,
+} from "@/integrations/supabase/attendance";
+import {
+  fetchStudentJustificationsRemote,
+  type StudentJustification,
+} from "@/integrations/supabase/student-justifications";
+
 import { StudentRegistration } from "@/types/student";
 import { showSuccess } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
@@ -77,6 +73,14 @@ function monthLabelFromYmd(ymd: string) {
   const d = parseYMD(ymd);
   if (!d) return "mês";
   return new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(d);
+}
+
+function ensureStudentRecords(session: AttendanceSession, currentStudentIds: string[]): AttendanceSession {
+  // Mantém snapshot de quem estava na turma no dia.
+  // NÃO preenche presença/falta automaticamente.
+  if (session.studentIds && session.studentIds.length > 0) return session;
+  if (!currentStudentIds || currentStudentIds.length === 0) return session;
+  return { ...session, studentIds: [...currentStudentIds] };
 }
 
 function displaySocialName(s: StudentRegistration) {
@@ -127,6 +131,7 @@ export default function ClassAttendance({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [justifications, setJustifications] = useState<StudentJustification[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<AttendanceSession | null>(null);
 
@@ -160,15 +165,21 @@ export default function ClassAttendance({
       if (!activeProjectId) {
         setSessions([]);
         setSelectedId(null);
+        setJustifications([]);
         return;
       }
 
-      const list = await fetchAttendanceSessionsRemote(activeProjectId, classId);
-      setSessions(list);
+      const [sess, just] = await Promise.all([
+        fetchAttendanceSessionsRemote(activeProjectId, classId),
+        fetchStudentJustificationsRemote(activeProjectId),
+      ]);
+
+      setSessions(sess);
+      setJustifications(just.filter((j) => j.classId === classId));
       setSelectedId((prev) => {
-        if (prev && list.some((s) => s.id === prev)) return prev;
-        const today = list.find((s) => s.date === todayYmd);
-        return today?.id || list[0]?.id || null;
+        if (prev && sess.some((s) => s.id === prev)) return prev;
+        const today = sess.find((s) => s.date === todayYmd);
+        return today?.id || sess[0]?.id || null;
       });
     };
 
@@ -184,20 +195,16 @@ export default function ClassAttendance({
 
   const justificationCountByDate = useMemo(() => {
     const map = new Map<string, number>();
-    if (!activeProjectId) return map;
-
-    for (const j of getAllStudentJustifications(activeProjectId)) {
-      if (j.classId !== classId) continue;
+    for (const j of justifications) {
       map.set(j.date, (map.get(j.date) || 0) + 1);
     }
-
     return map;
-  }, [activeProjectId, classId]);
+  }, [justifications]);
 
   const justificationsForSelected = useMemo(() => {
-    if (!activeProjectId || !selectedSession) return [];
-    return getJustificationsForClassDate(activeProjectId, classId, selectedSession.date);
-  }, [activeProjectId, classId, selectedSession?.id]);
+    if (!selectedSession) return [] as StudentJustification[];
+    return justifications.filter((j) => j.date === selectedSession.date);
+  }, [justifications, selectedSession?.id]);
 
   const studentNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -214,15 +221,16 @@ export default function ClassAttendance({
     }
 
     const synced = ensureStudentRecords(selectedSession, studentIds);
-    if (synced !== selectedSession) {
-      upsertAttendanceSession(synced);
+    if (synced !== selectedSession && activeProjectId) {
+      // Persist snapshot in Supabase so other telas (aluno/relatórios) fiquem consistentes.
+      void upsertAttendanceSessionRemote(activeProjectId, synced);
       setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
     }
 
     setDraftRecords({ ...(synced.records || {}) } as Record<string, AttendanceStatus>);
     setIsDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSession?.id, studentIds.join(",")]);
+  }, [selectedSession?.id, studentIds.join(","), activeProjectId]);
 
   const monthKey = selectedSession ? monthKeyFromYmd(selectedSession.date) : null;
   const monthLabel = selectedSession ? monthLabelFromYmd(selectedSession.date) : "";
@@ -706,8 +714,8 @@ export default function ClassAttendance({
                     | null;
                   const abs = monthlyAbsencesByStudent.get(st.id) || 0;
 
-                  const justification = activeProjectId && selectedSession
-                    ? getJustificationForStudent(activeProjectId, classId, selectedSession.date, st.id)
+                  const justification = selectedSession
+                    ? justifications.find((j) => j.date === selectedSession.date && j.studentId === st.id) || null
                     : null;
 
                   return (

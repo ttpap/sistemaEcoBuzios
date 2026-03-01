@@ -45,7 +45,10 @@ import {
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
 import { readGlobalStudents, readScoped } from "@/utils/storage";
 import { getActiveProjectId } from "@/utils/projects";
-import { getAllStudentJustifications } from "@/utils/student-justifications";
+import {
+  fetchStudentJustificationsRemote,
+  type StudentJustification,
+} from "@/integrations/supabase/student-justifications";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 
 type KPI = {
@@ -84,6 +87,7 @@ export default function Dashboard() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
+  const [justifications, setJustifications] = useState<StudentJustification[]>([]);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -109,7 +113,7 @@ export default function Dashboard() {
     const clsById = new Map(classes.map((c) => [c.id, c.name] as const));
     const stById = new Map(students.map((s) => [s.id, s.socialName || s.preferredName || s.fullName] as const));
 
-    const all = getAllStudentJustifications(projectId)
+    const all = justifications
       .filter((j) => String(j.date || "").startsWith(thisMonth))
       .slice()
       .sort((a, b) => {
@@ -128,18 +132,27 @@ export default function Dashboard() {
       message: j.message,
       createdAt: j.createdAt,
     }));
-  }, [projectId, classes, students, thisMonth]);
+  }, [projectId, classes, students, thisMonth, justifications]);
 
   const justificationCount = justificationItems.length;
   const topJustifications = justificationItems.slice(0, 3);
 
   useEffect(() => {
-    // Project-scoped
-    setClasses(readScoped("classes", []));
-    setStudents(readGlobalStudents([]));
+    const run = async () => {
+      // Project-scoped (classes/teachers ainda usam cache local)
+      setClasses(readScoped("classes", []));
+      setStudents(readGlobalStudents([]));
+      setTeachers(readScoped("teachers", []));
 
-    setTeachers(readScoped("teachers", []));
-  }, []);
+      if (projectId) {
+        setJustifications(await fetchStudentJustificationsRemote(projectId));
+      } else {
+        setJustifications([]);
+      }
+    };
+
+    void run();
+  }, [projectId]);
 
   const classesById = useMemo(() => {
     const map = new Map<string, SchoolClass>();
@@ -366,7 +379,7 @@ export default function Dashboard() {
                       type="button"
                       variant="outline"
                       className="rounded-2xl font-black border-rose-200 bg-white text-rose-800 hover:bg-rose-50"
-                      onClick={() => navigate(`${base}/turmas`)}
+                      onClick={() => navigate(`${base}/turmas`) }
                     >
                       Ir para Turmas
                     </Button>
