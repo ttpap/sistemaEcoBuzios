@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,32 +12,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProjects, setActiveProjectId } from "@/utils/projects";
-import { getCoordinatorSessionCoordinatorId, setCoordinatorSessionProjectId } from "@/utils/coordinator-auth";
-import { getCoordinatorProjectIds } from "@/utils/coordinators";
+import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { BadgeCheck, Layers, ArrowRight } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import type { Project } from "@/types/project";
+import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
 
 export default function CoordinatorSelectProject() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
-  const coordinatorId = useMemo(() => getCoordinatorSessionCoordinatorId(), []);
+  const coordinatorId = profile?.coordinator_id;
 
-  const projects = useMemo(() => {
-    if (!coordinatorId) return [];
-    const allowed = new Set(getCoordinatorProjectIds(coordinatorId));
-    return getProjects().filter((p) => allowed.has(p.id));
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      setProjects(await fetchProjects());
+      if (!coordinatorId) {
+        setAssignedProjectIds([]);
+        return;
+      }
+      const rows = await fetchCoordinatorAssignments();
+      setAssignedProjectIds(Array.from(new Set(rows.map((r) => r.project_id))));
+    };
+
+    void run();
   }, [coordinatorId]);
 
-  const [selected, setSelected] = React.useState<string>(projects[0]?.id || "");
+  const allowedProjects = useMemo(() => {
+    if (!coordinatorId) return [];
+    const allowed = new Set(assignedProjectIds);
+    return projects.filter((p) => allowed.has(p.id));
+  }, [coordinatorId, assignedProjectIds, projects]);
 
-  React.useEffect(() => {
-    setSelected((prev) => prev || projects[0]?.id || "");
-  }, [projects]);
+  const [selected, setSelected] = useState<string>("");
+
+  useEffect(() => {
+    const active = getActiveProjectId();
+    const next = active && allowedProjects.some((p) => p.id === active) ? active : allowedProjects[0]?.id || "";
+    setSelected(next);
+
+    if (allowedProjects.length === 1 && next) {
+      setActiveProjectId(next);
+      navigate("/coordenador", { replace: true });
+    }
+  }, [allowedProjects, navigate]);
 
   const onContinue = () => {
     if (!selected) return;
     setActiveProjectId(selected);
-    setCoordinatorSessionProjectId(selected);
     navigate("/coordenador", { replace: true });
   };
 
@@ -56,7 +81,7 @@ export default function CoordinatorSelectProject() {
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Disponíveis</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {projects.map((p) => (
+              {allowedProjects.map((p) => (
                 <Badge
                   key={p.id}
                   className="rounded-full border border-slate-200 bg-white text-slate-700 font-black"
@@ -74,7 +99,7 @@ export default function CoordinatorSelectProject() {
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p) => (
+                {allowedProjects.map((p) => (
                   <SelectItem key={p.id} value={p.id} className="font-bold">
                     {p.name}
                   </SelectItem>

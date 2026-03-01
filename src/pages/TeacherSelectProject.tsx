@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,32 +12,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getProjects, setActiveProjectId } from "@/utils/projects";
-import { getTeacherSessionTeacherId, setTeacherSessionProjectId } from "@/utils/teacher-auth";
-import { getTeacherProjectIds } from "@/utils/teachers";
+import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { BadgeCheck, Layers, ArrowRight } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import type { Project } from "@/types/project";
+import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
 
 export default function TeacherSelectProject() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
-  const teacherId = useMemo(() => getTeacherSessionTeacherId(), []);
+  const teacherId = profile?.teacher_id;
 
-  const projects = useMemo(() => {
-    if (!teacherId) return [];
-    const allowed = new Set(getTeacherProjectIds(teacherId));
-    return getProjects().filter((p) => allowed.has(p.id));
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      setProjects(await fetchProjects());
+      if (!teacherId) {
+        setAssignedProjectIds([]);
+        return;
+      }
+      const rows = await fetchTeacherAssignments();
+      setAssignedProjectIds(Array.from(new Set(rows.map((r) => r.project_id))));
+    };
+
+    void run();
   }, [teacherId]);
 
-  const [selected, setSelected] = React.useState<string>(projects[0]?.id || "");
+  const allowedProjects = useMemo(() => {
+    if (!teacherId) return [];
+    const allowed = new Set(assignedProjectIds);
+    return projects.filter((p) => allowed.has(p.id));
+  }, [teacherId, assignedProjectIds, projects]);
 
-  React.useEffect(() => {
-    setSelected((prev) => prev || projects[0]?.id || "");
-  }, [projects]);
+  const [selected, setSelected] = useState<string>("");
+
+  useEffect(() => {
+    const active = getActiveProjectId();
+    const next = active && allowedProjects.some((p) => p.id === active) ? active : allowedProjects[0]?.id || "";
+    setSelected(next);
+
+    // Se só existir 1 projeto, entra direto.
+    if (allowedProjects.length === 1 && next) {
+      setActiveProjectId(next);
+      navigate("/professor", { replace: true });
+    }
+  }, [allowedProjects, navigate]);
 
   const onContinue = () => {
     if (!selected) return;
     setActiveProjectId(selected);
-    setTeacherSessionProjectId(selected);
     navigate("/professor", { replace: true });
   };
 
@@ -56,7 +82,7 @@ export default function TeacherSelectProject() {
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Disponíveis</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {projects.map((p) => (
+              {allowedProjects.map((p) => (
                 <Badge
                   key={p.id}
                   className="rounded-full border border-slate-200 bg-white text-slate-700 font-black"
@@ -74,7 +100,7 @@ export default function TeacherSelectProject() {
                 <SelectValue placeholder="Selecione um projeto" />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((p) => (
+                {allowedProjects.map((p) => (
                   <SelectItem key={p.id} value={p.id} className="font-bold">
                     {p.name}
                   </SelectItem>

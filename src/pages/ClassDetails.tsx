@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  ArrowLeft, Users, GraduationCap, Info, Plus, Trash2, 
+import {
+  ArrowLeft, Users, GraduationCap, Info, Plus, Trash2,
   Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
@@ -13,8 +13,8 @@ import { TeacherRegistration } from '@/types/teacher';
 import { StudentRegistration } from '@/types/student';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import { showSuccess } from '@/utils/toast';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,14 @@ import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { getActiveProjectId } from '@/utils/projects';
+import {
+  enrollStudentRemote,
+  fetchClassTeacherIdsRemote,
+  fetchEnrollmentsRemote,
+  removeStudentEnrollmentRemote,
+  setClassTeacherIdsRemote,
+} from '@/integrations/supabase/classes';
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -41,31 +49,73 @@ const ClassDetails = () => {
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const classes = readScoped<SchoolClass[]>('classes', []);
-    const found = classes.find((c: any) => c.id === id);
-    if (found) {
-      const normalized = ensureStudentEnrollments(found);
-      // ensure persist if it was missing
-      if (!found.studentEnrollments) {
+    const run = async () => {
+      const classes = readScoped<SchoolClass[]>('classes', []);
+      const found = classes.find((c: any) => c.id === id);
+      if (!found) {
+        navigate(`${base}/turmas`);
+        return;
+      }
+
+      try {
+        const [teacherIds, enrollments] = await Promise.all([
+          fetchClassTeacherIdsRemote(found.id),
+          fetchEnrollmentsRemote(found.id),
+        ]);
+
+        const activeStudentIds = enrollments.filter((e) => !e.removed_at).map((e) => e.student_id);
+        const studentEnrollments = enrollments.map((e) => ({
+          studentId: e.student_id,
+          enrolledAt: e.enrolled_at,
+          ...(e.removed_at ? { removedAt: e.removed_at } : null),
+        }));
+
+        const merged: SchoolClass = {
+          ...found,
+          teacherIds,
+          studentIds: activeStudentIds,
+          studentEnrollments,
+        };
+
+        const normalized = ensureStudentEnrollments(merged);
         const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
         writeScoped('classes', newClasses);
-      }
-      setSchoolClass(normalized);
-      setInfo(normalized.complementaryInfo || "");
-    } else {
-      navigate(`${base}/turmas`);
-    }
 
-    setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
-    setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
+        setSchoolClass(normalized);
+        setInfo(normalized.complementaryInfo || "");
+      } catch {
+        const normalized = ensureStudentEnrollments(found);
+        if (!found.studentEnrollments) {
+          const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
+          writeScoped('classes', newClasses);
+        }
+        setSchoolClass(normalized);
+        setInfo(normalized.complementaryInfo || "");
+      }
+
+      setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
+      setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
+    };
+
+    void run();
 
   }, [id, navigate, base]);
 
   const saveClass = (updatedClass: SchoolClass) => {
-    const classes = readScoped<SchoolClass[]>('classes', []);
-    const newClasses = classes.map((c: any) => (c.id === id ? updatedClass : c));
-    writeScoped('classes', newClasses);
-    setSchoolClass(updatedClass);
+    const run = async () => {
+      const classes = readScoped<SchoolClass[]>('classes', []);
+      const newClasses = classes.map((c: any) => (c.id === id ? updatedClass : c));
+      writeScoped('classes', newClasses);
+      setSchoolClass(updatedClass);
+
+      try {
+        await setClassTeacherIdsRemote(updatedClass.id, updatedClass.teacherIds || []);
+      } catch {
+        // ignore
+      }
+    };
+
+    void run();
   };
 
   const addTeacher = (teacherId: string) => {
@@ -73,7 +123,7 @@ const ClassDetails = () => {
     if (!schoolClass) return;
     const currentIds = schoolClass.teacherIds || [];
     if (currentIds.includes(teacherId)) return;
-    
+
     const updated = { ...schoolClass, teacherIds: [...currentIds, teacherId] };
     saveClass(updated);
     showSuccess("Professor vinculado!");
@@ -82,24 +132,49 @@ const ClassDetails = () => {
   const removeTeacher = (teacherId: string) => {
     if (isTeacherArea) return;
     if (!schoolClass) return;
-    const updated = { 
-      ...schoolClass, 
-      teacherIds: (schoolClass.teacherIds || []).filter(tid => tid !== teacherId) 
+    const updated = {
+      ...schoolClass,
+      teacherIds: (schoolClass.teacherIds || []).filter(tid => tid !== teacherId)
     };
     saveClass(updated);
   };
 
   const addStudent = (studentId: string) => {
-    if (!schoolClass) return;
-    const updated = enrollStudent(schoolClass, studentId);
-    saveClass(updated);
-    showSuccess("Aluno matriculado!");
+    const run = async () => {
+      if (!schoolClass) return;
+
+      const projectId = getActiveProjectId();
+      if (!projectId) return;
+
+      try {
+        await enrollStudentRemote(schoolClass.id, studentId);
+      } catch {
+        // ignore (fallback local)
+      }
+
+      const updated = enrollStudent(schoolClass, studentId);
+      saveClass(updated);
+      showSuccess("Aluno matriculado!");
+    };
+
+    void run();
   };
 
   const removeStudent = (studentId: string) => {
-    if (!schoolClass) return;
-    const updated = removeStudentEnrollment(schoolClass, studentId);
-    saveClass(updated);
+    const run = async () => {
+      if (!schoolClass) return;
+
+      try {
+        await removeStudentEnrollmentRemote(schoolClass.id, studentId);
+      } catch {
+        // ignore (fallback local)
+      }
+
+      const updated = removeStudentEnrollment(schoolClass, studentId);
+      saveClass(updated);
+    };
+
+    void run();
   };
 
   const openStudentDetails = (student: StudentRegistration) => {
@@ -121,7 +196,7 @@ const ClassDetails = () => {
   // LÓGICA DE FILTRAGEM DINÂMICA (Executada a cada renderização)
   const enrolledIds = schoolClass.studentIds || [];
   const searchNormalized = studentSearch.toLowerCase().trim();
-  
+
   const filteredAvailableStudents = allStudents.filter(student => {
     // 1. Remove quem já está na turma
     const isNotEnrolled = !enrolledIds.includes(student.id);
@@ -133,19 +208,19 @@ const ClassDetails = () => {
     // 3. Filtra por nome ou matrícula
     const nameMatch = student.fullName.toLowerCase().includes(searchNormalized);
     const regMatch = student.registration?.toLowerCase().includes(searchNormalized);
-    
+
     return nameMatch || regMatch;
   });
 
   return (
-    <div className="space-y-8 pb-20">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
             className="rounded-xl bg-white shadow-sm border border-slate-100"
-            onClick={() => navigate(`${base}/turmas`)}
+            onClick={() => navigate(`${base}/turmas`) }
           >
             <ArrowLeft className="h-5 w-5 text-slate-600" />
           </Button>

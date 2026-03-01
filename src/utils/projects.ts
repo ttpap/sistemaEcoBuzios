@@ -1,5 +1,6 @@
 import { Project } from "@/types/project";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchProjectsRemote, upsertProjectRemote } from "@/integrations/supabase/projects";
 
 const PROJECTS_KEY = "ecobuzios_projects";
 const ACTIVE_PROJECT_KEY = "ecobuzios_active_project";
@@ -30,22 +31,11 @@ export function saveProjects(projects: Project[]) {
 export async function fetchProjects(): Promise<Project[]> {
   if (!supabase) return getProjects();
 
-  const { data, error } = await supabase
-    .from("projects")
-    .select("id,name,image_url,created_at")
-    .order("created_at", { ascending: false });
+  const remote = await fetchProjectsRemote();
+  if (!remote.length) return getProjects();
 
-  if (error || !data) return getProjects();
-
-  const projects = data.map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    imageUrl: p.image_url ?? undefined,
-    createdAt: p.created_at,
-  })) as Project[];
-
-  saveProjects(projects);
-  return projects;
+  saveProjects(remote);
+  return remote;
 }
 
 export async function createProject(input: { name: string; imageUrl?: string }) {
@@ -57,28 +47,17 @@ export async function createProject(input: { name: string; imageUrl?: string }) 
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({
-        id: next.id,
-        name: next.name,
-        image_url: next.imageUrl ?? null,
-      })
-      .select("id,name,image_url,created_at")
-      .single();
+    const created = await upsertProjectRemote({
+      id: next.id,
+      name: next.name,
+      imageUrl: next.imageUrl ?? null,
+    });
 
-    if (!error && data) {
-      const p: Project = {
-        id: data.id,
-        name: data.name,
-        imageUrl: data.image_url ?? undefined,
-        createdAt: data.created_at,
-      };
-
+    if (created) {
       const current = getProjects();
-      saveProjects([p, ...current.filter((x) => x.id !== p.id)]);
-      setActiveProjectId(p.id);
-      return p;
+      saveProjects([created, ...current.filter((x) => x.id !== created.id)]);
+      setActiveProjectId(created.id);
+      return created;
     }
   }
 
@@ -95,24 +74,13 @@ export async function updateProject(projectId: string, patch: { name?: string; i
     patch.imageUrl === undefined ? undefined : patch.imageUrl === null ? null : patch.imageUrl.trim() || null;
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from("projects")
-      .update({
-        ...(name !== undefined ? { name } : null),
-        ...(patch.imageUrl !== undefined ? { image_url: imageUrl } : null),
-      })
-      .eq("id", projectId)
-      .select("id,name,image_url,created_at")
-      .single();
+    const updated = await upsertProjectRemote({
+      id: projectId,
+      name: name ?? "",
+      imageUrl: patch.imageUrl === undefined ? undefined : imageUrl,
+    });
 
-    if (!error && data) {
-      const updated: Project = {
-        id: data.id,
-        name: data.name,
-        imageUrl: data.image_url ?? undefined,
-        createdAt: data.created_at,
-      };
-
+    if (updated) {
       const current = getProjects();
       saveProjects(current.map((p) => (p.id === projectId ? updated : p)));
       return updated;

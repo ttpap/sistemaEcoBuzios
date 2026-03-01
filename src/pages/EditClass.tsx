@@ -6,7 +6,8 @@ import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
-import { readScoped } from '@/utils/storage';
+import { getActiveProjectId } from '@/utils/projects';
+import { fetchClassByIdRemote } from '@/integrations/supabase/classes';
 
 const EditClass = () => {
   const { id } = useParams();
@@ -18,13 +19,22 @@ const EditClass = () => {
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
 
   useEffect(() => {
-    const saved = readScoped<SchoolClass[]>('classes', []);
-    const found = saved.find((c: any) => c.id === id);
-    if (found) {
-      setSchoolClass(found);
-    } else {
-      navigate(`${base}/turmas`);
-    }
+    const run = async () => {
+      const projectId = getActiveProjectId();
+      if (!projectId) {
+        navigate(`${base}/turmas`);
+        return;
+      }
+
+      const found = id ? await fetchClassByIdRemote(id) : null;
+      if (found) {
+        setSchoolClass(found);
+      } else {
+        navigate(`${base}/turmas`);
+      }
+    };
+
+    void run();
   }, [id, navigate, base]);
 
   if (!schoolClass) {
