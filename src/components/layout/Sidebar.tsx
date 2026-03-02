@@ -18,15 +18,16 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
-import { clearActiveProjectId, getActiveProject } from '@/utils/projects';
+import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/utils/projects';
 import { requireSupabase } from '@/integrations/supabase/client';
-import { logoutAdmin } from '@/utils/admin-auth';
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
+  const activeProjectId = useMemo(() => getActiveProjectId(), [location.pathname]);
+  const hasActiveProject = Boolean(activeProjectId);
 
   const menuItems = useMemo(() => {
     const base = [
@@ -35,7 +36,10 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
       { icon: Link2, label: 'Link de inscrição', path: '/inscricao' },
     ];
-    if (!activeProject) return base;
+
+    // Mostra Alunos/Turmas assim que existe um projeto ativo (id no storage),
+    // mesmo que o cache local de projetos ainda não tenha carregado o nome.
+    if (!hasActiveProject) return base;
 
     return [
       ...base,
@@ -45,7 +49,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
       { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
     ];
-  }, [activeProject]);
+  }, [hasActiveProject]);
 
   const isPdf = Boolean(activeProject?.imageUrl?.startsWith('data:application/pdf'));
   const isImage = Boolean(
@@ -67,25 +71,27 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       )}
     >
       <div className="p-6 pt-10">
-        {activeProject ? (
+        {hasActiveProject ? (
           <div className="rounded-[2rem] bg-white/70 border border-slate-200/60 shadow-sm p-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-[1.5rem] bg-white overflow-hidden ring-1 ring-slate-200 flex items-center justify-center shrink-0">
-                {activeProject.imageUrl && isImage ? (
+                {activeProject?.imageUrl && isImage ? (
                   <img
                     src={activeProject.imageUrl}
                     alt={activeProject.name}
                     className="h-full w-full object-cover"
                   />
-                ) : activeProject.imageUrl && isPdf ? (
+                ) : activeProject?.imageUrl && isPdf ? (
                   <FileText className="h-5 w-5 text-primary" />
                 ) : (
-                  <span className="text-primary font-black">{activeProject.name.charAt(0)}</span>
+                  <span className="text-primary font-black">{(activeProject?.name || "P").charAt(0)}</span>
                 )}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-black text-slate-800 truncate">{activeProject.name}</p>
+                  <p className="text-sm font-black text-slate-800 truncate">
+                    {activeProject?.name || "Projeto selecionado"}
+                  </p>
                   <BadgeCheck className="h-4 w-4 text-emerald-600" />
                 </div>
                 <p className="text-[11px] font-bold text-slate-500">Projeto ativo</p>

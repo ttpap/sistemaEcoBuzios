@@ -34,6 +34,7 @@ import {
   migrateLegacyStudentsToGlobalIfNeeded,
   setActiveProjectId,
   updateProject,
+  saveProjects,
 } from "@/utils/projects";
 import { fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
 import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
@@ -110,9 +111,12 @@ export default function Projects() {
     try {
       const dbProjects = await fetchProjectsFromDb();
       setProjects(dbProjects);
+      // Mantém cache local porque outras partes do app (sidebar/tema) usam o localStorage.
+      saveProjects(dbProjects);
       setDbMode("supabase");
     } catch {
-      setProjects(getProjects());
+      const local = getProjects();
+      setProjects(local);
       setDbMode("local");
     }
 
