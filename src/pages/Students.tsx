@@ -21,14 +21,19 @@ import { SchoolClass } from '@/types/class';
 
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { showError, showSuccess } from '@/utils/toast';
-import { readGlobalStudents, readScoped, writeGlobalStudents } from '@/utils/storage';
+import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { fetchStudents, deleteStudent } from "@/integrations/supabase/students";
+import { getActiveProjectId } from '@/utils/projects';
+import { fetchClassesRemote } from '@/integrations/supabase/classes';
+import { useAuth } from '@/context/AuthContext';
 
 const Students = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const { profile } = useAuth();
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -38,30 +43,69 @@ const Students = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = readGlobalStudents<StudentRegistration[]>([]);
-    setClasses(readScoped<SchoolClass[]>('classes', []));
+    const run = async () => {
+      // Carrega turmas do projeto (necessário para filtrar alunos por projeto)
+      const projectId = getActiveProjectId();
+      if (projectId) {
+        const remoteClasses = await fetchClassesRemote(projectId);
+        if (remoteClasses.length) {
+          writeScoped('classes', remoteClasses);
+          setClasses(remoteClasses);
+        } else {
+          setClasses(readScoped<SchoolClass[]>('classes', []));
+        }
+      } else {
+        setClasses(readScoped<SchoolClass[]>('classes', []));
+      }
 
-    // Garante que as matrículas estejam no padrão YYYY-XXXX e que o sufixo XXXX seja ÚNICO
-    // (o login do aluno é baseado nos 4 últimos dígitos).
-    const normalized = normalizeStudentRegistrations(saved);
+      const remote = await fetchStudents();
+      if (remote.length > 0) {
+        // Fonte de verdade: Supabase. Mantém cache local para o restante do app que ainda não migrou.
+        const normalized = normalizeStudentRegistrations(remote);
+        if (normalized.changed) {
+          // Não regrava no Supabase aqui para evitar alterar matrículas existentes sem confirmação.
+          writeGlobalStudents(normalized.students);
+          setStudents(normalized.students);
+        } else {
+          writeGlobalStudents(remote);
+          setStudents(remote);
+        }
+        return;
+      }
 
-    if (normalized.changed) {
-      writeGlobalStudents(normalized.students);
-      setStudents(normalized.students);
-    } else {
-      setStudents(saved);
-    }
+      // Fallback (legado)
+      const saved = readGlobalStudents<StudentRegistration[]>([]);
+      const normalized = normalizeStudentRegistrations(saved);
+      if (normalized.changed) {
+        writeGlobalStudents(normalized.students);
+        setStudents(normalized.students);
+      } else {
+        setStudents(saved);
+      }
+    };
 
+    void run();
   }, []);
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este aluno?")) {
+    const run = async () => {
+      if (!window.confirm("Tem certeza que deseja excluir este aluno?")) return;
+
+      try {
+        await deleteStudent(id);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível excluir no Supabase.");
+        return;
+      }
+
       const updated = students.filter(s => s.id !== id);
       writeGlobalStudents(updated);
 
       setStudents(updated);
       showSuccess("Aluno removido com sucesso.");
-    }
+    };
+
+    void run();
   };
 
   const seedTestStudents = () => {
@@ -174,9 +218,12 @@ const Students = () => {
   }, [classes]);
 
   const visibleStudents = useMemo(() => {
-    // dentro do projeto, só aparecem alunos vinculados a turmas do projeto
+    // Admin vê todos os alunos
+    if (profile?.role === 'admin') return students;
+
+    // Professor/Coordenador: dentro do projeto, só aparecem alunos vinculados a turmas do projeto
     return students.filter((s) => allowedStudentIds.has(s.id));
-  }, [students, allowedStudentIds]);
+  }, [students, allowedStudentIds, profile?.role]);
 
   const filtered = visibleStudents.filter(s =>
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -212,7 +259,7 @@ const Students = () => {
           </Button>
           <Button
             className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
-            onClick={() => navigate(`${base}/alunos/novo`)}
+            onClick={() => navigate(`${base}/alunos/novo`) }
           >
             <Plus className="h-5 w-5" />
             Novo Aluno

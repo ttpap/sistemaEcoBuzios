@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -16,14 +16,11 @@ import {
   Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
+import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { requireSupabase } from "@/integrations/supabase/client";
-import {
-  getCoordinatorSessionCoordinatorId,
-  logoutCoordinator,
-  setCoordinatorSessionProjectId,
-} from "@/utils/coordinator-auth";
-import { getCoordinatorProjectIds } from "@/utils/coordinators";
+import type { Project } from "@/types/project";
+import { useAuth } from "@/context/AuthContext";
+import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
 import {
   Select,
   SelectContent,
@@ -41,15 +38,40 @@ export default function CoordinatorSidebar({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
-  const coordinatorId = useMemo(() => getCoordinatorSessionCoordinatorId(), []);
+  const coordinatorId = profile?.coordinator_id;
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
+
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      setProjects(await fetchProjects());
+
+      if (!coordinatorId) {
+        setAssignedProjectIds([]);
+        return;
+      }
+
+      const rows = await fetchCoordinatorAssignments();
+      const ids = Array.from(new Set(rows.map((r) => r.project_id)));
+      setAssignedProjectIds(ids);
+
+      if (ids.length === 1 && !getActiveProjectId()) {
+        setActiveProjectId(ids[0]);
+      }
+    };
+
+    void run();
+  }, [coordinatorId]);
 
   const availableProjects = useMemo(() => {
     if (!coordinatorId) return [];
-    const allowed = new Set(getCoordinatorProjectIds(coordinatorId));
-    return getProjects().filter((p) => allowed.has(p.id));
-  }, [coordinatorId]);
+    const allowed = new Set(assignedProjectIds);
+    return projects.filter((p) => allowed.has(p.id));
+  }, [coordinatorId, assignedProjectIds, projects]);
 
   const menuItems = useMemo(
     () => [
@@ -77,12 +99,11 @@ export default function CoordinatorSidebar({
   };
 
   const hasMultipleProjects = availableProjects.length > 1;
-  const currentProjectId = activeProject?.id || availableProjects[0]?.id || "";
+  const currentProjectId = activeProject?.id || getActiveProjectId() || availableProjects[0]?.id || "";
 
   const onChangeProject = (projectId: string) => {
     if (!projectId) return;
     setActiveProjectId(projectId);
-    setCoordinatorSessionProjectId(projectId);
     navigate("/coordenador", { replace: true });
   };
 

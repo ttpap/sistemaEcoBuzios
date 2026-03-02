@@ -11,11 +11,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
 import type { CoordinatorRegistration } from "@/types/coordinator";
 import { createGlobalCoordinator, updateGlobalCoordinator } from "@/utils/coordinators";
 import { lookupCep } from "@/utils/cep";
+import { upsertCoordinator } from "@/integrations/supabase/coordinators";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -123,23 +124,50 @@ export default function CoordinatorForm({ initialData }: CoordinatorFormProps) {
   };
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const finalBank = values.bank === "outro" ? values.customBank : values.bank;
+    const run = async () => {
+      const finalBank = values.bank === "outro" ? values.customBank : values.bank;
 
-    const payload: any = {
-      ...values,
-      bank: finalBank,
+      const payload: any = {
+        ...values,
+        bank: finalBank,
+      };
+      delete payload.customBank;
+
+      if (initialData) {
+        const before = { ...(initialData as CoordinatorRegistration) };
+        const updated = updateGlobalCoordinator(initialData.id, payload) as CoordinatorRegistration;
+        try {
+          await upsertCoordinator(updated);
+        } catch (e: any) {
+          updateGlobalCoordinator(initialData.id, before);
+          showError(e?.message || "Não foi possível salvar no Supabase.");
+          return;
+        }
+
+        showSuccess("Cadastro atualizado!");
+      } else {
+        const created = createGlobalCoordinator(payload);
+        try {
+          await upsertCoordinator(created);
+        } catch (e: any) {
+          // rollback local
+          try {
+            const { deleteGlobalCoordinator } = await import("@/utils/coordinators");
+            deleteGlobalCoordinator(created.id);
+          } catch {
+            // ignore
+          }
+          showError(e?.message || "Não foi possível salvar no Supabase.");
+          return;
+        }
+
+        showSuccess("Cadastro realizado! Login e senha foram gerados.");
+      }
+
+      navigate("/coordenadores");
     };
-    delete payload.customBank;
 
-    if (initialData) {
-      updateGlobalCoordinator(initialData.id, payload);
-      showSuccess("Cadastro atualizado!");
-    } else {
-      createGlobalCoordinator(payload);
-      showSuccess("Cadastro realizado! Login e senha foram gerados.");
-    }
-
-    navigate("/coordenadores");
+    void run();
   }
 
   const SectionHeader = ({ icon: Icon, title }: { icon: any; title: string }) => (

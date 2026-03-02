@@ -8,9 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
-import { showSuccess } from '@/utils/toast';
-import { readScoped, writeScoped } from '@/utils/storage';
+import { showError, showSuccess } from '@/utils/toast';
+import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { getActiveProjectId } from '@/utils/projects';
+import { deleteClassRemote, fetchClassesRemote } from '@/integrations/supabase/classes';
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -21,17 +23,42 @@ const Classes = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const saved = readScoped<SchoolClass[]>('classes', []);
-    setClasses(saved);
+    const run = async () => {
+      const projectId = getActiveProjectId();
+      if (!projectId) return;
+
+      const remote = await fetchClassesRemote(projectId);
+      if (remote.length) {
+        // Cache para partes legadas do app
+        writeScoped('classes', remote);
+        setClasses(remote);
+        return;
+      }
+
+      setClasses([]);
+    };
+
+    void run();
   }, []);
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir esta turma?")) {
+    const run = async () => {
+      if (!window.confirm("Tem certeza que deseja excluir esta turma?")) return;
+
+      try {
+        await deleteClassRemote(id);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível excluir a turma.");
+        return;
+      }
+
       const updated = classes.filter(c => c.id !== id);
       writeScoped('classes', updated);
       setClasses(updated);
       showSuccess("Turma removida com sucesso.");
-    }
+    };
+
+    void run();
   };
 
   const filtered = classes.filter(c =>

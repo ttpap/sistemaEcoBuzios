@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils";
 import { SchoolClass } from "@/types/class";
 import { StudentRegistration } from "@/types/student";
 import { AttendanceStatus } from "@/types/attendance";
-import { getAttendanceForClass } from "@/utils/attendance";
+import type { AttendanceSession } from "@/types/attendance";
+import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { downloadAttendanceXls } from "@/utils/attendance-xls";
@@ -254,6 +255,7 @@ export default function Reports() {
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
+  const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
 
   const ALL = "__all__";
   const [classId, setClassId] = useState<string>(ALL);
@@ -263,20 +265,37 @@ export default function Reports() {
   const [month, setMonth] = useState<string>(defaultMonth);
 
   useEffect(() => {
-    setClasses(readScoped<SchoolClass[]>("classes", []));
-    setStudents(readGlobalStudents<StudentRegistration[]>([]));
+    const run = async () => {
+      setClasses(readScoped<SchoolClass[]>("classes", []));
+      setStudents(readGlobalStudents<StudentRegistration[]>([]));
+
+      const activeProjectId = getActiveProject()?.id;
+      if (activeProjectId) {
+        const remote = await fetchAttendanceSessionsRemote(activeProjectId);
+        setAttendanceSessions(remote);
+      } else {
+        setAttendanceSessions([]);
+      }
+    };
+
+    void run();
   }, []);
 
   const monthParts = month.split("-");
   const selectedYear = monthParts[0] || String(now.getFullYear());
   const selectedMonthPart = monthParts[1] || String(now.getMonth() + 1).padStart(2, "0");
 
+  const sessionsForClass = useCallback(
+    (classId: string) => attendanceSessions.filter((s) => s.classId === classId),
+    [attendanceSessions],
+  );
+
   const classesWithCounts = useMemo(() => {
     return classes
       .map((c) => ensureStudentEnrollments(c))
       .map((c) => {
         const enrolled = c.studentIds?.length || 0;
-        const sessionsInMonth = getAttendanceForClass(c.id).filter((s) => s.date.startsWith(month));
+        const sessionsInMonth = sessionsForClass(c.id).filter((s) => s.date.startsWith(month));
         const dates = Array.from(new Set(sessionsInMonth.map((s) => s.date))).sort((a, b) => a.localeCompare(b));
         return {
           cls: c,
@@ -285,7 +304,7 @@ export default function Reports() {
         };
       })
       .sort((a, b) => a.cls.name.localeCompare(b.cls.name, "pt-BR"));
-  }, [classes, month]);
+  }, [classes, month, sessionsForClass]);
 
   const totalStudentsInClasses = useMemo(() => {
     const ids = new Set<string>();
@@ -302,7 +321,7 @@ export default function Reports() {
   const matrix = useMemo((): AttendanceMatrix | null => {
     if (!selectedClass || !month) return null;
 
-    const sessions = getAttendanceForClass(selectedClass.id).filter((s) => s.date.startsWith(month));
+    const sessions = sessionsForClass(selectedClass.id).filter((s) => s.date.startsWith(month));
     const dates = Array.from(new Set(sessions.map((s) => s.date))).sort((a, b) => a.localeCompare(b));
     if (dates.length === 0)
       return {
@@ -422,7 +441,7 @@ export default function Reports() {
 
           <Card
             className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
-            onClick={() => navigate(`${base}/relatorios/mensais`)}
+            onClick={() => navigate(`${base}/relatorios/mensais`) }
           >
             <div className="p-7 bg-slate-50/60 border-b border-slate-100">
               <div className="flex items-center justify-between">

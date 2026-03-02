@@ -1,4 +1,6 @@
 import { Project } from "@/types/project";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchProjectsRemote, upsertProjectRemote } from "@/integrations/supabase/projects";
 
 const PROJECTS_KEY = "ecobuzios_projects";
 const ACTIVE_PROJECT_KEY = "ecobuzios_active_project";
@@ -17,6 +19,7 @@ export function makeId() {
   return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+// Synchronous getter used across the app (local cache).
 export function getProjects(): Project[] {
   return safeParse<Project[]>(localStorage.getItem(PROJECTS_KEY), []);
 }
@@ -25,8 +28,17 @@ export function saveProjects(projects: Project[]) {
   localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 }
 
-export function createProject(input: { name: string; imageUrl?: string }) {
-  const projects = getProjects();
+export async function fetchProjects(): Promise<Project[]> {
+  if (!supabase) return getProjects();
+
+  const remote = await fetchProjectsRemote();
+  if (!remote.length) return getProjects();
+
+  saveProjects(remote);
+  return remote;
+}
+
+export async function createProject(input: { name: string; imageUrl?: string }) {
   const next: Project = {
     id: makeId(),
     name: input.name.trim(),
@@ -34,20 +46,54 @@ export function createProject(input: { name: string; imageUrl?: string }) {
     createdAt: new Date().toISOString(),
   };
 
+  if (supabase) {
+    const created = await upsertProjectRemote({
+      id: next.id,
+      name: next.name,
+      imageUrl: next.imageUrl ?? null,
+    });
+
+    if (created) {
+      const current = getProjects();
+      saveProjects([created, ...current.filter((x) => x.id !== created.id)]);
+      setActiveProjectId(created.id);
+      return created;
+    }
+  }
+
+  const projects = getProjects();
   const updated = [next, ...projects];
   saveProjects(updated);
   setActiveProjectId(next.id);
   return next;
 }
 
-export function updateProject(projectId: string, patch: { name?: string; imageUrl?: string | null }) {
+export async function updateProject(projectId: string, patch: { name?: string; imageUrl?: string | null }) {
+  const name = patch.name !== undefined ? patch.name.trim() : undefined;
+  const imageUrl =
+    patch.imageUrl === undefined ? undefined : patch.imageUrl === null ? null : patch.imageUrl.trim() || null;
+
+  if (supabase) {
+    const updated = await upsertProjectRemote({
+      id: projectId,
+      name: name ?? "",
+      imageUrl: patch.imageUrl === undefined ? undefined : imageUrl,
+    });
+
+    if (updated) {
+      const current = getProjects();
+      saveProjects(current.map((p) => (p.id === projectId ? updated : p)));
+      return updated;
+    }
+  }
+
   const projects = getProjects();
   const current = projects.find((p) => p.id === projectId);
   if (!current) return null;
 
   const next: Project = {
     ...current,
-    name: patch.name !== undefined ? patch.name.trim() : current.name,
+    name: name !== undefined ? name : current.name,
     imageUrl:
       patch.imageUrl === undefined
         ? current.imageUrl

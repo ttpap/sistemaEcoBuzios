@@ -26,6 +26,7 @@ import {
 import { showError, showSuccess } from "@/utils/toast";
 import {
   createProject,
+  fetchProjects,
   getActiveProjectId,
   getProjectScopedKey,
   getProjects,
@@ -106,18 +107,11 @@ export default function Projects() {
   const activeId = useMemo(() => getActiveProjectId(), [projects]);
 
   const refresh = React.useCallback(async () => {
-    // Se o deploy estiver com Supabase configurado, usa DB como fonte da verdade.
-    if (!supabaseUsingFallbackConfig) {
-      try {
-        const dbProjects = await fetchProjectsFromDb();
-        setProjects(dbProjects);
-        setDbMode("supabase");
-      } catch (e: any) {
-        // Se falhar (ex.: RLS/env), mantém local para não travar a tela.
-        setProjects(getProjects());
-        setDbMode("local");
-      }
-    } else {
+    try {
+      const dbProjects = await fetchProjectsFromDb();
+      setProjects(dbProjects);
+      setDbMode("supabase");
+    } catch {
       setProjects(getProjects());
       setDbMode("local");
     }
@@ -140,13 +134,16 @@ export default function Projects() {
     migrateLegacyStudentsToGlobalIfNeeded();
 
     try {
+      // Prefer DB insert when Supabase env is configured.
       if (!supabaseUsingFallbackConfig) {
         const created = await insertProjectToDb({ name: n, imageUrl });
         setActiveProjectId(created.id);
         migrateLegacyProjectDataToProjectIfNeeded(created.id);
+
         setName("");
         setImageUrl("");
         setImageFileName("");
+
         await refresh();
         showSuccess("Projeto criado e selecionado (Supabase).");
         navigate("/");
@@ -154,18 +151,18 @@ export default function Projects() {
       }
     } catch (e: any) {
       showError(`Erro ao criar no Supabase: ${e?.message || "erro"}`);
-      // cai no fluxo local abaixo
+      // falls back to local below
     }
 
-    // Fallback local
-    const p = createProject({ name: n, imageUrl });
+    // Local fallback
+    const p = await createProject({ name: n, imageUrl });
     migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
     setName("");
     setImageUrl("");
     setImageFileName("");
-    await refresh();
 
+    await refresh();
     showSuccess("Projeto criado e selecionado (local).");
     navigate("/");
   };
@@ -256,10 +253,10 @@ export default function Projects() {
       }
     } catch (e: any) {
       showError(`Erro ao salvar no Supabase: ${e?.message || "erro"}`);
-      // cai no fluxo local abaixo
+      // falls back to local below
     }
 
-    const updated = updateProject(editProjectId, {
+    const updated = await updateProject(editProjectId, {
       name: n,
       imageUrl: editImageUrl.trim() ? editImageUrl : null,
     });
@@ -270,7 +267,6 @@ export default function Projects() {
     }
 
     invalidateProjectTheme(editProjectId);
-
     setEditOpen(false);
     await refresh();
     showSuccess("Projeto atualizado (local).");

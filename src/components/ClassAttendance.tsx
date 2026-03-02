@@ -20,21 +20,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AttendanceSession, AttendanceStatus } from "@/types/attendance";
-import {
-  ensureStudentRecords,
-  findAttendanceByClassAndDate,
-  getAttendanceForClass,
-  getAllAttendance,
-  saveAllAttendance,
-  upsertAttendanceSession,
-  deleteAttendanceSession,
-} from "@/utils/attendance";
 import { getActiveProjectId } from "@/utils/projects";
 import {
-  getAllStudentJustifications,
-  getJustificationForStudent,
-  getJustificationsForClassDate,
-} from "@/utils/student-justifications";
+  fetchAttendanceSessionsRemote,
+  upsertAttendanceSessionRemote,
+  deleteAttendanceSessionRemote,
+} from "@/integrations/supabase/attendance";
+import {
+  fetchStudentJustificationsRemote,
+  type StudentJustification,
+} from "@/integrations/supabase/student-justifications";
+
 import { StudentRegistration } from "@/types/student";
 import { showSuccess } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
@@ -77,6 +73,14 @@ function monthLabelFromYmd(ymd: string) {
   const d = parseYMD(ymd);
   if (!d) return "mês";
   return new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(d);
+}
+
+function ensureStudentRecords(session: AttendanceSession, currentStudentIds: string[]): AttendanceSession {
+  // Mantém snapshot de quem estava na turma no dia.
+  // NÃO preenche presença/falta automaticamente.
+  if (session.studentIds && session.studentIds.length > 0) return session;
+  if (!currentStudentIds || currentStudentIds.length === 0) return session;
+  return { ...session, studentIds: [...currentStudentIds] };
 }
 
 function displaySocialName(s: StudentRegistration) {
@@ -127,6 +131,7 @@ export default function ClassAttendance({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [justifications, setJustifications] = useState<StudentJustification[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<AttendanceSession | null>(null);
 
@@ -156,17 +161,30 @@ export default function ClassAttendance({
   }, []);
 
   useEffect(() => {
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
-    setSelectedId((prev) => {
-      // Mantém seleção se ainda existir.
-      if (prev && list.some((s) => s.id === prev)) return prev;
+    const run = async () => {
+      if (!activeProjectId) {
+        setSessions([]);
+        setSelectedId(null);
+        setJustifications([]);
+        return;
+      }
 
-      // Prioridade: chamada do dia (hoje).
-      const today = list.find((s) => s.date === todayYmd);
-      return today?.id || list[0]?.id || null;
-    });
-  }, [classId, todayYmd]);
+      const [sess, just] = await Promise.all([
+        fetchAttendanceSessionsRemote(activeProjectId, classId),
+        fetchStudentJustificationsRemote(activeProjectId),
+      ]);
+
+      setSessions(sess);
+      setJustifications(just.filter((j) => j.classId === classId));
+      setSelectedId((prev) => {
+        if (prev && sess.some((s) => s.id === prev)) return prev;
+        const today = sess.find((s) => s.date === todayYmd);
+        return today?.id || sess[0]?.id || null;
+      });
+    };
+
+    void run();
+  }, [activeProjectId, classId, todayYmd]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
@@ -177,20 +195,16 @@ export default function ClassAttendance({
 
   const justificationCountByDate = useMemo(() => {
     const map = new Map<string, number>();
-    if (!activeProjectId) return map;
-
-    for (const j of getAllStudentJustifications(activeProjectId)) {
-      if (j.classId !== classId) continue;
+    for (const j of justifications) {
       map.set(j.date, (map.get(j.date) || 0) + 1);
     }
-
     return map;
-  }, [activeProjectId, classId]);
+  }, [justifications]);
 
   const justificationsForSelected = useMemo(() => {
-    if (!activeProjectId || !selectedSession) return [];
-    return getJustificationsForClassDate(activeProjectId, classId, selectedSession.date);
-  }, [activeProjectId, classId, selectedSession?.id]);
+    if (!selectedSession) return [] as StudentJustification[];
+    return justifications.filter((j) => j.date === selectedSession.date);
+  }, [justifications, selectedSession?.id]);
 
   const studentNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -207,22 +221,23 @@ export default function ClassAttendance({
     }
 
     const synced = ensureStudentRecords(selectedSession, studentIds);
-    if (synced !== selectedSession) {
-      upsertAttendanceSession(synced);
+    if (synced !== selectedSession && activeProjectId) {
+      // Persist snapshot in Supabase so other telas (aluno/relatórios) fiquem consistentes.
+      void upsertAttendanceSessionRemote(activeProjectId, synced);
       setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
     }
 
     setDraftRecords({ ...(synced.records || {}) } as Record<string, AttendanceStatus>);
     setIsDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSession?.id, studentIds.join(",")]);
+  }, [selectedSession?.id, studentIds.join(","), activeProjectId]);
 
   const monthKey = selectedSession ? monthKeyFromYmd(selectedSession.date) : null;
   const monthLabel = selectedSession ? monthLabelFromYmd(selectedSession.date) : "";
 
   const monthlyAbsencesByStudent = useMemo(() => {
     if (!monthKey) return new Map<string, number>();
-    const all = getAttendanceForClass(classId).filter((s) => monthKeyFromYmd(s.date) === monthKey);
+    const all = sessions.filter((s) => monthKeyFromYmd(s.date) === monthKey);
     const map = new Map<string, number>();
 
     for (const sess of all) {
@@ -235,7 +250,7 @@ export default function ClassAttendance({
     }
 
     return map;
-  }, [classId, monthKey, sessions.length]);
+  }, [monthKey, sessions]);
 
   const summary = useMemo(() => {
     if (!selectedSession || !draftRecords) return null;
@@ -262,38 +277,42 @@ export default function ClassAttendance({
   }, [selectedSession?.id, studentIds.join(","), draftRecords, isDirty]);
 
   const createSession = () => {
-    if (!selectedDate) return;
-    const date = toYMD(selectedDate);
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!selectedDate) return;
+      const date = toYMD(selectedDate);
 
-    const existing = findAttendanceByClassAndDate(classId, date);
-    if (existing) {
-      openSession(existing.id, { scroll: true });
+      const existing = sessions.find((s) => s.date === date);
+      if (existing) {
+        openSession(existing.id, { scroll: true });
+        setCreateOpen(false);
+        return;
+      }
+
+      const session: AttendanceSession = {
+        id: makeId(),
+        classId,
+        date,
+        createdAt: new Date().toISOString(),
+        studentIds: [...studentIds],
+        records: {},
+      };
+
+      await upsertAttendanceSessionRemote(activeProjectId, session);
+
+      const next = [session, ...sessions].sort((a, b) => {
+        const byDate = b.date.localeCompare(a.date);
+        if (byDate !== 0) return byDate;
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+      setSessions(next);
+      openSession(session.id, { scroll: true });
       setCreateOpen(false);
-      return;
-    }
-
-    const session: AttendanceSession = {
-      id: makeId(),
-      classId,
-      date,
-      createdAt: new Date().toISOString(),
-      // snapshot
-      studentIds: [...studentIds],
-      // começa em branco: professor marca e salva
-      records: {},
+      setSelectedDate(undefined);
+      showSuccess("Chamada criada. Marque os status e clique em Salvar.");
     };
 
-    // Persist by rewriting full list to keep ordering predictable
-    const all = getAllAttendance();
-    const next = [session, ...all];
-    saveAllAttendance(next);
-
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
-    openSession(session.id, { scroll: true });
-    setCreateOpen(false);
-    setSelectedDate(undefined);
-    showSuccess("Chamada criada. Marque os status e clique em Salvar.");
+    void run();
   };
 
   const updateStudentStatus = (studentId: string, status: AttendanceStatus) => {
@@ -317,34 +336,45 @@ export default function ClassAttendance({
   };
 
   const saveSession = () => {
-    if (!selectedSession || !draftRecords) return;
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!selectedSession || !draftRecords) return;
 
-    const next: AttendanceSession = {
-      ...selectedSession,
-      finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),
-      records: { ...draftRecords },
+      const next: AttendanceSession = {
+        ...selectedSession,
+        finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),
+        records: { ...draftRecords },
+      };
+
+      await upsertAttendanceSessionRemote(activeProjectId, next);
+      setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
+      setIsDirty(false);
+      showSuccess("Chamada salva com sucesso.");
     };
 
-    upsertAttendanceSession(next);
-    setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
-    setIsDirty(false);
-    showSuccess("Chamada salva com sucesso.");
+    void run();
   };
 
   const confirmDelete = () => {
-    if (!deleteTarget) return;
-    deleteAttendanceSession(deleteTarget.id);
+    const run = async () => {
+      if (!activeProjectId) return;
+      if (!deleteTarget) return;
 
-    const list = getAttendanceForClass(classId);
-    setSessions(list);
+      await deleteAttendanceSessionRemote(deleteTarget.id);
 
-    setSelectedId((prev) => {
-      if (prev !== deleteTarget.id) return prev;
-      return list[0]?.id || null;
-    });
+      const list = sessions.filter((s) => s.id !== deleteTarget.id);
+      setSessions(list);
 
-    setDeleteTarget(null);
-    showSuccess("Dia de chamada removido.");
+      setSelectedId((prev) => {
+        if (prev !== deleteTarget.id) return prev;
+        return list[0]?.id || null;
+      });
+
+      setDeleteTarget(null);
+      showSuccess("Dia de chamada removido.");
+    };
+
+    void run();
   };
 
   const openStudentDetails = (student: StudentRegistration) => {
@@ -504,7 +534,7 @@ export default function ClassAttendance({
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
                 <p className="mt-2 text-2xl font-black text-primary tracking-tight">
-                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—" }
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {latestSession ? (
@@ -563,7 +593,7 @@ export default function ClassAttendance({
                 <p className="text-xl font-black text-primary">
                   {selectedSession
                     ? new Date(selectedSession.date + "T00:00:00").toLocaleDateString("pt-BR")
-                    : "—"}
+                    : "—" }
                 </p>
                 {selectedSession && (
                   <Badge
@@ -684,8 +714,8 @@ export default function ClassAttendance({
                     | null;
                   const abs = monthlyAbsencesByStudent.get(st.id) || 0;
 
-                  const justification = activeProjectId && selectedSession
-                    ? getJustificationForStudent(activeProjectId, classId, selectedSession.date, st.id)
+                  const justification = selectedSession
+                    ? justifications.find((j) => j.date === selectedSession.date && j.studentId === st.id) || null
                     : null;
 
                   return (

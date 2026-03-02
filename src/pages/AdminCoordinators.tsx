@@ -25,6 +25,12 @@ import {
   resetCoordinatorPasswordToDefault,
 } from "@/utils/coordinators";
 import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, Users2 } from "lucide-react";
+import { fetchCoordinators, deleteCoordinator } from "@/integrations/supabase/coordinators";
+import {
+  fetchCoordinatorAssignments,
+  assignCoordinatorToProjectRemote,
+  removeCoordinatorFromProjectRemote,
+} from "@/integrations/supabase/coordinator-assignments";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -42,15 +48,64 @@ export default function AdminCoordinators() {
   const [deliverCoordinator, setDeliverCoordinator] = useState<CoordinatorRegistration | null>(null);
 
   useEffect(() => {
-    migrateScopedCoordinatorsToGlobalIfNeeded();
-    refresh();
+    const run = async () => {
+      migrateScopedCoordinatorsToGlobalIfNeeded();
+
+      const remote = await fetchCoordinators();
+      if (remote.length > 0) {
+        localStorage.setItem("ecobuzios_coordinators_global", JSON.stringify(remote));
+        setCoordinators(remote);
+      } else {
+        setCoordinators(readGlobalCoordinators([]));
+      }
+
+      const remoteAssignments = await fetchCoordinatorAssignments();
+      if (remoteAssignments.length > 0) {
+        const map: Record<string, string[]> = {};
+        for (const a of remoteAssignments) {
+          map[a.coordinator_id] = map[a.coordinator_id] || [];
+          if (!map[a.coordinator_id].includes(a.project_id)) map[a.coordinator_id].push(a.project_id);
+        }
+        localStorage.setItem("ecobuzios_coordinator_assignments", JSON.stringify(map));
+        setAssignments(map);
+      } else {
+        setAssignments(getCoordinatorAssignments());
+      }
+
+      setProjects(getProjects());
+    };
+
+    void run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const refresh = () => {
-    setCoordinators(readGlobalCoordinators([]));
-    setProjects(getProjects());
-    setAssignments(getCoordinatorAssignments());
+    const run = async () => {
+      const remote = await fetchCoordinators();
+      if (remote.length > 0) {
+        localStorage.setItem("ecobuzios_coordinators_global", JSON.stringify(remote));
+        setCoordinators(remote);
+      } else {
+        setCoordinators(readGlobalCoordinators([]));
+      }
+
+      const remoteAssignments = await fetchCoordinatorAssignments();
+      if (remoteAssignments.length > 0) {
+        const map: Record<string, string[]> = {};
+        for (const a of remoteAssignments) {
+          map[a.coordinator_id] = map[a.coordinator_id] || [];
+          if (!map[a.coordinator_id].includes(a.project_id)) map[a.coordinator_id].push(a.project_id);
+        }
+        localStorage.setItem("ecobuzios_coordinator_assignments", JSON.stringify(map));
+        setAssignments(map);
+      } else {
+        setAssignments(getCoordinatorAssignments());
+      }
+
+      setProjects(getProjects());
+    };
+
+    void run();
   };
 
   const filtered = useMemo(() => {
@@ -81,27 +136,46 @@ export default function AdminCoordinators() {
   }, [projects, assignments]);
 
   const onAssign = (coordinatorId: string, projectId: string) => {
-    if (!projectId) return;
-    const res = addCoordinatorToProject(coordinatorId, projectId);
-    if (!res.ok) {
-      showError("Não foi possível alocar o coordenador.");
-      return;
-    }
-    refresh();
+    const run = async () => {
+      if (!projectId) return;
 
-    const coord = readGlobalCoordinators([]).find((c) => c.id === coordinatorId) || null;
-    setDeliverCoordinator(coord);
-    setDeliverOpen(true);
+      try {
+        await assignCoordinatorToProjectRemote(coordinatorId, projectId);
+      } catch {
+        const res = addCoordinatorToProject(coordinatorId, projectId);
+        if (!res.ok) {
+          showError("Não foi possível alocar o coordenador.");
+          return;
+        }
+      }
+
+      refresh();
+
+      const coord = readGlobalCoordinators([]).find((c) => c.id === coordinatorId) || null;
+      setDeliverCoordinator(coord);
+      setDeliverOpen(true);
+    };
+
+    void run();
   };
 
   const onRemoveFromProject = (coordinatorId: string, projectId: string) => {
-    const pname = projectNameById(projectId) || "este projeto";
-    const ok = window.confirm(`Remover o coordenador de ${pname}?`);
-    if (!ok) return;
+    const run = async () => {
+      const pname = projectNameById(projectId) || "este projeto";
+      const ok = window.confirm(`Remover o coordenador de ${pname}?`);
+      if (!ok) return;
 
-    removeCoordinatorFromProject(coordinatorId, projectId);
-    refresh();
-    showSuccess("Coordenador removido do projeto.");
+      try {
+        await removeCoordinatorFromProjectRemote(coordinatorId, projectId);
+      } catch {
+        removeCoordinatorFromProject(coordinatorId, projectId);
+      }
+
+      refresh();
+      showSuccess("Coordenador removido do projeto.");
+    };
+
+    void run();
   };
 
   const onResetCoordinatorPassword = (coordinatorId: string) => {
@@ -115,11 +189,21 @@ export default function AdminCoordinators() {
   };
 
   const onDelete = (id: string) => {
-    const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do coordenador.");
-    if (!ok) return;
-    deleteGlobalCoordinator(id);
-    refresh();
-    showSuccess("Cadastro removido.");
+    const run = async () => {
+      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do coordenador.");
+      if (!ok) return;
+
+      try {
+        await deleteCoordinator(id);
+      } catch {
+        deleteGlobalCoordinator(id);
+      }
+
+      refresh();
+      showSuccess("Cadastro removido.");
+    };
+
+    void run();
   };
 
   const copy = async (text: string) => {

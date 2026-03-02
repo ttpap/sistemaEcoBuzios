@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -16,10 +16,11 @@ import {
   Link2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getActiveProject, getProjects, setActiveProjectId } from "@/utils/projects";
+import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { requireSupabase } from "@/integrations/supabase/client";
-import { logoutTeacher, getTeacherSessionTeacherId, setTeacherSessionProjectId } from "@/utils/teacher-auth";
-import { getTeacherProjectIds } from "@/utils/teachers";
+import type { Project } from "@/types/project";
+import { useAuth } from "@/context/AuthContext";
+import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
 import {
   Select,
   SelectContent,
@@ -37,16 +38,42 @@ export default function TeacherSidebar({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
-  const teacherId = useMemo(() => getTeacherSessionTeacherId(), []);
+  const teacherId = profile?.teacher_id;
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const run = async () => {
+      setProjects(await fetchProjects());
+
+      if (!teacherId) {
+        setAssignedProjectIds([]);
+        return;
+      }
+
+      const rows = await fetchTeacherAssignments();
+      const ids = Array.from(new Set(rows.map((r) => r.project_id)));
+      setAssignedProjectIds(ids);
+
+      // Se só houver um projeto, garante que ele está ativo.
+      if (ids.length === 1 && !getActiveProjectId()) {
+        setActiveProjectId(ids[0]);
+      }
+    };
+
+    void run();
+  }, [teacherId]);
+
   const availableProjects = useMemo(() => {
     if (!teacherId) return [];
-    const allowed = new Set(getTeacherProjectIds(teacherId));
-    return getProjects().filter((p) => allowed.has(p.id));
-  }, [teacherId]);
+    const allowed = new Set(assignedProjectIds);
+    return projects.filter((p) => allowed.has(p.id));
+  }, [teacherId, assignedProjectIds, projects]);
 
   const menuItems = useMemo(
     () => [
@@ -73,12 +100,11 @@ export default function TeacherSidebar({
   };
 
   const hasMultipleProjects = availableProjects.length > 1;
-  const currentProjectId = activeProject?.id || availableProjects[0]?.id || "";
+  const currentProjectId = activeProject?.id || getActiveProjectId() || availableProjects[0]?.id || "";
 
   const onChangeProject = (projectId: string) => {
     if (!projectId) return;
     setActiveProjectId(projectId);
-    setTeacherSessionProjectId(projectId);
     navigate("/professor", { replace: true });
   };
 

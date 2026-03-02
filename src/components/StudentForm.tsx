@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { showSuccess, showError } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { useAuth } from "@/context/AuthContext";
 
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
@@ -27,11 +28,33 @@ import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/utils/student-auth';
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
+import { supabase } from "@/integrations/supabase/client";
 
 function makeId() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const c: any = typeof crypto !== "undefined" ? crypto : null;
   return c?.randomUUID ? c.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function makeUuid() {
+  const c = (globalThis as any).crypto as Crypto | undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  if (!c?.getRandomValues) return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  // Fallback using getRandomValues (RFC4122 v4)
+  const bytes = new Uint8Array(16);
+  c.getRandomValues(bytes);
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
@@ -141,7 +164,7 @@ const formSchema = z.object({
   city: z.string().default("Armação dos Búzios"),
   uf: z.string().default("RJ"),
 
-  enelClientNumber: z.string().optional().or(z.literal("")),
+  enelClientNumber: z.string().optional().or(z.literal("")), 
 
   bloodType: z.string().optional(),
   hasAllergy: z.boolean().default(false),
@@ -171,16 +194,17 @@ interface StudentFormProps {
   onCompleted?: (result: { registration: string; login: string; password: string }) => void;
 }
 
-const StudentForm = ({
-  initialData,
-  redirectTo,
-  hideDiscard = false,
-  submitLabel,
-  onCompleted,
+const StudentForm = ({ 
+  initialData, 
+  redirectTo, 
+  onCompleted, 
+  submitLabel, 
+  hideDiscard 
 }: StudentFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
+  const { session } = useAuth();
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
@@ -259,51 +283,216 @@ const StudentForm = ({
       schoolName: finalSchoolName || values.schoolName
     };
 
-    if (initialData) {
-      const updated = existingStudents.map((s: any) =>
-        s.id === initialData.id ? { ...s, ...studentData } : s
-      );
-      writeGlobalStudents(updated);
+    const persistToSupabase = async (input: {
+      id: string;
+      registration: string;
+      status?: string;
+      class?: string;
+    }) => {
+      const row = {
+        id: input.id,
+        registration: input.registration,
+        full_name: values.fullName,
+        social_name: values.socialName || null,
+        email: values.email || null,
+        cpf: values.cpf || null,
+        birth_date: values.birthDate,
+        age: values.age,
+        cell_phone: values.cellPhone,
+        gender: values.gender,
+        race: values.race,
+        photo: values.photo || null,
 
-      showSuccess("Dados atualizados!");
+        guardian_name: values.guardianName || null,
+        guardian_kinship: values.guardianKinship || null,
+        guardian_phone: values.guardianPhone || null,
 
-      const reg = String((initialData as any).registration || "");
-      if (reg) {
-        onCompleted?.({
-          registration: reg,
-          login: getStudentLoginFromRegistration(reg),
-          password: DEFAULT_STUDENT_PASSWORD,
-        });
-      }
-    } else {
-      let registration = "";
-      try {
-        registration = allocateNewStudentRegistration(existingStudents);
-      } catch (e: any) {
-        showError(e?.message || "Não foi possível gerar a matrícula.");
+        school_type: values.schoolType,
+        school_name: (finalSchoolName || values.schoolName) as string,
+        school_other: values.schoolOther || null,
+
+        cep: values.cep,
+        street: values.street,
+        number: values.number,
+        complement: values.complement || null,
+        neighborhood: values.neighborhood,
+        city: values.city,
+        uf: values.uf,
+
+        enel_client_number: (values.enelClientNumber || "").replace(/\D/g, "").trim() || null,
+
+        blood_type: values.bloodType || null,
+        has_allergy: values.hasAllergy,
+        allergy_detail: values.allergyDetail || null,
+        has_special_needs: values.hasSpecialNeeds,
+        special_needs_detail: values.specialNeedsDetail || null,
+        uses_medication: values.usesMedication,
+        medication_detail: values.medicationDetail || null,
+        has_physical_restriction: values.hasPhysicalRestriction,
+        physical_restriction_detail: values.physicalRestrictionDetail || null,
+        practiced_activity: values.practicedActivity,
+        practiced_activity_detail: values.practicedActivityDetail || null,
+        family_heart_history: values.familyHeartHistory,
+        health_problems: values.healthProblems || [],
+        health_problems_other: values.healthProblemsOther || null,
+        observations: values.observations || null,
+
+        image_authorization: values.imageAuthorization,
+        docs_delivered: values.docsDelivered || [],
+
+        ...(input.status ? { status: input.status } : null),
+        ...(input.class ? { class: input.class } : null),
+      };
+
+      // Para evitar quebra em contas que ainda não estão com Supabase configurado,
+      // só tenta persistir se o client existir.
+      if (!supabase) return;
+
+      // Fluxo público (sem sessão): grava via Edge Function (service role) para não depender de SELECT/RLS.
+      if (!session) {
+        const { error } = await supabase.functions.invoke("public-student-signup", { body: row });
+        if (error) throw error;
         return;
       }
 
-      const newStudent = {
-        ...studentData,
-        id: makeId(),
-        registrationDate: new Date().toISOString(),
-        registration: registration,
-        status: 'Ativo',
-        class: 'A definir'
-      };
-      writeGlobalStudents([...existingStudents, newStudent]);
+      if (initialData) {
+        // Atualiza por id quando for um UUID válido
+        if (!isUuid(String(initialData.id || ""))) return;
 
-      showSuccess("Inscrição realizada!");
-      onCompleted?.({
-        registration,
-        login: getStudentLoginFromRegistration(registration),
-        password: DEFAULT_STUDENT_PASSWORD,
-      });
-    }
+        const { error } = await supabase
+          .from("students")
+          .update(row)
+          .eq("id", initialData.id);
+        if (error) throw error;
+        return;
+      }
 
-    const target = redirectTo === undefined ? `${base}/alunos` : redirectTo;
-    if (target !== null) navigate(target);
+      // Inserção (usuário autenticado)
+      const { error } = await supabase.from("students").insert(row);
+      if (error) throw error;
+    };
+
+    const run = async () => {
+      if (initialData) {
+        try {
+          await persistToSupabase({
+            id: String(initialData.id),
+            registration: String((initialData as any).registration || ""),
+          });
+        } catch (e: any) {
+          showError(e?.message || "Não foi possível salvar no Supabase.");
+          return;
+        }
+
+        const updated = existingStudents.map((s: any) =>
+          s.id === initialData.id ? { ...s, ...studentData } : s
+        );
+        writeGlobalStudents(updated);
+
+        showSuccess("Dados atualizados!");
+
+        const reg = String((initialData as any).registration || "");
+        if (reg) {
+          onCompleted?.({
+            registration: reg,
+            login: getStudentLoginFromRegistration(reg),
+            password: DEFAULT_STUDENT_PASSWORD,
+          });
+        }
+      } else {
+        const tempExisting = [...existingStudents];
+        let registration = "";
+        let createdId = makeUuid();
+
+        for (let attempt = 0; attempt < 10; attempt++) {
+          try {
+            registration = allocateNewStudentRegistration(tempExisting);
+          } catch (e: any) {
+            showError(e?.message || "Não foi possível gerar a matrícula.");
+            return;
+          }
+
+          createdId = makeUuid();
+
+          try {
+            await persistToSupabase({
+              id: createdId,
+              registration,
+              status: "Ativo",
+              class: "A definir",
+            });
+            break;
+          } catch (e: any) {
+            // Conflito de matrícula (unique) → tenta outra
+            const msg = String(e?.message || "");
+            const isUnique = msg.toLowerCase().includes("duplicate") || msg.includes("23505");
+            if (isUnique) {
+              tempExisting.push({
+                id: makeUuid(),
+                registration,
+                fullName: "",
+                birthDate: "2000-01-01",
+                age: 0,
+                cellPhone: "",
+                gender: "",
+                race: "",
+                schoolType: "",
+                schoolName: "",
+                cep: "",
+                street: "",
+                number: "",
+                neighborhood: "",
+                city: "",
+                uf: "",
+                hasAllergy: false,
+                hasSpecialNeeds: false,
+                usesMedication: false,
+                hasPhysicalRestriction: false,
+                practicedActivity: false,
+                familyHeartHistory: false,
+                healthProblems: [],
+                imageAuthorization: "authorized",
+                docsDelivered: [],
+                registrationDate: new Date().toISOString(),
+                status: "Ativo",
+                class: "A definir",
+              } as StudentRegistration);
+              continue;
+            }
+
+            showError(e?.message || "Não foi possível salvar no Supabase.");
+            return;
+          }
+        }
+
+        if (!registration) {
+          showError("Não foi possível gerar a matrícula.");
+          return;
+        }
+
+        const newStudent = {
+          ...studentData,
+          id: createdId,
+          registrationDate: new Date().toISOString(),
+          registration: registration,
+          status: 'Ativo',
+          class: 'A definir'
+        };
+        writeGlobalStudents([...existingStudents, newStudent]);
+
+        showSuccess("Inscrição realizada!");
+        onCompleted?.({
+          registration,
+          login: getStudentLoginFromRegistration(registration),
+          password: DEFAULT_STUDENT_PASSWORD,
+        });
+      }
+
+      const target = redirectTo === undefined ? `${base}/alunos` : redirectTo;
+      if (target !== null) navigate(target);
+    };
+
+    void run();
   }
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
@@ -645,7 +834,7 @@ const StudentForm = ({
                 type="button"
                 variant="outline"
                 className="rounded-2xl px-10 h-14 font-bold text-slate-600 border-slate-200 hover:bg-slate-100"
-                onClick={() => navigate(`${base}/alunos`)}
+                onClick={() => navigate(`${base}/alunos`) }
               >
                 Descartar Alterações
               </Button>

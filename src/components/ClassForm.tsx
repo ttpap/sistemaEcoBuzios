@@ -12,10 +12,12 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { readScoped, writeScoped } from '@/utils/storage';
+import { getActiveProjectId } from '@/utils/projects';
+import { upsertClassRemote } from '@/integrations/supabase/classes';
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome da turma é obrigatório"),
@@ -53,31 +55,59 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const existing = readScoped<SchoolClass[]>('classes', []);
+    const run = async () => {
+      const projectId = getActiveProjectId();
+      if (!projectId) return;
 
-    const classData = {
-      ...values,
-      capacity: parseInt(values.capacity),
-      absenceLimit: parseInt(values.absenceLimit),
+      const existing = readScoped<SchoolClass[]>('classes', []);
+
+      const classData = {
+        ...values,
+        capacity: parseInt(values.capacity),
+        absenceLimit: parseInt(values.absenceLimit),
+      };
+
+      if (initialData) {
+        const updatedRemote: SchoolClass = {
+          ...(initialData as any),
+          ...classData,
+        };
+
+        try {
+          await upsertClassRemote(projectId, updatedRemote);
+        } catch (e: any) {
+          showError(e?.message || 'Não foi possível salvar no Supabase.');
+          return;
+        }
+
+        const updatedLocal = existing.map((c: any) =>
+          c.id === initialData.id ? { ...c, ...classData } : c,
+        );
+
+        writeScoped('classes', updatedLocal);
+        showSuccess("Turma atualizada!");
+      } else {
+        const newClass: SchoolClass = {
+          ...(classData as any),
+          id: crypto.randomUUID(),
+          registrationDate: new Date().toISOString(),
+          status: 'Ativo',
+        };
+
+        try {
+          await upsertClassRemote(projectId, newClass);
+        } catch (e: any) {
+          showError(e?.message || 'Não foi possível salvar no Supabase.');
+          return;
+        }
+
+        writeScoped('classes', [...existing, newClass]);
+        showSuccess("Turma criada com sucesso!");
+      }
+      navigate(`${base}/turmas`);
     };
 
-    if (initialData) {
-      const updated = existing.map((c: any) =>
-        c.id === initialData.id ? { ...c, ...classData } : c,
-      );
-      writeScoped('classes', updated);
-      showSuccess("Turma atualizada!");
-    } else {
-      const newClass = {
-        ...classData,
-        id: crypto.randomUUID(),
-        registrationDate: new Date().toISOString(),
-        status: 'Ativo'
-      };
-      writeScoped('classes', [...existing, newClass]);
-      showSuccess("Turma criada com sucesso!");
-    }
-    navigate(`${base}/turmas`);
+    void run();
   }
 
   return (
@@ -189,7 +219,7 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
             type="button"
             variant="outline"
             className="rounded-2xl px-8 h-12 font-bold"
-            onClick={() => navigate(`${base}/turmas`)}
+            onClick={() => navigate(`${base}/turmas`) }
           >
             Cancelar
           </Button>

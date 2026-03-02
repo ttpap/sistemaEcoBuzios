@@ -26,6 +26,12 @@ import {
 } from "@/utils/teachers";
 import { getProjects } from "@/utils/projects";
 import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
+import { fetchTeachers, deleteTeacher } from "@/integrations/supabase/teachers";
+import {
+  fetchTeacherAssignments,
+  assignTeacherToProjectRemote,
+  removeTeacherFromProjectRemote,
+} from "@/integrations/supabase/teacher-assignments";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -43,16 +49,65 @@ export default function AdminTeachers() {
   const [deliverTeacher, setDeliverTeacher] = useState<TeacherRegistration | null>(null);
 
   useEffect(() => {
-    migrateScopedTeachersToGlobalIfNeeded();
-    setTeachers(readGlobalTeachers([]));
-    setProjects(getProjects());
-    setAssignments(getTeacherAssignments());
+    const run = async () => {
+      migrateScopedTeachersToGlobalIfNeeded();
+
+      // Prefer Supabase as source-of-truth
+      const remoteTeachers = await fetchTeachers();
+      if (remoteTeachers.length > 0) {
+        // Cache local para telas legadas
+        localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
+        setTeachers(remoteTeachers);
+      } else {
+        setTeachers(readGlobalTeachers([]));
+      }
+
+      const remoteAssignments = await fetchTeacherAssignments();
+      if (remoteAssignments.length > 0) {
+        const map: Record<string, string[]> = {};
+        for (const a of remoteAssignments) {
+          map[a.teacher_id] = map[a.teacher_id] || [];
+          if (!map[a.teacher_id].includes(a.project_id)) map[a.teacher_id].push(a.project_id);
+        }
+        localStorage.setItem("ecobuzios_teacher_assignments", JSON.stringify(map));
+        setAssignments(map);
+      } else {
+        setAssignments(getTeacherAssignments());
+      }
+
+      setProjects(getProjects());
+    };
+
+    void run();
   }, []);
 
   const refresh = () => {
-    setTeachers(readGlobalTeachers([]));
-    setProjects(getProjects());
-    setAssignments(getTeacherAssignments());
+    const run = async () => {
+      const remoteTeachers = await fetchTeachers();
+      if (remoteTeachers.length > 0) {
+        localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
+        setTeachers(remoteTeachers);
+      } else {
+        setTeachers(readGlobalTeachers([]));
+      }
+
+      const remoteAssignments = await fetchTeacherAssignments();
+      if (remoteAssignments.length > 0) {
+        const map: Record<string, string[]> = {};
+        for (const a of remoteAssignments) {
+          map[a.teacher_id] = map[a.teacher_id] || [];
+          if (!map[a.teacher_id].includes(a.project_id)) map[a.teacher_id].push(a.project_id);
+        }
+        localStorage.setItem("ecobuzios_teacher_assignments", JSON.stringify(map));
+        setAssignments(map);
+      } else {
+        setAssignments(getTeacherAssignments());
+      }
+
+      setProjects(getProjects());
+    };
+
+    void run();
   };
 
   const filtered = useMemo(() => {
@@ -83,37 +138,67 @@ export default function AdminTeachers() {
   }, [projects, assignments]);
 
   const onAssign = (teacherId: string, projectId: string) => {
-    if (!projectId) return;
-    const res = assignTeacherToProject(teacherId, projectId);
-    if (!res.ok) {
-      showError("Não foi possível alocar o professor.");
-      return;
-    }
+    const run = async () => {
+      if (!projectId) return;
 
-    refresh();
+      try {
+        await assignTeacherToProjectRemote(teacherId, projectId);
+      } catch (e: any) {
+        // fallback local
+        const res = assignTeacherToProject(teacherId, projectId);
+        if (!res.ok) {
+          showError("Não foi possível alocar o professor.");
+          return;
+        }
+      }
 
-    // Open credentials delivery dialog
-    const teacher = readGlobalTeachers([]).find((t) => t.id === teacherId) || null;
-    setDeliverTeacher(teacher);
-    setDeliverOpen(true);
+      refresh();
+
+      const teacher = readGlobalTeachers([]).find((t) => t.id === teacherId) || null;
+      setDeliverTeacher(teacher);
+      setDeliverOpen(true);
+    };
+
+    void run();
   };
 
   const onDelete = (id: string) => {
-    const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do professor.");
-    if (!ok) return;
-    deleteGlobalTeacher(id);
-    refresh();
-    showSuccess("Cadastro removido.");
+    const run = async () => {
+      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do professor.");
+      if (!ok) return;
+
+      try {
+        await deleteTeacher(id);
+      } catch {
+        // fallback local
+        deleteGlobalTeacher(id);
+      }
+
+      refresh();
+      showSuccess("Cadastro removido.");
+    };
+
+    void run();
   };
 
   const onRemoveFromProject = (teacherId: string, projectId: string) => {
-    const pname = projectNameById(projectId) || "este projeto";
-    const ok = window.confirm(`Remover o professor de ${pname}?`);
-    if (!ok) return;
+    const run = async () => {
+      const pname = projectNameById(projectId) || "este projeto";
+      const ok = window.confirm(`Remover o professor de ${pname}?`);
+      if (!ok) return;
 
-    removeTeacherFromProject(teacherId, projectId);
-    refresh();
-    showSuccess("Professor removido do projeto.");
+      try {
+        await removeTeacherFromProjectRemote(teacherId, projectId);
+      } catch {
+        // fallback local
+        removeTeacherFromProject(teacherId, projectId);
+      }
+
+      refresh();
+      showSuccess("Professor removido do projeto.");
+    };
+
+    void run();
   };
 
   const copy = async (text: string) => {
