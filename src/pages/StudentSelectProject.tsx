@@ -1,30 +1,51 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Layers, ArrowRight } from "lucide-react";
-import { getProjects, setActiveProjectId } from "@/utils/projects";
+import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import {
-  getStudentProjectIds,
+  getStudentSessionProjectIds,
   getStudentSessionStudentId,
   setStudentSessionProjectId,
 } from "@/utils/student-auth";
 import { showError } from "@/utils/toast";
+import type { Project } from "@/types/project";
 
 export default function StudentSelectProject() {
   const navigate = useNavigate();
   const studentId = useMemo(() => getStudentSessionStudentId(), []);
 
-  const allowedProjects = useMemo(() => {
-    if (!studentId) return [];
-    const allowed = new Set(getStudentProjectIds(studentId));
-    return getProjects().filter((p) => allowed.has(p.id));
-  }, [studentId]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
-  const [selected, setSelected] = useState<string>(allowedProjects[0]?.id || "");
+  useEffect(() => {
+    const run = async () => {
+      setProjects(await fetchProjects());
+    };
+    void run();
+  }, []);
+
+  const allowedProjects = useMemo(() => {
+    const allowed = new Set(getStudentSessionProjectIds());
+    return projects.filter((p) => allowed.has(p.id));
+  }, [projects]);
+
+  const [selected, setSelected] = useState<string>("");
+
+  useEffect(() => {
+    const active = getActiveProjectId();
+    const next = active && allowedProjects.some((p) => p.id === active) ? active : allowedProjects[0]?.id || "";
+    setSelected(next);
+
+    if (allowedProjects.length === 1 && next) {
+      setActiveProjectId(next);
+      setStudentSessionProjectId(next);
+      navigate("/aluno", { replace: true });
+    }
+  }, [allowedProjects, navigate]);
 
   const onConfirm = () => {
     if (!selected) {

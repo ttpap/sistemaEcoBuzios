@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import ActiveProjectGate from "@/components/ActiveProjectGate";
 import Login from "./pages/Login";
+import AdminLogin from "@/pages/AdminLogin";
 import AdminGate from "@/components/AdminGate";
 import ProjectTheme from "@/components/ProjectTheme";
 import TeacherGate from "@/components/TeacherGate";
@@ -45,6 +46,9 @@ import StudentDashboard from "@/pages/StudentDashboard";
 import AppShell from "@/components/layout/AppShell";
 import DbStatus from "@/pages/DbStatus";
 import { AuthProvider } from "@/context/AuthContext";
+import TeacherLogin from "./pages/TeacherLogin";
+import StudentLogin from "./pages/StudentLogin";
+import CoordinatorLogin from "@/pages/CoordinatorLogin";
 
 const queryClient = new QueryClient();
 
@@ -58,11 +62,16 @@ const App = () => (
           <ProjectTheme />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/login/admin" element={<AdminLogin />} />
             <Route path="/inscricao" element={<PublicStudentRegistration />} />
             <Route path="/db-status" element={<DbStatus />} />
 
+            {/* Logins (modo B - credenciais) */}
+            <Route path="/aluno/login" element={<StudentLogin />} />
+            <Route path="/professor/login" element={<TeacherLogin />} />
+            <Route path="/coordenador/login" element={<CoordinatorLogin />} />
+
             {/* Rotas do Aluno */}
-            <Route path="/aluno/login" element={<Navigate to="/login" replace />} />
             <Route
               path="/aluno/*"
               element={
@@ -83,11 +92,7 @@ const App = () => (
               }
             />
 
-            <Route
-              path="/professor/login"
-              element={<Navigate to="/login?role=teacher" replace />}
-            />
-
+            {/* Rotas do Professor */}
             <Route
               path="/professor/*"
               element={

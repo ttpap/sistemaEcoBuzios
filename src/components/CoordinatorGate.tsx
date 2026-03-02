@@ -1,8 +1,15 @@
 "use client";
 
 import React from "react";
-import AuthGateSupabase from "@/components/AuthGateSupabase";
+import { Navigate, useLocation } from "react-router-dom";
+import { isCoordinatorLoggedIn } from "@/utils/coordinator-auth";
 
 export default function CoordinatorGate({ children }: { children: React.ReactNode }) {
-  return <AuthGateSupabase allow={["coordinator"]}>{children}</AuthGateSupabase>;
+  const location = useLocation();
+
+  if (!isCoordinatorLoggedIn()) {
+    return <Navigate to="/coordenador/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return <>{children}</>;
 }

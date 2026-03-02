@@ -1,5 +1,4 @@
-import { findTeacherByLogin } from "@/utils/teachers";
-import { getTeacherProjectIds } from "@/utils/teachers";
+import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 
 const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores { teacherId, projectId? }
@@ -7,6 +6,7 @@ const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores { teacherId, 
 type TeacherSession = {
   teacherId: string;
   projectId?: string;
+  projectIds?: string[];
 };
 
 export type TeacherLoginResult =
@@ -25,25 +25,12 @@ export function getTeacherSession(): TeacherSession | null {
   const raw = localStorage.getItem(TEACHER_SESSION_KEY);
   if (!raw) return null;
 
-  // Legacy: it used to store only teacherId
-  if (!raw.trim().startsWith("{")) {
-    const teacherId = raw;
-    const projectIds = getTeacherProjectIds(teacherId);
-
-    // If teacher has multiple projects, force selection on next access.
-    const migrated: TeacherSession =
-      projectIds.length === 1 ? { teacherId, projectId: projectIds[0] } : { teacherId };
-
-    localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(migrated));
-    return migrated;
-  }
-
   const parsed = safeParse<TeacherSession | null>(raw, null);
   if (!parsed?.teacherId) return null;
 
-  // Normalize empty projectId
   const projectId = (parsed.projectId || "").trim() || undefined;
-  return { teacherId: parsed.teacherId, ...(projectId ? { projectId } : {}) };
+  const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
+  return { teacherId: parsed.teacherId, ...(projectId ? { projectId } : {}), ...(projectIds ? { projectIds } : {}) };
 }
 
 export function getTeacherSessionTeacherId(): string | null {
@@ -52,6 +39,10 @@ export function getTeacherSessionTeacherId(): string | null {
 
 export function getTeacherSessionProjectId(): string | null {
   return getTeacherSession()?.projectId || null;
+}
+
+export function getTeacherSessionProjectIds(): string[] {
+  return getTeacherSession()?.projectIds || [];
 }
 
 export function setTeacherSessionProjectId(projectId: string) {
@@ -64,7 +55,7 @@ export function setTeacherSessionProjectId(projectId: string) {
 export function clearTeacherSessionProjectId() {
   const cur = getTeacherSession();
   if (!cur) return;
-  const next: TeacherSession = { teacherId: cur.teacherId };
+  const next: TeacherSession = { teacherId: cur.teacherId, ...(cur.projectIds ? { projectIds: cur.projectIds } : {}) };
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -72,20 +63,29 @@ export function isTeacherLoggedIn() {
   return Boolean(getTeacherSessionTeacherId());
 }
 
-export function loginTeacher(input: { login: string; password: string }): TeacherLoginResult {
+export async function loginTeacher(input: { login: string; password: string }): Promise<TeacherLoginResult> {
   const login = (input.login || "").trim();
   const password = (input.password || "").trim();
 
-  const teacher = findTeacherByLogin(login);
-  if (!teacher) return { ok: false, reason: "invalid_credentials" };
+  if (!login || !password) return { ok: false, reason: "invalid_credentials" };
 
-  const ok = password === String(teacher.authPassword || "").trim();
-  if (!ok) return { ok: false, reason: "invalid_credentials" };
+  const { data: teacher, error } = await supabase
+    .from("teachers")
+    .select("id")
+    .eq("auth_login", login)
+    .eq("auth_password", password)
+    .maybeSingle();
 
-  const projectIds = getTeacherProjectIds(teacher.id);
+  if (error || !teacher?.id) return { ok: false, reason: "invalid_credentials" };
+
+  const { data: rows } = await supabase
+    .from("teacher_project_assignments")
+    .select("project_id")
+    .eq("teacher_id", teacher.id);
+
+  const projectIds = Array.from(new Set((rows || []).map((r: any) => String(r.project_id)))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
-  // If only one project, set it immediately. If multiple, require selection.
   let projectId: string | undefined;
   if (projectIds.length === 1) {
     projectId = projectIds[0];
@@ -94,9 +94,11 @@ export function loginTeacher(input: { login: string; password: string }): Teache
     projectId = preferred && projectIds.includes(preferred) ? preferred : undefined;
   }
 
-  const session: TeacherSession = projectId ? { teacherId: teacher.id, projectId } : { teacherId: teacher.id };
-  localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(session));
+  const session: TeacherSession = projectId
+    ? { teacherId: teacher.id, projectId, projectIds }
+    : { teacherId: teacher.id, projectIds };
 
+  localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(session));
   return { ok: true, teacherId: teacher.id, projectIds, ...(projectId ? { projectId } : {}) };
 }
 

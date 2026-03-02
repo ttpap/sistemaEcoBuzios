@@ -1,8 +1,15 @@
 "use client";
 
 import React from "react";
-import AuthGateSupabase from "@/components/AuthGateSupabase";
+import { Navigate, useLocation } from "react-router-dom";
+import { isTeacherLoggedIn } from "@/utils/teacher-auth";
 
 export default function TeacherGate({ children }: { children: React.ReactNode }) {
-  return <AuthGateSupabase allow={["teacher"]}>{children}</AuthGateSupabase>;
+  const location = useLocation();
+
+  if (!isTeacherLoggedIn()) {
+    return <Navigate to="/professor/login" replace state={{ from: location.pathname }} />;
+  }
+
+  return <>{children}</>;
 }

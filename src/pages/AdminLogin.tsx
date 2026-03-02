@@ -6,51 +6,58 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { GraduationCap, Lock, User } from "lucide-react";
-import { loginTeacher, isTeacherLoggedIn } from "@/utils/teacher-auth";
-import { showError, showSuccess } from "@/utils/toast";
+import Logo from "@/components/Logo";
+import { Shield, Lock, Mail } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+import { showError } from "@/utils/toast";
 
-export default function TeacherLogin() {
+export default function AdminLogin() {
   const navigate = useNavigate();
-  const [login, setLogin] = useState("");
+  const { session, profile, loading } = useAuth();
+
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isTeacherLoggedIn()) navigate("/professor", { replace: true });
-  }, [navigate]);
+    if (loading) return;
+    if (!session) return;
+    if (profile?.role !== "admin") return;
+    navigate("/projetos", { replace: true });
+  }, [loading, session, profile?.role, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const res = await loginTeacher({ login: login.trim(), password });
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
 
-    if (res.ok === true) {
-      showSuccess("Bem-vindo(a)! Acesso do professor liberado.");
-      navigate("/professor", { replace: true });
-      return;
+      // O redirect acontece via useEffect quando o profile carregar.
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível entrar.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const reason = res.reason;
-
-    if (reason === "not_assigned") {
-      showError("Acesso ainda não liberado. Aguarde o administrador alocar você em um projeto.");
-      return;
-    }
-
-    showError("Login ou senha inválidos.");
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="mx-auto h-14 w-14 rounded-[1.75rem] bg-primary/10 border border-primary/15 flex items-center justify-center">
-            <GraduationCap className="h-7 w-7 text-primary" />
+          <div className="mx-auto w-full max-w-[240px]">
+            <Logo className="w-full" />
           </div>
-          <h1 className="mt-4 text-3xl font-black tracking-tight text-primary">Área do Professor</h1>
-          <p className="mt-2 text-slate-500 font-medium">
-            Entre para acessar as turmas do seu projeto.
-          </p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-primary">
+            <Shield className="h-5 w-5" />
+            <h1 className="text-2xl font-black tracking-tight">Admin</h1>
+          </div>
+          <p className="mt-2 text-slate-500 font-medium">Entre com email e senha do administrador.</p>
         </div>
 
         <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
@@ -60,13 +67,13 @@ export default function TeacherLogin() {
           <CardContent className="p-6 md:p-8 pt-4">
             <form onSubmit={onSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Usuário</Label>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Email</Label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value)}
-                    placeholder="Ex.: prof.nome.sobrenome.123"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@exemplo.com"
                     className="pl-11 h-12 rounded-2xl border-slate-100 bg-slate-50/60"
                     autoComplete="username"
                   />
@@ -90,13 +97,15 @@ export default function TeacherLogin() {
 
               <Button
                 type="submit"
+                disabled={submitting}
                 className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
               >
                 Entrar
               </Button>
 
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                O acesso é liberado após o administrador alocar você em um projeto.
+                Se você autenticou, mas não entra no painel, verifique a tabela <span className="font-black">profiles</span>
+                com <span className="font-black">role=admin</span>.
               </div>
             </form>
           </CardContent>

@@ -6,9 +6,11 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function AuthGateSupabase({
   allow,
+  redirectTo = "/login",
   children,
 }: {
   allow: Array<"admin" | "teacher" | "coordinator" | "student">;
+  redirectTo?: string;
   children: React.ReactNode;
 }) {
   const { loading, session, profile } = useAuth();
@@ -26,16 +28,16 @@ export default function AuthGateSupabase({
   }
 
   if (!session) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to={redirectTo} replace state={{ from: location.pathname }} />;
   }
 
   // Autenticado, mas sem profile/role cadastrado
   if (!profile?.role) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   if (!allow.includes(profile.role)) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   return <>{children}</>;

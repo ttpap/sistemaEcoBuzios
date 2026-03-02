@@ -14,38 +14,26 @@ import {
 } from "@/components/ui/select";
 import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { BadgeCheck, Layers, ArrowRight } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
 import type { Project } from "@/types/project";
-import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
+import { getCoordinatorSessionProjectIds, setCoordinatorSessionProjectId } from "@/utils/coordinator-auth";
 
 export default function CoordinatorSelectProject() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
-
-  const coordinatorId = profile?.coordinator_id;
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     const run = async () => {
       setProjects(await fetchProjects());
-      if (!coordinatorId) {
-        setAssignedProjectIds([]);
-        return;
-      }
-      const rows = await fetchCoordinatorAssignments();
-      setAssignedProjectIds(Array.from(new Set(rows.map((r) => r.project_id))));
     };
 
     void run();
-  }, [coordinatorId]);
+  }, []);
 
   const allowedProjects = useMemo(() => {
-    if (!coordinatorId) return [];
-    const allowed = new Set(assignedProjectIds);
+    const allowed = new Set(getCoordinatorSessionProjectIds());
     return projects.filter((p) => allowed.has(p.id));
-  }, [coordinatorId, assignedProjectIds, projects]);
+  }, [projects]);
 
   const [selected, setSelected] = useState<string>("");
 
@@ -56,6 +44,7 @@ export default function CoordinatorSelectProject() {
 
     if (allowedProjects.length === 1 && next) {
       setActiveProjectId(next);
+      setCoordinatorSessionProjectId(next);
       navigate("/coordenador", { replace: true });
     }
   }, [allowedProjects, navigate]);
@@ -63,6 +52,7 @@ export default function CoordinatorSelectProject() {
   const onContinue = () => {
     if (!selected) return;
     setActiveProjectId(selected);
+    setCoordinatorSessionProjectId(selected);
     navigate("/coordenador", { replace: true });
   };
 

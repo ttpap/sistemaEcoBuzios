@@ -1,7 +1,5 @@
-import { readGlobalStudents } from "@/utils/storage";
-import { getActiveProjectId, getProjectScopedKey, getProjects } from "@/utils/projects";
-import type { StudentRegistration } from "@/types/student";
-import type { SchoolClass } from "@/types/class";
+import { supabase } from "@/integrations/supabase/client";
+import { getActiveProjectId } from "@/utils/projects";
 
 const STUDENT_SESSION_KEY = "ecobuzios_student_session"; // stores { studentId, projectId? }
 
@@ -16,6 +14,7 @@ export function getStudentLoginFromRegistration(registration: string) {
 type StudentSession = {
   studentId: string;
   projectId?: string;
+  projectIds?: string[];
 };
 
 export type StudentLoginResult =
@@ -34,61 +33,6 @@ function normalizePassword(pw: string) {
   return (pw || "").toLowerCase().replace(/\s+/g, "");
 }
 
-function getProjectClasses(projectId: string): SchoolClass[] {
-  const key = getProjectScopedKey(projectId, "classes");
-  return safeParse<SchoolClass[]>(localStorage.getItem(key), []);
-}
-
-function studentIsInClass(cls: SchoolClass, studentId: string) {
-  if (Array.isArray(cls.studentIds) && cls.studentIds.includes(studentId)) return true;
-  if (Array.isArray(cls.studentEnrollments)) {
-    const e = cls.studentEnrollments.find((x) => x.studentId === studentId);
-    if (!e) return false;
-    return !e.removedAt; // currently enrolled
-  }
-  return false;
-}
-
-export function getStudentProjectIds(studentId: string): string[] {
-  const ids: string[] = [];
-  for (const p of getProjects()) {
-    const classes = getProjectClasses(p.id);
-    if (classes.some((c) => studentIsInClass(c, studentId))) ids.push(p.id);
-  }
-  return ids;
-}
-
-export function findStudentByRegistration(registration: string): StudentRegistration | null {
-  const norm = (registration || "").trim();
-  if (!norm) return null;
-  const students = readGlobalStudents<StudentRegistration[]>([]);
-  return students.find((s) => String(s.registration || "").trim() === norm) || null;
-}
-
-export function findStudentByLogin(login: string):
-  | { ok: true; student: StudentRegistration }
-  | { ok: false; reason: "not_found" | "ambiguous" } {
-  const raw = (login || "").trim();
-  if (!raw) return { ok: false, reason: "not_found" };
-
-  // If user typed full matricula (AAAA-XXXX), prefer exact match.
-  if (raw.includes("-")) {
-    const exact = findStudentByRegistration(raw);
-    if (!exact) return { ok: false, reason: "not_found" };
-    return { ok: true, student: exact };
-  }
-
-  // Otherwise accept last 4 digits, but only if it uniquely identifies a student.
-  const last4 = getStudentLoginFromRegistration(raw);
-  const students = readGlobalStudents<StudentRegistration[]>([]);
-  const matches = students.filter((s) => getStudentLoginFromRegistration(String(s.registration || "")) === last4);
-
-  if (matches.length === 0) return { ok: false, reason: "not_found" };
-  if (matches.length !== 1) return { ok: false, reason: "ambiguous" };
-
-  return { ok: true, student: matches[0] };
-}
-
 export function getStudentSession(): StudentSession | null {
   const raw = localStorage.getItem(STUDENT_SESSION_KEY);
   if (!raw) return null;
@@ -97,7 +41,12 @@ export function getStudentSession(): StudentSession | null {
   if (!parsed?.studentId) return null;
 
   const projectId = (parsed.projectId || "").trim() || undefined;
-  return { studentId: parsed.studentId, ...(projectId ? { projectId } : {}) };
+  const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
+  return {
+    studentId: parsed.studentId,
+    ...(projectId ? { projectId } : {}),
+    ...(projectIds ? { projectIds } : {}),
+  };
 }
 
 export function getStudentSessionStudentId(): string | null {
@@ -106,6 +55,10 @@ export function getStudentSessionStudentId(): string | null {
 
 export function getStudentSessionProjectId(): string | null {
   return getStudentSession()?.projectId || null;
+}
+
+export function getStudentSessionProjectIds(): string[] {
+  return getStudentSession()?.projectIds || [];
 }
 
 export function setStudentSessionProjectId(projectId: string) {
@@ -118,7 +71,7 @@ export function setStudentSessionProjectId(projectId: string) {
 export function clearStudentSessionProjectId() {
   const cur = getStudentSession();
   if (!cur) return;
-  const next: StudentSession = { studentId: cur.studentId };
+  const next: StudentSession = { studentId: cur.studentId, ...(cur.projectIds ? { projectIds: cur.projectIds } : {}) };
   localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -126,22 +79,61 @@ export function isStudentLoggedIn() {
   return Boolean(getStudentSessionStudentId());
 }
 
-export function loginStudent(input: { registration: string; password: string }): StudentLoginResult {
+export async function loginStudent(input: { registration: string; password: string }): Promise<StudentLoginResult> {
   const registration = (input.registration || "").trim();
   const password = (input.password || "").trim();
 
-  const found = findStudentByLogin(registration);
-  if (!found.ok) {
-    const reason = "reason" in found ? found.reason : "not_found";
-    if (reason === "ambiguous") return { ok: false, reason: "ambiguous_login" };
-    return { ok: false, reason: "invalid_credentials" };
+  const okPw = normalizePassword(password) === normalizePassword(DEFAULT_STUDENT_PASSWORD);
+  if (!okPw) return { ok: false, reason: "invalid_credentials" };
+
+  const raw = registration;
+  if (!raw) return { ok: false, reason: "invalid_credentials" };
+
+  // Find student by full registration OR last 4 digits.
+  let studentRows: Array<{ id: string; registration: string }> = [];
+
+  if (raw.includes("-")) {
+    const { data, error } = await supabase
+      .from("students")
+      .select("id,registration")
+      .eq("registration", raw);
+    if (error) return { ok: false, reason: "invalid_credentials" };
+    studentRows = (data as any[]) || [];
+  } else {
+    const last4 = getStudentLoginFromRegistration(raw);
+    const { data, error } = await supabase
+      .from("students")
+      .select("id,registration")
+      .like("registration", `%-${last4}`);
+    if (error) return { ok: false, reason: "invalid_credentials" };
+    studentRows = (data as any[]) || [];
   }
 
-  // Default password for all students (simple model for now)
-  const ok = normalizePassword(password) === normalizePassword(DEFAULT_STUDENT_PASSWORD);
-  if (!ok) return { ok: false, reason: "invalid_credentials" };
+  if (studentRows.length === 0) return { ok: false, reason: "invalid_credentials" };
+  if (studentRows.length !== 1) return { ok: false, reason: "ambiguous_login" };
 
-  const projectIds = getStudentProjectIds(found.student.id);
+  const studentId = String(studentRows[0].id);
+
+  // Discover projects where this student is currently enrolled.
+  const { data: enrollments, error: enrollErr } = await supabase
+    .from("class_student_enrollments")
+    .select("class_id, removed_at")
+    .eq("student_id", studentId)
+    .is("removed_at", null);
+
+  if (enrollErr) return { ok: false, reason: "not_assigned" };
+
+  const classIds = Array.from(new Set((enrollments || []).map((e: any) => String(e.class_id)))).filter(Boolean);
+  if (!classIds.length) return { ok: false, reason: "not_assigned" };
+
+  const { data: classes, error: clsErr } = await supabase
+    .from("classes")
+    .select("id, project_id")
+    .in("id", classIds);
+
+  if (clsErr) return { ok: false, reason: "not_assigned" };
+
+  const projectIds = Array.from(new Set((classes || []).map((c: any) => String(c.project_id)))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
@@ -153,11 +145,11 @@ export function loginStudent(input: { registration: string; password: string }):
   }
 
   const session: StudentSession = projectId
-    ? { studentId: found.student.id, projectId }
-    : { studentId: found.student.id };
-  localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
+    ? { studentId, projectId, projectIds }
+    : { studentId, projectIds };
 
-  return { ok: true, studentId: found.student.id, projectIds, ...(projectId ? { projectId } : {}) };
+  localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
+  return { ok: true, studentId, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutStudent() {

@@ -14,38 +14,26 @@ import {
 } from "@/components/ui/select";
 import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { BadgeCheck, Layers, ArrowRight } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
 import type { Project } from "@/types/project";
-import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
+import { getTeacherSessionProjectIds, setTeacherSessionProjectId } from "@/utils/teacher-auth";
 
 export default function TeacherSelectProject() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
-
-  const teacherId = profile?.teacher_id;
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     const run = async () => {
       setProjects(await fetchProjects());
-      if (!teacherId) {
-        setAssignedProjectIds([]);
-        return;
-      }
-      const rows = await fetchTeacherAssignments();
-      setAssignedProjectIds(Array.from(new Set(rows.map((r) => r.project_id))));
     };
 
     void run();
-  }, [teacherId]);
+  }, []);
 
   const allowedProjects = useMemo(() => {
-    if (!teacherId) return [];
-    const allowed = new Set(assignedProjectIds);
+    const allowed = new Set(getTeacherSessionProjectIds());
     return projects.filter((p) => allowed.has(p.id));
-  }, [teacherId, assignedProjectIds, projects]);
+  }, [projects]);
 
   const [selected, setSelected] = useState<string>("");
 
@@ -57,6 +45,7 @@ export default function TeacherSelectProject() {
     // Se só existir 1 projeto, entra direto.
     if (allowedProjects.length === 1 && next) {
       setActiveProjectId(next);
+      setTeacherSessionProjectId(next);
       navigate("/professor", { replace: true });
     }
   }, [allowedProjects, navigate]);
@@ -64,6 +53,7 @@ export default function TeacherSelectProject() {
   const onContinue = () => {
     if (!selected) return;
     setActiveProjectId(selected);
+    setTeacherSessionProjectId(selected);
     navigate("/professor", { replace: true });
   };
 

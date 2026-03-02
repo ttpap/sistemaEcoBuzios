@@ -19,8 +19,7 @@ import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { requireSupabase } from "@/integrations/supabase/client";
 import type { Project } from "@/types/project";
-import { useAuth } from "@/context/AuthContext";
-import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
+import { getTeacherSessionProjectIds, logoutTeacher, setTeacherSessionProjectId } from "@/utils/teacher-auth";
 import {
   Select,
   SelectContent,
@@ -38,42 +37,30 @@ export default function TeacherSidebar({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile } = useAuth();
-
-  const teacherId = profile?.teacher_id;
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [assignedProjectIds, setAssignedProjectIds] = useState<string[]>([]);
 
   useEffect(() => {
     const run = async () => {
       setProjects(await fetchProjects());
 
-      if (!teacherId) {
-        setAssignedProjectIds([]);
-        return;
-      }
-
-      const rows = await fetchTeacherAssignments();
-      const ids = Array.from(new Set(rows.map((r) => r.project_id)));
-      setAssignedProjectIds(ids);
-
+      const ids = getTeacherSessionProjectIds();
       // Se só houver um projeto, garante que ele está ativo.
       if (ids.length === 1 && !getActiveProjectId()) {
         setActiveProjectId(ids[0]);
+        setTeacherSessionProjectId(ids[0]);
       }
     };
 
     void run();
-  }, [teacherId]);
+  }, []);
 
   const availableProjects = useMemo(() => {
-    if (!teacherId) return [];
-    const allowed = new Set(assignedProjectIds);
+    const allowed = new Set(getTeacherSessionProjectIds());
     return projects.filter((p) => allowed.has(p.id));
-  }, [teacherId, assignedProjectIds, projects]);
+  }, [projects]);
 
   const menuItems = useMemo(
     () => [
@@ -95,8 +82,9 @@ export default function TeacherSidebar({
   );
 
   const onLogout = async () => {
+    logoutTeacher();
     await requireSupabase().auth.signOut();
-    navigate("/login?role=teacher");
+    navigate("/professor/login");
   };
 
   const hasMultipleProjects = availableProjects.length > 1;
@@ -105,6 +93,7 @@ export default function TeacherSidebar({
   const onChangeProject = (projectId: string) => {
     if (!projectId) return;
     setActiveProjectId(projectId);
+    setTeacherSessionProjectId(projectId);
     navigate("/professor", { replace: true });
   };
 

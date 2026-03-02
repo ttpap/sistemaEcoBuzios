@@ -1,4 +1,4 @@
-import { findCoordinatorByLogin, getCoordinatorProjectIds } from "@/utils/coordinators";
+import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 
 const COORDINATOR_SESSION_KEY = "ecobuzios_coordinator_session"; // stores { coordinatorId, projectId? }
@@ -6,6 +6,7 @@ const COORDINATOR_SESSION_KEY = "ecobuzios_coordinator_session"; // stores { coo
 type CoordinatorSession = {
   coordinatorId: string;
   projectId?: string;
+  projectIds?: string[];
 };
 
 export type CoordinatorLoginResult =
@@ -28,7 +29,12 @@ export function getCoordinatorSession(): CoordinatorSession | null {
   if (!parsed?.coordinatorId) return null;
 
   const projectId = (parsed.projectId || "").trim() || undefined;
-  return { coordinatorId: parsed.coordinatorId, ...(projectId ? { projectId } : {}) };
+  const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
+  return {
+    coordinatorId: parsed.coordinatorId,
+    ...(projectId ? { projectId } : {}),
+    ...(projectIds ? { projectIds } : {}),
+  };
 }
 
 export function getCoordinatorSessionCoordinatorId(): string | null {
@@ -37,6 +43,10 @@ export function getCoordinatorSessionCoordinatorId(): string | null {
 
 export function getCoordinatorSessionProjectId(): string | null {
   return getCoordinatorSession()?.projectId || null;
+}
+
+export function getCoordinatorSessionProjectIds(): string[] {
+  return getCoordinatorSession()?.projectIds || [];
 }
 
 export function setCoordinatorSessionProjectId(projectId: string) {
@@ -49,7 +59,10 @@ export function setCoordinatorSessionProjectId(projectId: string) {
 export function clearCoordinatorSessionProjectId() {
   const cur = getCoordinatorSession();
   if (!cur) return;
-  const next: CoordinatorSession = { coordinatorId: cur.coordinatorId };
+  const next: CoordinatorSession = {
+    coordinatorId: cur.coordinatorId,
+    ...(cur.projectIds ? { projectIds: cur.projectIds } : {}),
+  };
   localStorage.setItem(COORDINATOR_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -57,17 +70,27 @@ export function isCoordinatorLoggedIn() {
   return Boolean(getCoordinatorSessionCoordinatorId());
 }
 
-export function loginCoordinator(input: { login: string; password: string }): CoordinatorLoginResult {
+export async function loginCoordinator(input: { login: string; password: string }): Promise<CoordinatorLoginResult> {
   const login = (input.login || "").trim();
   const password = (input.password || "").trim();
 
-  const coord = findCoordinatorByLogin(login);
-  if (!coord) return { ok: false, reason: "invalid_credentials" };
+  if (!login || !password) return { ok: false, reason: "invalid_credentials" };
 
-  const ok = password === String(coord.authPassword || "").trim();
-  if (!ok) return { ok: false, reason: "invalid_credentials" };
+  const { data: coord, error } = await supabase
+    .from("coordinators")
+    .select("id")
+    .eq("auth_login", login)
+    .eq("auth_password", password)
+    .maybeSingle();
 
-  const projectIds = getCoordinatorProjectIds(coord.id);
+  if (error || !coord?.id) return { ok: false, reason: "invalid_credentials" };
+
+  const { data: rows } = await supabase
+    .from("coordinator_project_assignments")
+    .select("project_id")
+    .eq("coordinator_id", coord.id);
+
+  const projectIds = Array.from(new Set((rows || []).map((r: any) => String(r.project_id)))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
@@ -79,8 +102,8 @@ export function loginCoordinator(input: { login: string; password: string }): Co
   }
 
   const session: CoordinatorSession = projectId
-    ? { coordinatorId: coord.id, projectId }
-    : { coordinatorId: coord.id };
+    ? { coordinatorId: coord.id, projectId, projectIds }
+    : { coordinatorId: coord.id, projectIds };
 
   localStorage.setItem(COORDINATOR_SESSION_KEY, JSON.stringify(session));
   return { ok: true, coordinatorId: coord.id, projectIds, ...(projectId ? { projectId } : {}) };
