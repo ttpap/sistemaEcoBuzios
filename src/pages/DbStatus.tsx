@@ -6,6 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Database, ExternalLink, RefreshCw, TriangleAlert } from "lucide-react";
 
+function looksLikeRlsOrPermissionError(message: string) {
+  const m = message.toLowerCase();
+  return (
+    m.includes("permission denied") ||
+    m.includes("row-level security") ||
+    m.includes("rls") ||
+    m.includes("not allowed")
+  );
+}
+
 export default function DbStatus() {
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<
@@ -29,11 +39,24 @@ export default function DbStatus() {
 
       setResult({ ok: true, projectCount: count ?? 0 });
     } catch (e: any) {
-      setResult({ ok: false, error: e?.message || "Erro ao consultar o banco" });
+      const msg = String(e?.message || "Erro ao consultar o banco");
+
+      // Quando RLS está ativo, chamadas sem sessão podem dar "permission denied".
+      // Isso não significa que não conectou — significa que a segurança bloqueou.
+      if (looksLikeRlsOrPermissionError(msg) && hasEnvConfig) {
+        setResult({
+          ok: false,
+          error:
+            "Conectou ao Supabase, mas o acesso foi bloqueado por RLS (segurança). Faça login como admin e tente novamente.",
+        });
+        return;
+      }
+
+      setResult({ ok: false, error: msg });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasEnvConfig]);
 
   React.useEffect(() => {
     run();
@@ -56,7 +79,7 @@ export default function DbStatus() {
               </h1>
               <p className="mt-2 text-sm font-bold text-slate-500">
                 Esta página faz uma consulta simples em <span className="font-black">projects</span>
-                para confirmar que o deploy está lendo o banco.
+                para confirmar que o deploy está falando com o Supabase.
               </p>
             </div>
 
@@ -121,7 +144,7 @@ export default function DbStatus() {
                 ) : result && result.ok === false ? (
                   <div className="space-y-2">
                     <Badge className="bg-red-100 text-red-900 border-none font-black">
-                      SEM CONEXÃO
+                      SEM ACESSO
                     </Badge>
                     <p className="text-sm font-bold text-slate-700 break-words">
                       {result.error}

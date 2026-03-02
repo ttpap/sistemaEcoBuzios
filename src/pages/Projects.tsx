@@ -150,11 +150,13 @@ export default function Projects() {
         return;
       }
     } catch (e: any) {
+      // Se o deploy está configurado para Supabase, não deve "cair" para localStorage,
+      // senão o usuário acha que gravou no banco quando na verdade não gravou.
       showError(`Erro ao criar no Supabase: ${e?.message || "erro"}`);
-      // falls back to local below
+      return;
     }
 
-    // Local fallback
+    // Local fallback (apenas quando NÃO há configuração de Supabase no deploy)
     const p = await createProject({ name: n, imageUrl });
     migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
@@ -253,7 +255,7 @@ export default function Projects() {
       }
     } catch (e: any) {
       showError(`Erro ao salvar no Supabase: ${e?.message || "erro"}`);
-      // falls back to local below
+      return;
     }
 
     const updated = await updateProject(editProjectId, {
