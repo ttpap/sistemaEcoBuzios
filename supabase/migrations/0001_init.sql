@@ -366,6 +366,83 @@ AS $function$
   WHERE p.user_id = auth.uid();
 $function$;
 
+-- Helpers (SECURITY DEFINER) to avoid RLS policy recursion.
+-- These functions read base tables with owner privileges, so policies can call them safely.
+CREATE OR REPLACE FUNCTION public.is_teacher_assigned_to_project(pid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.teacher_project_assignments tpa
+    WHERE tpa.teacher_id = public.current_teacher_id()
+      AND tpa.project_id = pid
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_coordinator_assigned_to_project(pid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.coordinator_project_assignments cpa
+    WHERE cpa.coordinator_id = public.current_coordinator_id()
+      AND cpa.project_id = pid
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.project_id_for_class(cid uuid)
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT c.project_id
+  FROM public.classes c
+  WHERE c.id = cid;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_current_student_enrolled_in_project(pid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.class_student_enrollments cse
+    JOIN public.classes c ON c.id = cse.class_id
+    WHERE c.project_id = pid
+      AND cse.student_id = public.current_student_id()
+      AND cse.removed_at IS NULL
+  );
+$function$;
+
+CREATE OR REPLACE FUNCTION public.is_current_student_enrolled_in_class(cid uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.class_student_enrollments cse
+    WHERE cse.class_id = cid
+      AND cse.student_id = public.current_student_id()
+      AND cse.removed_at IS NULL
+  );
+$function$;
+
 -- Auto-create profiles on signup (defaults to student)
 CREATE OR REPLACE FUNCTION public.handle_new_user_profiles()
 RETURNS trigger
@@ -511,26 +588,9 @@ CREATE POLICY projects_select_assigned ON public.projects
 FOR SELECT TO authenticated
 USING (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.teacher_project_assignments tpa
-    WHERE tpa.teacher_id = public.current_teacher_id()
-      AND tpa.project_id = projects.id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.coordinator_project_assignments cpa
-    WHERE cpa.coordinator_id = public.current_coordinator_id()
-      AND cpa.project_id = projects.id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.class_student_enrollments cse
-    JOIN public.classes c ON c.id = cse.class_id
-    WHERE c.project_id = projects.id
-      AND cse.student_id = public.current_student_id()
-      AND cse.removed_at IS NULL
-  )
+  OR public.is_teacher_assigned_to_project(projects.id)
+  OR public.is_coordinator_assigned_to_project(projects.id)
+  OR public.is_current_student_enrolled_in_project(projects.id)
 );
 
 -- classes
@@ -545,25 +605,9 @@ CREATE POLICY classes_select_assigned ON public.classes
 FOR SELECT TO authenticated
 USING (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.teacher_project_assignments tpa
-    WHERE tpa.teacher_id = public.current_teacher_id()
-      AND tpa.project_id = classes.project_id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.coordinator_project_assignments cpa
-    WHERE cpa.coordinator_id = public.current_coordinator_id()
-      AND cpa.project_id = classes.project_id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.class_student_enrollments cse
-    WHERE cse.class_id = classes.id
-      AND cse.student_id = public.current_student_id()
-      AND cse.removed_at IS NULL
-  )
+  OR public.is_teacher_assigned_to_project(classes.project_id)
+  OR public.is_coordinator_assigned_to_project(classes.project_id)
+  OR public.is_current_student_enrolled_in_class(classes.id)
 );
 
 DROP POLICY IF EXISTS classes_write_assigned ON public.classes;
@@ -571,33 +615,13 @@ CREATE POLICY classes_write_assigned ON public.classes
 FOR ALL TO authenticated
 USING (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.teacher_project_assignments tpa
-    WHERE tpa.teacher_id = public.current_teacher_id()
-      AND tpa.project_id = classes.project_id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.coordinator_project_assignments cpa
-    WHERE cpa.coordinator_id = public.current_coordinator_id()
-      AND cpa.project_id = classes.project_id
-  )
+  OR public.is_teacher_assigned_to_project(classes.project_id)
+  OR public.is_coordinator_assigned_to_project(classes.project_id)
 )
 WITH CHECK (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.teacher_project_assignments tpa
-    WHERE tpa.teacher_id = public.current_teacher_id()
-      AND tpa.project_id = classes.project_id
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM public.coordinator_project_assignments cpa
-    WHERE cpa.coordinator_id = public.current_coordinator_id()
-      AND cpa.project_id = classes.project_id
-  )
+  OR public.is_teacher_assigned_to_project(classes.project_id)
+  OR public.is_coordinator_assigned_to_project(classes.project_id)
 );
 
 -- class_teachers
@@ -694,25 +718,8 @@ FOR SELECT TO authenticated
 USING (
   public.is_admin()
   OR student_id = public.current_student_id()
-  OR EXISTS (
-    SELECT 1
-    FROM public.classes c
-    WHERE c.id = class_student_enrollments.class_id
-      AND (
-        EXISTS (
-          SELECT 1
-          FROM public.teacher_project_assignments tpa
-          WHERE tpa.teacher_id = public.current_teacher_id()
-            AND tpa.project_id = c.project_id
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM public.coordinator_project_assignments cpa
-          WHERE cpa.coordinator_id = public.current_coordinator_id()
-            AND cpa.project_id = c.project_id
-        )
-      )
-  )
+  OR public.is_teacher_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
+  OR public.is_coordinator_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
 );
 
 DROP POLICY IF EXISTS cse_write_assigned ON public.class_student_enrollments;
@@ -720,47 +727,13 @@ CREATE POLICY cse_write_assigned ON public.class_student_enrollments
 FOR ALL TO authenticated
 USING (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.classes c
-    WHERE c.id = class_student_enrollments.class_id
-      AND (
-        EXISTS (
-          SELECT 1
-          FROM public.teacher_project_assignments tpa
-          WHERE tpa.teacher_id = public.current_teacher_id()
-            AND tpa.project_id = c.project_id
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM public.coordinator_project_assignments cpa
-          WHERE cpa.coordinator_id = public.current_coordinator_id()
-            AND cpa.project_id = c.project_id
-        )
-      )
-  )
+  OR public.is_teacher_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
+  OR public.is_coordinator_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
 )
 WITH CHECK (
   public.is_admin()
-  OR EXISTS (
-    SELECT 1
-    FROM public.classes c
-    WHERE c.id = class_student_enrollments.class_id
-      AND (
-        EXISTS (
-          SELECT 1
-          FROM public.teacher_project_assignments tpa
-          WHERE tpa.teacher_id = public.current_teacher_id()
-            AND tpa.project_id = c.project_id
-        )
-        OR EXISTS (
-          SELECT 1
-          FROM public.coordinator_project_assignments cpa
-          WHERE cpa.coordinator_id = public.current_coordinator_id()
-            AND cpa.project_id = c.project_id
-        )
-      )
-  )
+  OR public.is_teacher_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
+  OR public.is_coordinator_assigned_to_project(public.project_id_for_class(class_student_enrollments.class_id))
 );
 
 -- teachers

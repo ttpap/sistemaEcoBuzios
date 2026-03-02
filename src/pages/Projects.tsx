@@ -134,39 +134,22 @@ export default function Projects() {
     migrateLegacyStudentsToGlobalIfNeeded();
 
     try {
-      // Prefer DB insert when Supabase env is configured.
-      if (!supabaseUsingFallbackConfig) {
-        const created = await insertProjectToDb({ name: n, imageUrl });
-        setActiveProjectId(created.id);
-        migrateLegacyProjectDataToProjectIfNeeded(created.id);
+      const created = await insertProjectToDb({ name: n, imageUrl });
+      setActiveProjectId(created.id);
+      migrateLegacyProjectDataToProjectIfNeeded(created.id);
 
-        setName("");
-        setImageUrl("");
-        setImageFileName("");
+      setName("");
+      setImageUrl("");
+      setImageFileName("");
 
-        await refresh();
-        showSuccess("Projeto criado e selecionado (Supabase).");
-        navigate("/");
-        return;
-      }
+      await refresh();
+      showSuccess("Projeto criado e selecionado (Supabase).");
+      navigate("/");
+      return;
     } catch (e: any) {
-      // Se o deploy está configurado para Supabase, não deve "cair" para localStorage,
-      // senão o usuário acha que gravou no banco quando na verdade não gravou.
       showError(`Erro ao criar no Supabase: ${e?.message || "erro"}`);
       return;
     }
-
-    // Local fallback (apenas quando NÃO há configuração de Supabase no deploy)
-    const p = await createProject({ name: n, imageUrl });
-    migrateLegacyProjectDataToProjectIfNeeded(p.id);
-
-    setName("");
-    setImageUrl("");
-    setImageFileName("");
-
-    await refresh();
-    showSuccess("Projeto criado e selecionado (local).");
-    navigate("/");
   };
 
   const onSelect = (p: Project) => {
@@ -241,37 +224,20 @@ export default function Projects() {
     }
 
     try {
-      if (!supabaseUsingFallbackConfig) {
-        await updateProjectInDb(editProjectId, {
-          name: n,
-          imageUrl: editImageUrl.trim() ? editImageUrl : null,
-        });
+      await updateProjectInDb(editProjectId, {
+        name: n,
+        imageUrl: editImageUrl.trim() ? editImageUrl : null,
+      });
 
-        invalidateProjectTheme(editProjectId);
-        setEditOpen(false);
-        await refresh();
-        showSuccess("Projeto atualizado (Supabase).");
-        return;
-      }
+      invalidateProjectTheme(editProjectId);
+      setEditOpen(false);
+      await refresh();
+      showSuccess("Projeto atualizado (Supabase).");
+      return;
     } catch (e: any) {
       showError(`Erro ao salvar no Supabase: ${e?.message || "erro"}`);
       return;
     }
-
-    const updated = await updateProject(editProjectId, {
-      name: n,
-      imageUrl: editImageUrl.trim() ? editImageUrl : null,
-    });
-
-    if (!updated) {
-      showError("Projeto não encontrado.");
-      return;
-    }
-
-    invalidateProjectTheme(editProjectId);
-    setEditOpen(false);
-    await refresh();
-    showSuccess("Projeto atualizado (local).");
   };
 
   const onPickSystemLogo = (file: File | null) => {

@@ -72,7 +72,7 @@ export default function Login() {
             <CardTitle className="text-lg font-black text-slate-800">Entrar</CardTitle>
           </CardHeader>
           <CardContent className="p-6 md:p-8 pt-4">
-            {supabaseUsingFallbackConfig ? (
+            {!supabaseUsingFallbackConfig ? null : (
               <div className="mb-4 rounded-[1.75rem] border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3 text-amber-950">
                   <TriangleAlert className="mt-0.5 h-5 w-5" />
@@ -86,7 +86,7 @@ export default function Login() {
                   </div>
                 </div>
               </div>
-            ) : null}
+            )}
 
             {session && !profile ? (
               <div className="mb-4 rounded-[1.75rem] border border-amber-200 bg-amber-50 p-4">
