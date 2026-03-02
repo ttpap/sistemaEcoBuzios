@@ -473,21 +473,12 @@ FOR SELECT
 TO authenticated
 USING (public.is_admin() OR teacher_id = public.current_teacher_id());
 
+-- IMPORTANT: prevent policy recursion.
+-- The previous version had a policy on teacher_project_assignments that queried
+-- coordinator_project_assignments, and another policy on coordinator_project_assignments that
+-- queried teacher_project_assignments. That mutual dependency can trigger:
+-- "infinite recursion detected in policy".
 DROP POLICY IF EXISTS teacher_project_assignments_select_coordinator_projects ON public.teacher_project_assignments;
-CREATE POLICY teacher_project_assignments_select_coordinator_projects
-ON public.teacher_project_assignments
-FOR SELECT
-TO authenticated
-USING (
-  public.is_admin()
-  OR teacher_id = public.current_teacher_id()
-  OR EXISTS (
-    SELECT 1
-    FROM public.coordinator_project_assignments cpa
-    WHERE cpa.coordinator_id = public.current_coordinator_id()
-      AND cpa.project_id = teacher_project_assignments.project_id
-  )
-);
 
 -- coordinator_project_assignments
 DROP POLICY IF EXISTS coordinator_project_assignments_admin_all ON public.coordinator_project_assignments;
@@ -505,21 +496,8 @@ FOR SELECT
 TO authenticated
 USING (public.is_admin() OR coordinator_id = public.current_coordinator_id());
 
+-- Prevent policy recursion (see note above)
 DROP POLICY IF EXISTS coordinator_project_assignments_select_teacher_projects ON public.coordinator_project_assignments;
-CREATE POLICY coordinator_project_assignments_select_teacher_projects
-ON public.coordinator_project_assignments
-FOR SELECT
-TO authenticated
-USING (
-  public.is_admin()
-  OR coordinator_id = public.current_coordinator_id()
-  OR EXISTS (
-    SELECT 1
-    FROM public.teacher_project_assignments tpa
-    WHERE tpa.teacher_id = public.current_teacher_id()
-      AND tpa.project_id = coordinator_project_assignments.project_id
-  )
-);
 
 -- projects
 DROP POLICY IF EXISTS projects_admin_all ON public.projects;
