@@ -34,6 +34,8 @@ import {
   setActiveProjectId,
   updateProject,
 } from "@/utils/projects";
+import { fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
+import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 import { readGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
 import { setAdminPassword, resetAdminPasswordToDefault, getDefaultAdminPassword } from "@/utils/admin-auth";
@@ -99,21 +101,36 @@ export default function Projects() {
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [studentsSearch, setStudentsSearch] = useState("");
 
+  const [dbMode, setDbMode] = useState<"supabase" | "local">("local");
+
   const activeId = useMemo(() => getActiveProjectId(), [projects]);
 
-  useEffect(() => {
-    setProjects(getProjects());
+  const refresh = React.useCallback(async () => {
+    // Se o deploy estiver com Supabase configurado, usa DB como fonte da verdade.
+    if (!supabaseUsingFallbackConfig) {
+      try {
+        const dbProjects = await fetchProjectsFromDb();
+        setProjects(dbProjects);
+        setDbMode("supabase");
+      } catch (e: any) {
+        // Se falhar (ex.: RLS/env), mantém local para não travar a tela.
+        setProjects(getProjects());
+        setDbMode("local");
+      }
+    } else {
+      setProjects(getProjects());
+      setDbMode("local");
+    }
+
     setStudents(readGlobalStudents<StudentRegistration[]>([]));
     setSystemLogoState(getSystemLogo() || "");
   }, []);
 
-  const refresh = () => {
-    setProjects(getProjects());
-    setStudents(readGlobalStudents<StudentRegistration[]>([]));
-    setSystemLogoState(getSystemLogo() || "");
-  };
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
-  const onCreate = () => {
+  const onCreate = async () => {
     const n = name.trim();
     if (!n) {
       showError("Informe o nome do projeto.");
@@ -121,15 +138,35 @@ export default function Projects() {
     }
 
     migrateLegacyStudentsToGlobalIfNeeded();
+
+    try {
+      if (!supabaseUsingFallbackConfig) {
+        const created = await insertProjectToDb({ name: n, imageUrl });
+        setActiveProjectId(created.id);
+        migrateLegacyProjectDataToProjectIfNeeded(created.id);
+        setName("");
+        setImageUrl("");
+        setImageFileName("");
+        await refresh();
+        showSuccess("Projeto criado e selecionado (Supabase).");
+        navigate("/");
+        return;
+      }
+    } catch (e: any) {
+      showError(`Erro ao criar no Supabase: ${e?.message || "erro"}`);
+      // cai no fluxo local abaixo
+    }
+
+    // Fallback local
     const p = createProject({ name: n, imageUrl });
     migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
     setName("");
     setImageUrl("");
     setImageFileName("");
-    refresh();
+    await refresh();
 
-    showSuccess("Projeto criado e selecionado.");
+    showSuccess("Projeto criado e selecionado (local).");
     navigate("/");
   };
 
@@ -138,7 +175,7 @@ export default function Projects() {
     setActiveProjectId(p.id);
     migrateLegacyProjectDataToProjectIfNeeded(p.id);
 
-    refresh();
+    void refresh();
     showSuccess("Projeto selecionado.");
     navigate("/");
   };
@@ -197,11 +234,29 @@ export default function Projects() {
     reader.readAsDataURL(file);
   };
 
-  const onSaveEdit = () => {
+  const onSaveEdit = async () => {
     const n = editName.trim();
     if (!n) {
       showError("Informe o nome do projeto.");
       return;
+    }
+
+    try {
+      if (!supabaseUsingFallbackConfig) {
+        await updateProjectInDb(editProjectId, {
+          name: n,
+          imageUrl: editImageUrl.trim() ? editImageUrl : null,
+        });
+
+        invalidateProjectTheme(editProjectId);
+        setEditOpen(false);
+        await refresh();
+        showSuccess("Projeto atualizado (Supabase).");
+        return;
+      }
+    } catch (e: any) {
+      showError(`Erro ao salvar no Supabase: ${e?.message || "erro"}`);
+      // cai no fluxo local abaixo
     }
 
     const updated = updateProject(editProjectId, {
@@ -214,12 +269,11 @@ export default function Projects() {
       return;
     }
 
-    // if image changed, ensure the theme is recomputed
     invalidateProjectTheme(editProjectId);
 
     setEditOpen(false);
-    refresh();
-    showSuccess("Projeto atualizado.");
+    await refresh();
+    showSuccess("Projeto atualizado (local).");
   };
 
   const onPickSystemLogo = (file: File | null) => {
@@ -557,6 +611,18 @@ export default function Projects() {
           <p className="text-slate-500 font-medium">
             Você pode criar/selecionar projetos e também ver a visão geral do sistema.
           </p>
+          <div className="mt-2">
+            <Badge
+              className={
+                "rounded-full border-none font-black " +
+                (dbMode === "supabase"
+                  ? "bg-emerald-100 text-emerald-900"
+                  : "bg-amber-100 text-amber-900")
+              }
+            >
+              Fonte: {dbMode === "supabase" ? "Supabase" : "Local"}
+            </Badge>
+          </div>
         </div>
         <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 border border-slate-100 shadow-sm text-slate-600">
           <Layers className="h-4 w-4 text-primary" />
