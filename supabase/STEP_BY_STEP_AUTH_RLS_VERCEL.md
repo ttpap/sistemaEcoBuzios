@@ -35,54 +35,36 @@ Se aparecer **CONECTADO**, o front está falando com o Supabase.
 
 ---
 
-## 2) Criar usuários no Supabase Auth (um por pessoa)
+## 2) Criar o schema (um SQL só)
+
+Supabase → **SQL Editor**
+Rode o SQL do arquivo:
+- `supabase/migrations/0001_init.sql`
+
+---
+
+## 3) Criar usuários no Supabase Auth (um por pessoa)
 Supabase → **Authentication** → **Users** → **Add user**
 
 Crie pelo menos 1 usuário **admin** (o dono do sistema).
 
-> Dica prática: use seu email de verdade para o admin.
-
 ---
 
-## 3) Criar o perfil (role) do admin (muito importante)
+## 4) Criar o perfil (role) do admin (muito importante)
 
-1) Supabase → **SQL Editor**
-2) Rode o SQL do arquivo:
-   - `supabase/migrations/0002_profiles_and_roles.sql`
-
-3) Depois, crie o perfil admin:
-
-No Supabase → **Table Editor** → tabela **profiles** → **Insert row**
+Supabase → **Table Editor** → tabela **profiles** → **Insert row**
 - `user_id`: copie o ID do usuário admin (Authentication → Users)
 - `role`: `admin`
 - `full_name`: seu nome
 
 ---
 
-## 4) Entender por que seus dados não aparecem no banco hoje
+## 5) Entender por que seus dados não aparecem no banco hoje
 
-Mesmo com Supabase conectado na Vercel, o seu app **ainda está salvando no navegador**.
-Ou seja:
-- Você cadastra aluno/turma/projeto
-- Ele salva no **localStorage**
-- O Supabase não recebe nada porque o código ainda não manda
-
-Para resolver, a gente vai migrar tela por tela (começando por Projetos/Alunos/Turmas).
-
----
-
-## 5) Migração do app (o que eu vou fazer no código)
-Ordem recomendada:
-1. Login: trocar para Supabase Auth
-2. Projetos: ler/escrever em `projects`
-3. Alunos: ler/escrever em `students`
-4. Turmas: ler/escrever em `classes`
-5. Chamada: `attendance_sessions` + `attendance_records`
-6. Justificativas: `student_justifications`
-
-Depois que isso estiver 100% no banco, a gente:
-- remove o localStorage como fonte de dados
-- ativa RLS nas tabelas de negócio (students/classes/etc.)
+Mesmo com Supabase conectado na Vercel, o seu app só vai gravar no banco se:
+- você estiver logado, e
+- o usuário tiver um `profiles.role` correto (admin/professor/coordenador/aluno), e
+- as tabelas/policies do SQL acima tiverem sido criadas.
 
 ---
 
