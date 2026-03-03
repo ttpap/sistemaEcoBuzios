@@ -70,9 +70,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
         mode === "desktop" ? "w-64 h-screen sticky top-0" : "w-full h-full",
       )}
     >
-      <div className="p-6 pt-10">
+      <div className="p-6 pt-8">
+        <div className="flex justify-center">
+          <Logo className="w-[170px]" />
+        </div>
+
         {hasActiveProject ? (
-          <div className="rounded-[2rem] bg-white/70 border border-slate-200/60 shadow-sm p-4">
+          <div className="mt-6 rounded-[2rem] bg-white/70 border border-slate-200/60 shadow-sm p-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-[1.5rem] bg-white overflow-hidden ring-1 ring-slate-200 flex items-center justify-center shrink-0">
                 {activeProject?.imageUrl && isImage ? (
@@ -100,16 +104,14 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
 
             <Link
               to="/projetos"
+              onClick={() => onNavigate?.()}
               className="mt-3 inline-flex items-center justify-center w-full rounded-2xl bg-primary/10 text-primary border border-primary/15 px-3 py-2 text-xs font-black hover:bg-primary/15 transition-colors"
             >
               Trocar projeto
             </Link>
           </div>
         ) : (
-          <>
-            <Logo className="w-full" />
-            <div className="mt-6 h-px bg-gradient-to-r from-transparent via-slate-300/50 to-transparent" />
-          </>
+          <div className="mt-6 h-px bg-gradient-to-r from-transparent via-slate-300/50 to-transparent" />
         )}
       </div>
 

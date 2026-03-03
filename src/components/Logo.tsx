@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { getSystemLogo, onSystemLogoChange } from "@/utils/system-settings";
+import defaultLogo from "@/assets/logo-ecobuzios.png";
 
-const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
+const DEFAULT_LOGO = defaultLogo;
 
 const Logo = ({ className = "" }: { className?: string }) => {
   const [logoUrl, setLogoUrl] = useState<string>(getSystemLogo() || DEFAULT_LOGO);
