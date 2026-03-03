@@ -6,6 +6,7 @@
 -- - Permissões/CRUD de turmas para staff (mode_b_*_class*)
 -- - Matrícula/remoção de alunos em turmas (mode_b_*_enrollment*)
 -- - Listagem de alunos (modo B) para não depender de SELECT/RLS
+-- - Listagem de matrículas do projeto (modo B) para alimentar o Dashboard
 -- - Calendário/justificativas do aluno (mode_b_student_month_schedule / mode_b_set_student_justification)
 --
 -- Este SQL é idempotente (CREATE OR REPLACE / DO ... duplicate_object), podendo ser colado no SQL Editor.
@@ -549,6 +550,70 @@ BEGIN
 END;
 $$;
 
+-- Matrículas do projeto (para o Dashboard)
+-- - coordenador: todas do projeto
+-- - professor: somente das turmas vinculadas em class_teachers
+CREATE OR REPLACE FUNCTION public.mode_b_list_project_enrollments(
+  p_login text,
+  p_password text,
+  p_project_id uuid
+)
+RETURNS TABLE(
+  class_id uuid,
+  student_id uuid
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  t_id uuid;
+  c_id uuid;
+BEGIN
+  IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  -- Professor
+  SELECT id INTO t_id
+  FROM public.teachers
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF t_id IS NOT NULL THEN
+    RETURN QUERY
+      SELECT e.class_id, e.student_id
+      FROM public.class_student_enrollments e
+      JOIN public.classes c ON c.id = e.class_id
+      JOIN public.class_teachers ct ON ct.class_id = c.id
+      WHERE c.project_id = p_project_id
+        AND ct.teacher_id = t_id
+        AND e.removed_at IS NULL;
+    RETURN;
+  END IF;
+
+  -- Coordenador
+  SELECT id INTO c_id
+  FROM public.coordinators
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF c_id IS NOT NULL THEN
+    RETURN QUERY
+      SELECT e.class_id, e.student_id
+      FROM public.class_student_enrollments e
+      JOIN public.classes c ON c.id = e.class_id
+      WHERE c.project_id = p_project_id
+        AND e.removed_at IS NULL;
+    RETURN;
+  END IF;
+
+  RETURN;
+END;
+$$;
+
 -- =====================
 -- Alunos (modo B)
 -- =====================
@@ -894,6 +959,7 @@ GRANT EXECUTE ON FUNCTION public.mode_b_delete_class(text, text, uuid) TO anon, 
 GRANT EXECUTE ON FUNCTION public.mode_b_list_class_enrollments(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_enroll_student(text, text, uuid, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_remove_student_enrollment(text, text, uuid, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_list_project_enrollments(text, text, uuid) TO anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.mode_b_list_students(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_list_class_students(text, text, uuid) TO anon, authenticated;

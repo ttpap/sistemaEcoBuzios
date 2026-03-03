@@ -43,13 +43,19 @@ import {
   printSchoolTypeReport,
 } from "@/utils/dashboard-reports";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
-import { readGlobalStudents, readScoped } from "@/utils/storage";
+import { readGlobalStudents, readScoped, writeScoped } from "@/utils/storage";
 import { getActiveProjectId } from "@/utils/projects";
 import {
   fetchStudentJustificationsRemote,
   type StudentJustification,
 } from "@/integrations/supabase/student-justifications";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
+import { fetchClassesRemoteWithMeta } from "@/integrations/supabase/classes";
+import { fetchStudentsRemote } from "@/integrations/supabase/students";
+import { ensureCoordinatorAuthForModeB, ensureTeacherAuthForModeB } from "@/utils/mode-b-staff";
+import { supabase } from "@/integrations/supabase/client";
+import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
 type KPI = {
   label: string;
@@ -77,6 +83,49 @@ function normalizeSchoolType(student: StudentRegistration): "pública" | "privad
     return "privada";
   }
   return "outros";
+}
+
+function getModeBStaffCreds(): { login: string; password: string } | null {
+  const tLogin = getTeacherSessionLogin();
+  const tPw = getTeacherSessionPassword();
+  if (tLogin && tPw) return { login: tLogin, password: tPw };
+
+  const cLogin = getCoordinatorSessionLogin();
+  const cPw = getCoordinatorSessionPassword();
+  if (cLogin && cPw) return { login: cLogin, password: cPw };
+
+  return null;
+}
+
+type EnrollmentRow = { class_id: string; student_id: string };
+
+async function fetchActiveEnrollmentsByProject(projectId: string): Promise<EnrollmentRow[]> {
+  if (!supabase) return [];
+
+  // 1) Tentativa normal (quando o RLS permitir)
+  const { data, error } = await supabase
+    .from("class_student_enrollments")
+    .select("class_id,student_id,classes!inner(project_id)")
+    .eq("classes.project_id", projectId)
+    .is("removed_at", null);
+
+  if (!error && data) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id }));
+  }
+
+  // 2) Fallback (modo B) por RPC
+  const creds = getModeBStaffCreds();
+  if (!creds) return [];
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_project_enrollments", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_project_id: projectId,
+  });
+
+  if (rpcErr || !rpcData) return [];
+  return rpcData as EnrollmentRow[];
 }
 
 export default function Dashboard() {
@@ -139,9 +188,67 @@ export default function Dashboard() {
 
   useEffect(() => {
     const run = async () => {
+      // Fallbacks locais (para quando o Supabase não estiver configurado)
+      let nextClasses = readScoped<SchoolClass[]>("classes", []);
+      let nextStudents = readGlobalStudents<StudentRegistration[]>([]);
+
+      if (projectId) {
+        // Garante auth para passar no RLS quando estiver em /professor ou /coordenador
+        try {
+          if (base === "/professor") await ensureTeacherAuthForModeB();
+          if (base === "/coordenador") await ensureCoordinatorAuthForModeB();
+        } catch {
+          // ignore
+        }
+
+        // 1) Turmas (fonte da verdade)
+        try {
+          const res = await fetchClassesRemoteWithMeta(projectId);
+          if (res.classes.length) {
+            nextClasses = res.classes;
+          }
+        } catch {
+          // ignore
+        }
+
+        // 2) Alunos (fonte da verdade, com fallback modo B)
+        try {
+          const remoteStudents = await fetchStudentsRemote(projectId);
+          if (remoteStudents.length) {
+            nextStudents = remoteStudents;
+          }
+        } catch {
+          // ignore
+        }
+
+        // 3) Matrículas (fonte da verdade) → preenche studentIds nas turmas
+        try {
+          const enrollments = await fetchActiveEnrollmentsByProject(projectId);
+          const byClass = new Map<string, string[]>();
+          for (const e of enrollments) {
+            const arr = byClass.get(e.class_id) || [];
+            arr.push(e.student_id);
+            byClass.set(e.class_id, arr);
+          }
+
+          nextClasses = nextClasses.map((c) => ({
+            ...c,
+            studentIds: byClass.get(c.id) || [],
+          }));
+        } catch {
+          // ignore
+        }
+
+        try {
+          writeScoped("classes", nextClasses);
+        } catch {
+          // ignore
+        }
+      }
+
       // Project-scoped (classes/teachers ainda usam cache local)
-      setClasses(readScoped("classes", []));
-      setStudents(readGlobalStudents([]));
+      setClasses(nextClasses);
+      setStudents(nextStudents);
       setTeachers(readScoped("teachers", []));
 
       if (projectId) {
@@ -152,7 +259,7 @@ export default function Dashboard() {
     };
 
     void run();
-  }, [projectId]);
+  }, [projectId, base]);
 
   const classesById = useMemo(() => {
     const map = new Map<string, SchoolClass>();
