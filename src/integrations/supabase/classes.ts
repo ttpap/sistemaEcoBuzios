@@ -33,21 +33,58 @@ function getModeBStaffCreds(): { login: string; password: string } | null {
 export type FetchClassesIssue = "rpc_missing" | "not_allowed" | "unknown";
 export type FetchClassesResult = { classes: SchoolClass[]; issue?: FetchClassesIssue };
 
+function isRpcMissingErrorMessage(msgLower: string) {
+  return (
+    msgLower.includes("does not exist") ||
+    (msgLower.includes("function") && msgLower.includes("mode_b_")) ||
+    msgLower.includes("mode_b_list_classes") ||
+    msgLower.includes("mode_b_staff_can_access_project")
+  );
+}
+
 export async function fetchClassesRemoteWithMeta(projectId: string): Promise<FetchClassesResult> {
   if (!supabase) return { classes: [] };
 
+  const creds = getModeBStaffCreds();
+
+  // 1) Tentativa normal (Admin / sessão Supabase Auth com role).
   const { data, error } = await supabase
     .from("classes")
     .select("*")
     .eq("project_id", projectId)
     .order("registration_date", { ascending: false });
 
-  if (!error && data) return { classes: data.map(mapRow) };
+  // Se retornou dados, ótimo.
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return { classes: data.map(mapRow) };
+  }
 
-  // Fallback (modo B): usa RPC com login/senha quando RLS bloquear.
-  const creds = getModeBStaffCreds();
-  if (!creds) return { classes: [] };
+  // Observação importante: quando RLS bloqueia SELECT, o Supabase normalmente não dá erro —
+  // ele simplesmente retorna lista vazia. Por isso, quando estamos no modo B e a lista veio vazia,
+  // tentamos o fallback por RPC.
+  if (!creds) {
+    // Sem credenciais do modo B: não tem como distinguir "vazio" de "bloqueado" aqui.
+    return { classes: Array.isArray(data) ? data.map(mapRow) : [] };
+  }
 
+  // 2) Checa se o staff tem acesso ao projeto (RPC vinda da migração 0006).
+  const { data: canAccess, error: canErr } = await supabase.rpc("mode_b_staff_can_access_project", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_project_id: projectId,
+  });
+
+  if (canErr) {
+    const msg = String(canErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) return { classes: [], issue: "rpc_missing" };
+    return { classes: [], issue: "unknown" };
+  }
+
+  if (!canAccess) {
+    return { classes: [], issue: "not_allowed" };
+  }
+
+  // 3) Staff autorizado: lista turmas via RPC (não depende de RLS do cliente).
   const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_classes", {
     p_login: creds.login,
     p_password: creds.password,
@@ -56,12 +93,8 @@ export async function fetchClassesRemoteWithMeta(projectId: string): Promise<Fet
 
   if (rpcErr) {
     const msg = String(rpcErr.message || "").toLowerCase();
-    if (msg.includes("does not exist") || msg.includes("function") || msg.includes("mode_b_list_classes")) {
-      return { classes: [], issue: "rpc_missing" };
-    }
-    if (msg.includes("not_allowed")) {
-      return { classes: [], issue: "not_allowed" };
-    }
+    if (isRpcMissingErrorMessage(msg)) return { classes: [], issue: "rpc_missing" };
+    if (msg.includes("not_allowed")) return { classes: [], issue: "not_allowed" };
     return { classes: [], issue: "unknown" };
   }
 

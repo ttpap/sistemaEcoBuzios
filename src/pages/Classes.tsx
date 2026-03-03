@@ -71,8 +71,15 @@ const Classes = () => {
         return;
       }
 
-      showError("Nenhuma turma encontrada neste projeto (ou acesso bloqueado). Confira se você está alocado no projeto.");
+      if (res.issue === "unknown") {
+        showError("Não foi possível carregar as turmas. Verifique permissões/alocação e tente sair e entrar novamente.");
+        setClasses([]);
+        return;
+      }
+
+      // Sem issue e sem turmas: estado normal (projeto sem turmas cadastradas).
       setClasses([]);
+      return;
     };
 
     void run();
