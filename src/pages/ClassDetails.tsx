@@ -24,11 +24,10 @@ import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
-import { getActiveProjectId } from '@/utils/projects';
 import {
   enrollStudentRemote,
   fetchClassTeacherIdsRemote,
-  fetchEnrollmentsRemote,
+  fetchEnrollmentsRemoteWithMeta,
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
 } from '@/integrations/supabase/classes';
@@ -59,11 +58,27 @@ const ClassDetails = () => {
         return;
       }
 
+      const localNormalized = ensureStudentEnrollments(found);
+
       try {
-        const [teacherIds, enrollments] = await Promise.all([
+        const [teacherIds, enrollmentsRes] = await Promise.all([
           fetchClassTeacherIdsRemote(found.id),
-          fetchEnrollmentsRemote(found.id),
+          fetchEnrollmentsRemoteWithMeta(found.id),
         ]);
+
+        // Importante: quando o RLS bloqueia, às vezes a lista vem vazia SEM erro.
+        // Só confiamos no "vazio" quando conseguimos listar via RPC do modo B
+        // (ou quando veio preenchido pela query normal).
+        const canTrustRemoteEnrollments = !enrollmentsRes.issue;
+
+        const enrollments = canTrustRemoteEnrollments
+          ? enrollmentsRes.enrollments
+          : (localNormalized.studentEnrollments || []).map((e) => ({
+              class_id: found.id,
+              student_id: e.studentId,
+              enrolled_at: e.enrolledAt,
+              removed_at: e.removedAt ?? null,
+            }));
 
         const activeStudentIds = enrollments.filter((e) => !e.removed_at).map((e) => e.student_id);
         const studentEnrollments = enrollments.map((e) => ({
@@ -73,7 +88,7 @@ const ClassDetails = () => {
         }));
 
         const merged: SchoolClass = {
-          ...found,
+          ...localNormalized,
           teacherIds,
           studentIds: activeStudentIds,
           studentEnrollments,
@@ -86,7 +101,7 @@ const ClassDetails = () => {
         setSchoolClass(normalized);
         setInfo(normalized.complementaryInfo || "");
       } catch {
-        const normalized = ensureStudentEnrollments(found);
+        const normalized = ensureStudentEnrollments(localNormalized);
         if (!found.studentEnrollments) {
           const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
           writeScoped('classes', newClasses);
@@ -101,7 +116,11 @@ const ClassDetails = () => {
         if (remoteTeachers.length) {
           setAllTeachers(remoteTeachers);
         } else {
-          setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []).length ? readScoped<TeacherRegistration[]>('teachers', []) : readGlobalTeachers([]));
+          setAllTeachers(
+            readScoped<TeacherRegistration[]>('teachers', []).length
+              ? readScoped<TeacherRegistration[]>('teachers', [])
+              : readGlobalTeachers([])
+          );
         }
       } catch {
         const scoped = readScoped<TeacherRegistration[]>('teachers', []);
@@ -157,13 +176,10 @@ const ClassDetails = () => {
     const run = async () => {
       if (!schoolClass) return;
 
-      const projectId = getActiveProjectId();
-      if (!projectId) return;
-
       try {
         await enrollStudentRemote(schoolClass.id, studentId);
-      } catch {
-        // ignore (fallback local)
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível sincronizar a matrícula no servidor. Ela ficará salva só neste dispositivo.");
       }
 
       const updated = enrollStudent(schoolClass, studentId);
@@ -180,8 +196,8 @@ const ClassDetails = () => {
 
       try {
         await removeStudentEnrollmentRemote(schoolClass.id, studentId);
-      } catch {
-        // ignore (fallback local)
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível sincronizar a remoção no servidor. Ela ficará salva só neste dispositivo.");
       }
 
       const updated = removeStudentEnrollment(schoolClass, studentId);

@@ -38,7 +38,12 @@ function isRpcMissingErrorMessage(msgLower: string) {
     msgLower.includes("does not exist") ||
     (msgLower.includes("function") && msgLower.includes("mode_b_")) ||
     msgLower.includes("mode_b_list_classes") ||
-    msgLower.includes("mode_b_staff_can_access_project")
+    msgLower.includes("mode_b_staff_can_access_project") ||
+    msgLower.includes("mode_b_list_my_classes") ||
+    msgLower.includes("mode_b_list_class_enrollments") ||
+    msgLower.includes("mode_b_enroll_student") ||
+    msgLower.includes("mode_b_remove_student_enrollment") ||
+    msgLower.includes("mode_b_staff_can_manage_class")
   );
 }
 
@@ -186,6 +191,9 @@ export type ClassStudentEnrollmentRow = {
   removed_at: string | null;
 };
 
+export type FetchEnrollmentsIssue = "rpc_missing" | "not_allowed" | "unknown";
+export type FetchEnrollmentsResult = { enrollments: ClassStudentEnrollmentRow[]; issue?: FetchEnrollmentsIssue };
+
 export async function fetchClassTeacherIdsRemote(classId: string): Promise<string[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -208,49 +216,135 @@ export async function setClassTeacherIdsRemote(classId: string, teacherIds: stri
   if (insError) throw insError;
 }
 
-export async function fetchEnrollmentsRemote(classId: string): Promise<ClassStudentEnrollmentRow[]> {
-  if (!supabase) return [];
+export async function fetchEnrollmentsRemoteWithMeta(classId: string): Promise<FetchEnrollmentsResult> {
+  if (!supabase) return { enrollments: [] };
+
+  const creds = getModeBStaffCreds();
+
+  // 1) Tentativa normal
   const { data, error } = await supabase
     .from("class_student_enrollments")
     .select("class_id,student_id,enrolled_at,removed_at")
     .eq("class_id", classId);
-  if (error || !data) return [];
-  return data as ClassStudentEnrollmentRow[];
+
+  if (!error && data) {
+    // Aqui, lista vazia pode ser real OU RLS. Se não estivermos no modo B, retornamos como está.
+    if (!creds) return { enrollments: data as ClassStudentEnrollmentRow[] };
+
+    // Se veio preenchido, é confiável.
+    if (data.length > 0) return { enrollments: data as ClassStudentEnrollmentRow[] };
+  }
+
+  // 2) Fallback (modo B) — tenta listar via RPC
+  if (!creds) return { enrollments: [] };
+
+  // Confirma se o staff pode gerenciar a turma.
+  const { data: canManage, error: canErr } = await supabase.rpc("mode_b_staff_can_manage_class", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_class_id: classId,
+  });
+
+  if (canErr) {
+    const msg = String(canErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) return { enrollments: [], issue: "rpc_missing" };
+    return { enrollments: [], issue: "unknown" };
+  }
+
+  if (!canManage) {
+    return { enrollments: [], issue: "not_allowed" };
+  }
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_class_enrollments", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_class_id: classId,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) return { enrollments: [], issue: "rpc_missing" };
+    if (msg.includes("not_allowed")) return { enrollments: [], issue: "not_allowed" };
+    return { enrollments: [], issue: "unknown" };
+  }
+
+  return { enrollments: (rpcData || []) as ClassStudentEnrollmentRow[] };
+}
+
+export async function fetchEnrollmentsRemote(classId: string): Promise<ClassStudentEnrollmentRow[]> {
+  const res = await fetchEnrollmentsRemoteWithMeta(classId);
+  return res.enrollments;
 }
 
 export async function enrollStudentRemote(classId: string, studentId: string) {
   if (!supabase) return;
 
-  // If there's an existing row, we just clear removed_at. Otherwise create.
-  const { data } = await supabase
-    .from("class_student_enrollments")
-    .select("class_id,student_id,enrolled_at,removed_at")
-    .eq("class_id", classId)
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (data) {
-    const { error } = await supabase
+  // Tentativa normal (pode falhar por RLS)
+  try {
+    // If there's an existing row, we just clear removed_at. Otherwise create.
+    const { data } = await supabase
       .from("class_student_enrollments")
-      .update({ removed_at: null })
+      .select("class_id,student_id,enrolled_at,removed_at")
       .eq("class_id", classId)
-      .eq("student_id", studentId);
+      .eq("student_id", studentId)
+      .maybeSingle();
+
+    if (data) {
+      const { error } = await supabase
+        .from("class_student_enrollments")
+        .update({ removed_at: null })
+        .eq("class_id", classId)
+        .eq("student_id", studentId);
+      if (error) throw error;
+      return;
+    }
+
+    const { error } = await supabase.from("class_student_enrollments").insert({
+      class_id: classId,
+      student_id: studentId,
+      enrolled_at: new Date().toISOString(),
+      removed_at: null,
+    });
     if (error) throw error;
     return;
-  }
+  } catch (e) {
+    const creds = getModeBStaffCreds();
+    if (!creds) throw e;
 
-  const { error } = await supabase
-    .from("class_student_enrollments")
-    .insert({ class_id: classId, student_id: studentId, enrolled_at: new Date().toISOString(), removed_at: null });
-  if (error) throw error;
+    const { error: rpcErr } = await supabase.rpc("mode_b_enroll_student", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_class_id: classId,
+      p_student_id: studentId,
+    });
+
+    if (rpcErr) throw rpcErr;
+  }
 }
 
 export async function removeStudentEnrollmentRemote(classId: string, studentId: string) {
   if (!supabase) return;
-  const { error } = await supabase
-    .from("class_student_enrollments")
-    .update({ removed_at: new Date().toISOString() })
-    .eq("class_id", classId)
-    .eq("student_id", studentId);
-  if (error) throw error;
+
+  // Tentativa normal (pode falhar por RLS)
+  try {
+    const { error } = await supabase
+      .from("class_student_enrollments")
+      .update({ removed_at: new Date().toISOString() })
+      .eq("class_id", classId)
+      .eq("student_id", studentId);
+    if (error) throw error;
+    return;
+  } catch (e) {
+    const creds = getModeBStaffCreds();
+    if (!creds) throw e;
+
+    const { error: rpcErr } = await supabase.rpc("mode_b_remove_student_enrollment", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_class_id: classId,
+      p_student_id: studentId,
+    });
+
+    if (rpcErr) throw rpcErr;
+  }
 }

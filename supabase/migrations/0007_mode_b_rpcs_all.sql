@@ -4,6 +4,7 @@
 -- - Login de professor/coordenador (mode_b_login_staff)
 -- - Login de aluno (mode_b_login_student)
 -- - Permissões/CRUD de turmas para staff (mode_b_*_class*)
+-- - Matrícula/remoção de alunos em turmas (mode_b_*_enrollment*)
 -- - Calendário/justificativas do aluno (mode_b_student_month_schedule / mode_b_set_student_justification)
 --
 -- Este SQL é idempotente (CREATE OR REPLACE / DO ... duplicate_object), podendo ser colado no SQL Editor.
@@ -175,6 +176,76 @@ BEGIN
       FROM public.coordinator_project_assignments cpa
       WHERE cpa.coordinator_id = c_id
         AND cpa.project_id = p_project_id
+    );
+  END IF;
+
+  RETURN false;
+END;
+$$;
+
+-- Checagem de permissão por turma:
+-- - coordenador: pode gerenciar turmas do projeto
+-- - professor: pode gerenciar SOMENTE turmas em que está vinculado (class_teachers)
+CREATE OR REPLACE FUNCTION public.mode_b_staff_can_manage_class(p_login text, p_password text, p_class_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  t_id uuid;
+  c_id uuid;
+  pid uuid;
+BEGIN
+  IF coalesce(trim(p_login), '') = '' OR coalesce(trim(p_password), '') = '' OR p_class_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  SELECT c.project_id INTO pid
+  FROM public.classes c
+  WHERE c.id = p_class_id;
+
+  IF pid IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Professor
+  SELECT id INTO t_id
+  FROM public.teachers
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF t_id IS NOT NULL THEN
+    RETURN (
+      EXISTS (
+        SELECT 1
+        FROM public.teacher_project_assignments tpa
+        WHERE tpa.teacher_id = t_id
+          AND tpa.project_id = pid
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM public.class_teachers ct
+        WHERE ct.class_id = p_class_id
+          AND ct.teacher_id = t_id
+      )
+    );
+  END IF;
+
+  -- Coordenador
+  SELECT id INTO c_id
+  FROM public.coordinators
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF c_id IS NOT NULL THEN
+    RETURN EXISTS (
+      SELECT 1
+      FROM public.coordinator_project_assignments cpa
+      WHERE cpa.coordinator_id = c_id
+        AND cpa.project_id = pid
     );
   END IF;
 
@@ -385,6 +456,95 @@ BEGIN
 
   DELETE FROM public.classes c
   WHERE c.id = p_class_id;
+END;
+$$;
+
+-- =====================
+-- Matrículas de alunos em turmas (modo B)
+-- =====================
+
+CREATE OR REPLACE FUNCTION public.mode_b_list_class_enrollments(
+  p_login text,
+  p_password text,
+  p_class_id uuid
+)
+RETURNS TABLE(
+  class_id uuid,
+  student_id uuid,
+  enrolled_at timestamptz,
+  removed_at timestamptz
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_manage_class(p_login, p_password, p_class_id) THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+    SELECT e.class_id, e.student_id, e.enrolled_at, e.removed_at
+    FROM public.class_student_enrollments e
+    WHERE e.class_id = p_class_id
+    ORDER BY e.enrolled_at DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mode_b_enroll_student(
+  p_login text,
+  p_password text,
+  p_class_id uuid,
+  p_student_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_manage_class(p_login, p_password, p_class_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.class_student_enrollments e
+    WHERE e.class_id = p_class_id
+      AND e.student_id = p_student_id
+  ) THEN
+    UPDATE public.class_student_enrollments
+    SET removed_at = NULL
+    WHERE class_id = p_class_id
+      AND student_id = p_student_id;
+    RETURN;
+  END IF;
+
+  INSERT INTO public.class_student_enrollments (class_id, student_id, enrolled_at, removed_at)
+  VALUES (p_class_id, p_student_id, now(), NULL);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mode_b_remove_student_enrollment(
+  p_login text,
+  p_password text,
+  p_class_id uuid,
+  p_student_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_manage_class(p_login, p_password, p_class_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  UPDATE public.class_student_enrollments
+  SET removed_at = now()
+  WHERE class_id = p_class_id
+    AND student_id = p_student_id;
 END;
 $$;
 
@@ -674,9 +834,14 @@ GRANT EXECUTE ON FUNCTION public.mode_b_login_staff(text, text) TO anon, authent
 GRANT EXECUTE ON FUNCTION public.mode_b_login_student(text, text) TO anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.mode_b_staff_can_access_project(text, text, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_staff_can_manage_class(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_list_classes(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_upsert_class(text, text, uuid, uuid, text, text, text, text, int, int, timestamptz, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_delete_class(text, text, uuid) TO anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.mode_b_list_class_enrollments(text, text, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_enroll_student(text, text, uuid, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_remove_student_enrollment(text, text, uuid, uuid) TO anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.mode_b_list_attendance_sessions(text, text, uuid, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_upsert_attendance_session(text, text, uuid, uuid, uuid, date, timestamptz, timestamptz, uuid[], jsonb) TO anon, authenticated;
