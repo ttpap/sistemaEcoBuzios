@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 
 const TEACHER_SESSION_KEY = "ecobuzios_teacher_session"; // stores { teacherId, projectId? }
+const TEACHER_PASSWORD_KEY = "ecobuzios_teacher_password";
 
 type TeacherSession = {
   teacherId: string;
@@ -54,6 +55,14 @@ export function getTeacherSessionProjectId(): string | null {
 
 export function getTeacherSessionProjectIds(): string[] {
   return getTeacherSession()?.projectIds || [];
+}
+
+export function getTeacherSessionPassword(): string | null {
+  return sessionStorage.getItem(TEACHER_PASSWORD_KEY);
+}
+
+export function setTeacherSessionPassword(password: string) {
+  sessionStorage.setItem(TEACHER_PASSWORD_KEY, password);
 }
 
 export function setTeacherSessionProjectId(projectId: string) {
@@ -117,4 +126,5 @@ export async function loginTeacher(input: { login: string; password: string }): 
 
 export function logoutTeacher() {
   localStorage.removeItem(TEACHER_SESSION_KEY);
+  sessionStorage.removeItem(TEACHER_PASSWORD_KEY);
 }

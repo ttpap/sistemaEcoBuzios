@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 
 const COORDINATOR_SESSION_KEY = "ecobuzios_coordinator_session"; // stores { coordinatorId, projectId? }
+const COORDINATOR_PASSWORD_KEY = "ecobuzios_coordinator_password";
 
 type CoordinatorSession = {
   coordinatorId: string;
@@ -78,6 +79,14 @@ export function isCoordinatorLoggedIn() {
   return Boolean(getCoordinatorSessionCoordinatorId());
 }
 
+export function getCoordinatorSessionPassword(): string | null {
+  return sessionStorage.getItem(COORDINATOR_PASSWORD_KEY);
+}
+
+export function setCoordinatorSessionPassword(password: string) {
+  sessionStorage.setItem(COORDINATOR_PASSWORD_KEY, password);
+}
+
 type StaffLoginRow = { role: string; person_id: string; project_ids: string[] | null };
 
 export async function loginCoordinator(input: { login: string; password: string }): Promise<CoordinatorLoginResult> {
@@ -117,4 +126,5 @@ export async function loginCoordinator(input: { login: string; password: string 
 
 export function logoutCoordinator() {
   localStorage.removeItem(COORDINATOR_SESSION_KEY);
+  sessionStorage.removeItem(COORDINATOR_PASSWORD_KEY);
 }
