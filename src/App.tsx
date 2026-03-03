@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import Projects from "./pages/Projects";
 import ActiveProjectGate from "@/components/ActiveProjectGate";
 import Login from "./pages/Login";
+import UnifiedLogin from "@/pages/UnifiedLogin";
 import AdminLogin from "@/pages/AdminLogin";
 import AdminGate from "@/components/AdminGate";
 import ProjectTheme from "@/components/ProjectTheme";
@@ -61,7 +62,8 @@ const App = () => (
         <BrowserRouter>
           <ProjectTheme />
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<UnifiedLogin />} />
+            <Route path="/login/selecionar" element={<Login />} />
             <Route path="/login/admin" element={<AdminLogin />} />
             <Route path="/inscricao" element={<PublicStudentRegistration />} />
             <Route path="/db-status" element={<DbStatus />} />

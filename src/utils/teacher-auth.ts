@@ -63,27 +63,25 @@ export function isTeacherLoggedIn() {
   return Boolean(getTeacherSessionTeacherId());
 }
 
+type StaffLoginRow = { role: string; person_id: string; project_ids: string[] | null };
+
 export async function loginTeacher(input: { login: string; password: string }): Promise<TeacherLoginResult> {
   const login = (input.login || "").trim();
   const password = (input.password || "").trim();
 
   if (!login || !password) return { ok: false, reason: "invalid_credentials" };
 
-  const { data: teacher, error } = await supabase
-    .from("teachers")
-    .select("id")
-    .eq("auth_login", login)
-    .eq("auth_password", password)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("mode_b_login_staff", {
+    p_login: login,
+    p_password: password,
+  });
 
-  if (error || !teacher?.id) return { ok: false, reason: "invalid_credentials" };
+  if (error || !data || (data as any[]).length === 0) return { ok: false, reason: "invalid_credentials" };
 
-  const { data: rows } = await supabase
-    .from("teacher_project_assignments")
-    .select("project_id")
-    .eq("teacher_id", teacher.id);
+  const row = (data as any[])[0] as StaffLoginRow;
+  if (row.role !== "teacher" || !row.person_id) return { ok: false, reason: "invalid_credentials" };
 
-  const projectIds = Array.from(new Set((rows || []).map((r: any) => String(r.project_id)))).filter(Boolean);
+  const projectIds = Array.from(new Set((row.project_ids || []).map(String))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
@@ -95,11 +93,11 @@ export async function loginTeacher(input: { login: string; password: string }): 
   }
 
   const session: TeacherSession = projectId
-    ? { teacherId: teacher.id, projectId, projectIds }
-    : { teacherId: teacher.id, projectIds };
+    ? { teacherId: row.person_id, projectId, projectIds }
+    : { teacherId: row.person_id, projectIds };
 
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(session));
-  return { ok: true, teacherId: teacher.id, projectIds, ...(projectId ? { projectId } : {}) };
+  return { ok: true, teacherId: row.person_id, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutTeacher() {

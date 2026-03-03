@@ -70,27 +70,25 @@ export function isCoordinatorLoggedIn() {
   return Boolean(getCoordinatorSessionCoordinatorId());
 }
 
+type StaffLoginRow = { role: string; person_id: string; project_ids: string[] | null };
+
 export async function loginCoordinator(input: { login: string; password: string }): Promise<CoordinatorLoginResult> {
   const login = (input.login || "").trim();
   const password = (input.password || "").trim();
 
   if (!login || !password) return { ok: false, reason: "invalid_credentials" };
 
-  const { data: coord, error } = await supabase
-    .from("coordinators")
-    .select("id")
-    .eq("auth_login", login)
-    .eq("auth_password", password)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("mode_b_login_staff", {
+    p_login: login,
+    p_password: password,
+  });
 
-  if (error || !coord?.id) return { ok: false, reason: "invalid_credentials" };
+  if (error || !data || (data as any[]).length === 0) return { ok: false, reason: "invalid_credentials" };
 
-  const { data: rows } = await supabase
-    .from("coordinator_project_assignments")
-    .select("project_id")
-    .eq("coordinator_id", coord.id);
+  const row = (data as any[])[0] as StaffLoginRow;
+  if (row.role !== "coordinator" || !row.person_id) return { ok: false, reason: "invalid_credentials" };
 
-  const projectIds = Array.from(new Set((rows || []).map((r: any) => String(r.project_id)))).filter(Boolean);
+  const projectIds = Array.from(new Set((row.project_ids || []).map(String))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
@@ -102,11 +100,11 @@ export async function loginCoordinator(input: { login: string; password: string 
   }
 
   const session: CoordinatorSession = projectId
-    ? { coordinatorId: coord.id, projectId, projectIds }
-    : { coordinatorId: coord.id, projectIds };
+    ? { coordinatorId: row.person_id, projectId, projectIds }
+    : { coordinatorId: row.person_id, projectIds };
 
   localStorage.setItem(COORDINATOR_SESSION_KEY, JSON.stringify(session));
-  return { ok: true, coordinatorId: coord.id, projectIds, ...(projectId ? { projectId } : {}) };
+  return { ok: true, coordinatorId: row.person_id, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutCoordinator() {

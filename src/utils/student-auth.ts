@@ -29,10 +29,6 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function normalizePassword(pw: string) {
-  return (pw || "").toLowerCase().replace(/\s+/g, "");
-}
-
 export function getStudentSession(): StudentSession | null {
   const raw = localStorage.getItem(STUDENT_SESSION_KEY);
   if (!raw) return null;
@@ -79,61 +75,28 @@ export function isStudentLoggedIn() {
   return Boolean(getStudentSessionStudentId());
 }
 
+type StudentLoginRpcRow = { student_id: string | null; project_ids: string[] | null; reason: string | null };
+
 export async function loginStudent(input: { registration: string; password: string }): Promise<StudentLoginResult> {
   const registration = (input.registration || "").trim();
   const password = (input.password || "").trim();
 
-  const okPw = normalizePassword(password) === normalizePassword(DEFAULT_STUDENT_PASSWORD);
-  if (!okPw) return { ok: false, reason: "invalid_credentials" };
+  const { data, error } = await supabase.rpc("mode_b_login_student", {
+    p_registration_or_last4: registration,
+    p_password: password,
+  });
 
-  const raw = registration;
-  if (!raw) return { ok: false, reason: "invalid_credentials" };
+  if (error || !data || (data as any[]).length === 0) return { ok: false, reason: "invalid_credentials" };
 
-  // Find student by full registration OR last 4 digits.
-  let studentRows: Array<{ id: string; registration: string }> = [];
+  const row = (data as any[])[0] as StudentLoginRpcRow;
 
-  if (raw.includes("-")) {
-    const { data, error } = await supabase
-      .from("students")
-      .select("id,registration")
-      .eq("registration", raw);
-    if (error) return { ok: false, reason: "invalid_credentials" };
-    studentRows = (data as any[]) || [];
-  } else {
-    const last4 = getStudentLoginFromRegistration(raw);
-    const { data, error } = await supabase
-      .from("students")
-      .select("id,registration")
-      .like("registration", `%-${last4}`);
-    if (error) return { ok: false, reason: "invalid_credentials" };
-    studentRows = (data as any[]) || [];
-  }
+  if (row.reason === "ambiguous_login") return { ok: false, reason: "ambiguous_login" };
+  if (row.reason === "invalid_credentials") return { ok: false, reason: "invalid_credentials" };
 
-  if (studentRows.length === 0) return { ok: false, reason: "invalid_credentials" };
-  if (studentRows.length !== 1) return { ok: false, reason: "ambiguous_login" };
+  const studentId = String(row.student_id || "");
+  if (!studentId) return { ok: false, reason: "invalid_credentials" };
 
-  const studentId = String(studentRows[0].id);
-
-  // Discover projects where this student is currently enrolled.
-  const { data: enrollments, error: enrollErr } = await supabase
-    .from("class_student_enrollments")
-    .select("class_id, removed_at")
-    .eq("student_id", studentId)
-    .is("removed_at", null);
-
-  if (enrollErr) return { ok: false, reason: "not_assigned" };
-
-  const classIds = Array.from(new Set((enrollments || []).map((e: any) => String(e.class_id)))).filter(Boolean);
-  if (!classIds.length) return { ok: false, reason: "not_assigned" };
-
-  const { data: classes, error: clsErr } = await supabase
-    .from("classes")
-    .select("id, project_id")
-    .in("id", classIds);
-
-  if (clsErr) return { ok: false, reason: "not_assigned" };
-
-  const projectIds = Array.from(new Set((classes || []).map((c: any) => String(c.project_id)))).filter(Boolean);
+  const projectIds = Array.from(new Set((row.project_ids || []).map(String))).filter(Boolean);
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   let projectId: string | undefined;
