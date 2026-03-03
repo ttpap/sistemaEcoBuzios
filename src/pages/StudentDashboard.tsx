@@ -91,7 +91,7 @@ function copyToClipboard(text: string) {
 function statusPill(status: AttendanceStatus | null, variant: "draft" | "final") {
   if (!status) {
     return variant === "draft"
-      ? { label: "Aguardando chamada", className: "bg-sky-600 text-white" }
+      ? { label: "Marcada", className: "bg-sky-600 text-white" }
       : { label: "Em branco", className: "bg-slate-100 text-slate-700" };
   }
 
@@ -103,7 +103,7 @@ function statusPill(status: AttendanceStatus | null, variant: "draft" | "final")
     case "atrasado":
       return { label: "Atrasado", className: "bg-amber-600 text-white" };
     case "justificada":
-      return { label: "Justificada", className: "bg-sky-600 text-white" };
+      return { label: "Justificada", className: "bg-orange-500 text-white" };
   }
 }
 
@@ -152,6 +152,8 @@ export default function StudentDashboard() {
 
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
+  // Justificativas antecipadas (por aula)
+  const [futureJustDrafts, setFutureJustDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Tenta vincular o usuário Supabase ao student_id (profiles) usando o id salvo localmente.
@@ -270,22 +272,80 @@ export default function StudentDashboard() {
   const selectedYmd = useMemo(() => (selectedDate ? toYMD(selectedDate) : null), [selectedDate]);
   const selectedEntries = (selectedYmd && entriesByDate.get(selectedYmd)) || [];
 
-  const selectedMonthKey = useMemo(() => (selectedYmd ? monthKey(selectedYmd) : null), [selectedYmd]);
+  const todayYmd = useMemo(() => toYMD(new Date()), []);
 
-  const monthDaysWithEntries = useMemo(() => {
-    const dates: Date[] = [];
-    if (!selectedMonthKey) return dates;
+  // Pré-carrega drafts de justificativa para aulas futuras do dia selecionado
+  useEffect(() => {
+    if (!selectedYmd || !effectiveStudentId) return;
 
-    for (const ymd of entriesByDate.keys()) {
-      if (monthKey(ymd) !== selectedMonthKey) continue;
-      const d = new Date(`${ymd}T00:00:00`);
-      if (!Number.isNaN(d.getTime())) dates.push(d);
+    const next: Record<string, string> = {};
+    for (const e of selectedEntries) {
+      if (e.ymd <= todayYmd) continue;
+      const key = `${e.classId}:${e.ymd}`;
+      const existing = justifications.find(
+        (j) => j.projectId === (projectId || "") && j.classId === e.classId && j.date === e.ymd && j.studentId === effectiveStudentId,
+      );
+
+      next[key] = futureJustDrafts[key] ?? existing?.message ?? "";
     }
 
-    return dates;
-  }, [entriesByDate, selectedMonthKey]);
+    if (Object.keys(next).length) {
+      setFutureJustDrafts((prev) => ({ ...next, ...prev }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYmd, selectedEntries.length, effectiveStudentId, todayYmd, justifications.length, projectId]);
 
-  const todayYmd = useMemo(() => toYMD(new Date()), []);
+  type DayStatus = "scheduled" | "present" | "late" | "absent" | "justified";
+
+  const dayStatusByYmd = useMemo(() => {
+    const map = new Map<string, DayStatus>();
+
+    for (const [ymd, arr] of entriesByDate) {
+      // Prioridade (se houver mais de uma aula no dia)
+      // falta > justificada > atrasado > presente > marcada (futuro)
+      const hasFuture = ymd >= todayYmd;
+
+      let hasAbsent = false;
+      let hasJustified = false;
+      let hasLate = false;
+      let hasPresent = false;
+
+      for (const e of arr) {
+        if (e.status === "falta") hasAbsent = true;
+        else if (e.status === "justificada") hasJustified = true;
+        else if (e.status === "atrasado") hasLate = true;
+        else if (e.status === "presente") hasPresent = true;
+      }
+
+      if (hasAbsent) map.set(ymd, "absent");
+      else if (hasJustified) map.set(ymd, "justified");
+      else if (hasLate) map.set(ymd, "late");
+      else if (hasPresent) map.set(ymd, "present");
+      else if (hasFuture) map.set(ymd, "scheduled");
+    }
+
+    return map;
+  }, [entriesByDate, todayYmd]);
+
+  const calendarModifiers = useMemo(() => {
+    const scheduled: Date[] = [];
+    const present: Date[] = [];
+    const late: Date[] = [];
+    const absent: Date[] = [];
+    const justified: Date[] = [];
+
+    for (const [ymd, st] of dayStatusByYmd) {
+      const d = new Date(`${ymd}T00:00:00`);
+      if (Number.isNaN(d.getTime())) continue;
+      if (st === "scheduled") scheduled.push(d);
+      else if (st === "present") present.push(d);
+      else if (st === "late") late.push(d);
+      else if (st === "absent") absent.push(d);
+      else if (st === "justified") justified.push(d);
+    }
+
+    return { scheduled, present, late, absent, justified };
+  }, [dayStatusByYmd]);
 
   // Justificativa dialog
   const [justifyOpen, setJustifyOpen] = useState(false);
@@ -473,7 +533,7 @@ export default function StudentDashboard() {
             <div>
               <CardTitle className="text-lg sm:text-xl font-black text-slate-800">Minhas aulas</CardTitle>
               <p className="mt-2 text-sm font-bold text-slate-500">
-                Selecione um dia para ver suas aulas e enviar justificativa.
+                O calendário mostra todas as aulas do mês e o status de cada dia.
               </p>
             </div>
             <Badge className="rounded-full px-4 py-2 bg-primary/10 text-primary border-none font-black">
@@ -497,18 +557,49 @@ export default function StudentDashboard() {
             </div>
           ) : (
             <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-4">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  modifiers={{ hasEntry: monthDaysWithEntries }}
-                  modifiersClassNames={{
-                    hasEntry:
-                      "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
-                  }}
-                  className="rounded-2xl"
-                />
+              <div className="lg:sticky lg:top-6 lg:self-start space-y-3">
+                <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-4">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    modifiers={calendarModifiers}
+                    modifiersClassNames={{
+                      scheduled:
+                        "[&>button]:bg-sky-600/15 [&>button]:text-sky-950 [&>button:hover]:bg-sky-600/20",
+                      present:
+                        "[&>button]:bg-emerald-600/15 [&>button]:text-emerald-950 [&>button:hover]:bg-emerald-600/20",
+                      late:
+                        "[&>button]:bg-amber-600/15 [&>button]:text-amber-950 [&>button:hover]:bg-amber-600/20",
+                      absent:
+                        "[&>button]:bg-rose-600/15 [&>button]:text-rose-950 [&>button:hover]:bg-rose-600/20",
+                      justified:
+                        "[&>button]:bg-orange-500/15 [&>button]:text-orange-950 [&>button:hover]:bg-orange-500/20",
+                    }}
+                    className="rounded-2xl"
+                  />
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Legenda</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-black">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-sky-600" /> Marcada (ainda não aconteceu)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> Presente
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-600" /> Atrasado
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-rose-600" /> Falta
+                    </div>
+                    <div className="flex items-center gap-2 col-span-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> Justificado
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -521,17 +612,18 @@ export default function StudentDashboard() {
 
                 {selectedEntries.length === 0 ? (
                   <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-6">
-                    <p className="text-slate-700 font-black">Sem chamada registrada neste dia.</p>
+                    <p className="text-slate-700 font-black">Sem aula marcada neste dia.</p>
                     <p className="mt-2 text-sm font-bold text-slate-600">
-                      Quando o professor criar/salvar a chamada, a aula aparecerá aqui.
+                      Quando o professor ou o administrador marcar uma aula, ela aparecerá aqui.
                     </p>
                   </div>
                 ) : (
                   <div className="grid gap-3">
                     {selectedEntries.map((e) => {
-                      const pill = statusPill(e.status, e.isDraft ? "draft" : "final");
+                      const pill = statusPill(e.status, e.isDraft || e.ymd >= todayYmd ? "draft" : "final");
 
-                      const canJustify = e.ymd >= todayYmd || e.status === "falta" || e.status === null;
+                      const isFuture = e.ymd > todayYmd;
+                      const canJustify = isFuture || e.status === "falta" || e.status === null;
 
                       const cls = myClasses.find((c) => c.id === e.classId);
                       const teacherNames = (cls?.teacherIds || [])
@@ -549,6 +641,36 @@ export default function StudentDashboard() {
                                 j.studentId === effectiveStudentId,
                             ) || null
                           : null;
+
+                      const futureKey = `${e.classId}:${e.ymd}`;
+                      const futureDraft = futureJustDrafts[futureKey] ?? justification?.message ?? "";
+
+                      const saveFutureJustification = async () => {
+                        const currentProjectId2 = getActiveProjectId();
+                        if (!currentProjectId2) return;
+                        if (!effectiveStudentId) return;
+
+                        const now = new Date().toISOString();
+                        const next: StudentJustification = {
+                          id: justification?.id || crypto.randomUUID(),
+                          projectId: currentProjectId2,
+                          classId: e.classId,
+                          studentId: effectiveStudentId,
+                          date: e.ymd,
+                          message: (futureDraft || "").trim(),
+                          createdAt: justification?.createdAt || now,
+                        };
+
+                        try {
+                          await upsertStudentJustificationRemote(next);
+                        } catch (err: any) {
+                          showError(err?.message || "Não foi possível salvar a justificativa.");
+                          return;
+                        }
+
+                        setJustifications((prev) => [next, ...prev.filter((j) => j.id !== next.id)]);
+                        showSuccess("Justificativa salva.");
+                      };
 
                       return (
                         <div key={`${e.sessionId}:${e.classId}`} className="rounded-[2rem] border border-slate-100 bg-white p-5">
@@ -572,7 +694,7 @@ export default function StudentDashboard() {
                                 </p>
                               ) : null}
 
-                              {justification ? (
+                              {justification && !isFuture ? (
                                 <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
                                     Sua justificativa
@@ -582,12 +704,46 @@ export default function StudentDashboard() {
                                   </p>
                                 </div>
                               ) : null}
+
+                              {isFuture ? (
+                                <div className="mt-4 rounded-[2rem] border border-slate-100 bg-slate-50/60 p-4">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                    Justificativa antecipada (visível para professor, coordenação e admin)
+                                  </p>
+                                  <Textarea
+                                    value={futureDraft}
+                                    onChange={(ev) =>
+                                      setFutureJustDrafts((prev) => ({ ...prev, [futureKey]: ev.target.value }))
+                                    }
+                                    placeholder="Escreva aqui se você já sabe que vai faltar..."
+                                    className="mt-3 min-h-[110px] rounded-[1.5rem] bg-white"
+                                  />
+                                  <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="rounded-2xl font-black"
+                                      onClick={() =>
+                                        setFutureJustDrafts((prev) => ({
+                                          ...prev,
+                                          [futureKey]: justification?.message ?? "",
+                                        }))
+                                      }
+                                    >
+                                      Desfazer
+                                    </Button>
+                                    <Button type="button" className="rounded-2xl font-black" onClick={saveFutureJustification}>
+                                      Salvar justificativa
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
 
                             <div className="flex flex-col gap-2 sm:items-end">
                               <Badge className={`rounded-full border-none font-black ${pill.className}`}>{pill.label}</Badge>
 
-                              {canJustify ? (
+                              {!isFuture && canJustify ? (
                                 <Button
                                   type="button"
                                   variant="outline"
@@ -626,7 +782,7 @@ export default function StudentDashboard() {
                 {justifyTarget ? `${justifyTarget.className} — ${formatDatePt(justifyTarget.ymd)}` : ""}
               </p>
               <p className="mt-1 text-xs font-bold text-slate-500">
-                Escreva o motivo. O professor verá isso na chamada.
+                Escreva o motivo. O professor, coordenação e admin verão isso.
               </p>
             </div>
 
