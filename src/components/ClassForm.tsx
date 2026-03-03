@@ -18,6 +18,8 @@ import { SchoolClass } from '@/types/class';
 import { readScoped, writeScoped } from '@/utils/storage';
 import { getActiveProjectId } from '@/utils/projects';
 import { upsertClassRemote } from '@/integrations/supabase/classes';
+import { getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome da turma é obrigatório"),
@@ -76,6 +78,11 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
         try {
           await upsertClassRemote(projectId, updatedRemote);
         } catch (e: any) {
+          const msg = String(e?.message || "");
+          if (msg.toLowerCase().includes("mode_b_upsert_class") || msg.toLowerCase().includes("does not exist")) {
+            showError("O servidor ainda não foi atualizado com as permissões de turmas (RPC). Atualize o Supabase e tente novamente.");
+            return;
+          }
           showError(e?.message || 'Não foi possível salvar no Supabase.');
           return;
         }
@@ -97,6 +104,15 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
         try {
           await upsertClassRemote(projectId, newClass);
         } catch (e: any) {
+          const msg = String(e?.message || "");
+          if (!getTeacherSessionPassword() && !getCoordinatorSessionPassword()) {
+            showError("Sua sessão expirou. Saia e entre novamente antes de criar a turma.");
+            return;
+          }
+          if (msg.toLowerCase().includes("mode_b_upsert_class") || msg.toLowerCase().includes("does not exist")) {
+            showError("O servidor ainda não foi atualizado com as permissões de turmas (RPC). Atualize o Supabase e tente novamente.");
+            return;
+          }
           showError(e?.message || 'Não foi possível salvar no Supabase.');
           return;
         }

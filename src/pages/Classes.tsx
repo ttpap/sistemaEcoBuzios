@@ -14,6 +14,8 @@ import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
 import { deleteClassRemote, fetchClassesRemote } from '@/integrations/supabase/classes';
 import { ensureTeacherAuthForModeB, ensureCoordinatorAuthForModeB } from "@/utils/mode-b-staff";
+import { getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -40,6 +42,20 @@ const Classes = () => {
       if (remote.length) {
         writeScoped('classes', remote);
         setClasses(remote);
+        return;
+      }
+
+      // Diagnóstico rápido (modo B): se a senha não estiver na sessão do navegador,
+      // o fallback por RPC não consegue rodar. Nesse caso, peça para logar novamente.
+      if (base === "/professor" && !getTeacherSessionPassword()) {
+        showError("Sua sessão do professor expirou. Saia e entre novamente para liberar o acesso às turmas.");
+        setClasses([]);
+        return;
+      }
+
+      if (base === "/coordenador" && !getCoordinatorSessionPassword()) {
+        showError("Sua sessão do coordenador expirou. Saia e entre novamente para liberar o acesso às turmas.");
+        setClasses([]);
         return;
       }
 
