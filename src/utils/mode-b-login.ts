@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
+import { ensureStudentAuthForModeB } from "@/utils/mode-b-student";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -146,13 +147,20 @@ export async function modeBLogin(input: {
   if (!studentId) return { ok: false, reason: "invalid_credentials" };
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
-  localStorage.setItem("ecobuzios_student_session", JSON.stringify({ studentId, projectIds }));
+  localStorage.setItem("ecobuzios_student_session", JSON.stringify({ studentId, projectIds, login: registrationOrLast4 }));
+
+  // Garante sessão Supabase Auth para liberar RLS de presença/justificativa.
+  try {
+    await ensureStudentAuthForModeB();
+  } catch {
+    // se falhar, o aluno ainda entra, mas pode não ver dados remotos.
+  }
 
   const preferred = getActiveProjectId();
   if (projectIds.length === 1) {
     localStorage.setItem(
       "ecobuzios_student_session",
-      JSON.stringify({ studentId, projectIds, projectId: projectIds[0] }),
+      JSON.stringify({ studentId, projectIds, projectId: projectIds[0], login: registrationOrLast4 }),
     );
     return { ok: true, role: "student", redirectTo: "/aluno" };
   }
@@ -160,7 +168,7 @@ export async function modeBLogin(input: {
   if (preferred && projectIds.includes(preferred)) {
     localStorage.setItem(
       "ecobuzios_student_session",
-      JSON.stringify({ studentId, projectIds, projectId: preferred }),
+      JSON.stringify({ studentId, projectIds, projectId: preferred, login: registrationOrLast4 }),
     );
     return { ok: true, role: "student", redirectTo: "/aluno" };
   }

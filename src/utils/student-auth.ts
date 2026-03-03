@@ -15,6 +15,7 @@ type StudentSession = {
   studentId: string;
   projectId?: string;
   projectIds?: string[];
+  login?: string;
 };
 
 export type StudentLoginResult =
@@ -38,15 +39,21 @@ export function getStudentSession(): StudentSession | null {
 
   const projectId = (parsed.projectId || "").trim() || undefined;
   const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
+  const login = (parsed.login || "").trim() || undefined;
   return {
     studentId: parsed.studentId,
     ...(projectId ? { projectId } : {}),
     ...(projectIds ? { projectIds } : {}),
+    ...(login ? { login } : {}),
   };
 }
 
 export function getStudentSessionStudentId(): string | null {
   return getStudentSession()?.studentId || null;
+}
+
+export function getStudentSessionLogin(): string | null {
+  return getStudentSession()?.login || null;
 }
 
 export function getStudentSessionProjectId(): string | null {
@@ -67,7 +74,11 @@ export function setStudentSessionProjectId(projectId: string) {
 export function clearStudentSessionProjectId() {
   const cur = getStudentSession();
   if (!cur) return;
-  const next: StudentSession = { studentId: cur.studentId, ...(cur.projectIds ? { projectIds: cur.projectIds } : {}) };
+  const next: StudentSession = {
+    studentId: cur.studentId,
+    ...(cur.projectIds ? { projectIds: cur.projectIds } : {}),
+    ...(cur.login ? { login: cur.login } : {}),
+  };
   localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -108,8 +119,8 @@ export async function loginStudent(input: { registration: string; password: stri
   }
 
   const session: StudentSession = projectId
-    ? { studentId, projectId, projectIds }
-    : { studentId, projectIds };
+    ? { studentId, projectId, projectIds, login: registration }
+    : { studentId, projectIds, login: registration };
 
   localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
   return { ok: true, studentId, projectIds, ...(projectId ? { projectId } : {}) };
