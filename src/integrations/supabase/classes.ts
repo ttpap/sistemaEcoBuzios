@@ -63,11 +63,10 @@ export async function fetchClassesRemoteWithMeta(projectId: string): Promise<Fet
   // ele simplesmente retorna lista vazia. Por isso, quando estamos no modo B e a lista veio vazia,
   // tentamos o fallback por RPC.
   if (!creds) {
-    // Sem credenciais do modo B: não tem como distinguir "vazio" de "bloqueado" aqui.
     return { classes: Array.isArray(data) ? data.map(mapRow) : [] };
   }
 
-  // 2) Checa se o staff tem acesso ao projeto (RPC vinda da migração 0006).
+  // 2) Checa se o staff tem acesso ao projeto (RPC vinda do 0007).
   const { data: canAccess, error: canErr } = await supabase.rpc("mode_b_staff_can_access_project", {
     p_login: creds.login,
     p_password: creds.password,
@@ -84,8 +83,10 @@ export async function fetchClassesRemoteWithMeta(projectId: string): Promise<Fet
     return { classes: [], issue: "not_allowed" };
   }
 
-  // 3) Staff autorizado: lista turmas via RPC (não depende de RLS do cliente).
-  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_classes", {
+  // 3) Staff autorizado: lista turmas via RPC.
+  // - professor: só turmas vinculadas
+  // - coordenador: todas do projeto
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_my_classes", {
     p_login: creds.login,
     p_password: creds.password,
     p_project_id: projectId,

@@ -201,6 +201,84 @@ BEGIN
 END;
 $$;
 
+-- =====================
+-- Turmas (staff) — listagem (somente turmas vinculadas para professor)
+-- =====================
+
+CREATE OR REPLACE FUNCTION public.mode_b_list_my_classes(p_login text, p_password text, p_project_id uuid)
+RETURNS SETOF public.classes
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  t_id uuid;
+  c_id uuid;
+BEGIN
+  IF coalesce(trim(p_login), '') = '' OR coalesce(trim(p_password), '') = '' OR p_project_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  -- Professor
+  SELECT id INTO t_id
+  FROM public.teachers
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF t_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.teacher_project_assignments tpa
+      WHERE tpa.teacher_id = t_id
+        AND tpa.project_id = p_project_id
+    ) THEN
+      RETURN;
+    END IF;
+
+    RETURN QUERY
+      SELECT c.*
+      FROM public.classes c
+      JOIN public.class_teachers ct ON ct.class_id = c.id
+      WHERE c.project_id = p_project_id
+        AND ct.teacher_id = t_id
+      ORDER BY c.registration_date DESC;
+    RETURN;
+  END IF;
+
+  -- Coordenador (vê todas as turmas do projeto)
+  SELECT id INTO c_id
+  FROM public.coordinators
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF c_id IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.coordinator_project_assignments cpa
+      WHERE cpa.coordinator_id = c_id
+        AND cpa.project_id = p_project_id
+    ) THEN
+      RETURN;
+    END IF;
+
+    RETURN QUERY
+      SELECT *
+      FROM public.classes c
+      WHERE c.project_id = p_project_id
+      ORDER BY c.registration_date DESC;
+    RETURN;
+  END IF;
+
+  RETURN;
+END;
+$$;
+
+-- =====================
+-- Turmas (staff) — CRUD (quando professor criar, vincula automaticamente na turma)
+-- =====================
+
 CREATE OR REPLACE FUNCTION public.mode_b_upsert_class(
   p_login text,
   p_password text,
@@ -221,11 +299,14 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
+DECLARE
+  t_id uuid;
 BEGIN
   IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
     RAISE EXCEPTION 'not_allowed';
   END IF;
 
+  -- Garante que não existe turma com mesmo ID em outro projeto.
   IF EXISTS (SELECT 1 FROM public.classes c WHERE c.id = p_id AND c.project_id <> p_project_id) THEN
     RAISE EXCEPTION 'invalid_class_project';
   END IF;
@@ -265,6 +346,19 @@ BEGIN
     absence_limit = EXCLUDED.absence_limit,
     status = EXCLUDED.status,
     complementary_info = EXCLUDED.complementary_info;
+
+  -- Se o criador for professor, vincula automaticamente o professor à turma.
+  SELECT id INTO t_id
+  FROM public.teachers
+  WHERE auth_login = trim(p_login)
+    AND auth_password = trim(p_password)
+  LIMIT 1;
+
+  IF t_id IS NOT NULL THEN
+    INSERT INTO public.class_teachers (class_id, teacher_id)
+    VALUES (p_id, t_id)
+    ON CONFLICT DO NOTHING;
+  END IF;
 END;
 $$;
 
@@ -567,6 +661,11 @@ AS $$
     AND j.date < rg.end_date
   ORDER BY j.date DESC, j.created_at DESC;
 $$;
+
+-- =====================
+-- Grants (turmas)
+-- =====================
+GRANT EXECUTE ON FUNCTION public.mode_b_list_my_classes(text, text, uuid) TO anon, authenticated;
 
 -- =====================
 -- Grants
