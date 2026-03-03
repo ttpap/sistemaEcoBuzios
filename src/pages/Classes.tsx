@@ -13,6 +13,7 @@ import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
 import { deleteClassRemote, fetchClassesRemote } from '@/integrations/supabase/classes';
+import { ensureTeacherAuthForModeB, ensureCoordinatorAuthForModeB } from "@/utils/mode-b-staff";
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -27,6 +28,14 @@ const Classes = () => {
       const projectId = getActiveProjectId();
       if (!projectId) return;
 
+      // Garante auth para passar no RLS quando estiver em /professor ou /coordenador
+      try {
+        if (base === "/professor") await ensureTeacherAuthForModeB();
+        if (base === "/coordenador") await ensureCoordinatorAuthForModeB();
+      } catch {
+        // ignore
+      }
+
       const remote = await fetchClassesRemote(projectId);
       if (remote.length) {
         // Cache para partes legadas do app
@@ -39,7 +48,7 @@ const Classes = () => {
     };
 
     void run();
-  }, []);
+  }, [base]);
 
   const handleDelete = (id: string) => {
     const run = async () => {

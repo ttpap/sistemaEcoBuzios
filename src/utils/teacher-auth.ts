@@ -7,6 +7,7 @@ type TeacherSession = {
   teacherId: string;
   projectId?: string;
   projectIds?: string[];
+  login?: string;
 };
 
 export type TeacherLoginResult =
@@ -30,11 +31,21 @@ export function getTeacherSession(): TeacherSession | null {
 
   const projectId = (parsed.projectId || "").trim() || undefined;
   const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
-  return { teacherId: parsed.teacherId, ...(projectId ? { projectId } : {}), ...(projectIds ? { projectIds } : {}) };
+  const login = (parsed.login || "").trim() || undefined;
+  return {
+    teacherId: parsed.teacherId,
+    ...(projectId ? { projectId } : {}),
+    ...(projectIds ? { projectIds } : {}),
+    ...(login ? { login } : {}),
+  };
 }
 
 export function getTeacherSessionTeacherId(): string | null {
   return getTeacherSession()?.teacherId || null;
+}
+
+export function getTeacherSessionLogin(): string | null {
+  return getTeacherSession()?.login || null;
 }
 
 export function getTeacherSessionProjectId(): string | null {
@@ -55,7 +66,11 @@ export function setTeacherSessionProjectId(projectId: string) {
 export function clearTeacherSessionProjectId() {
   const cur = getTeacherSession();
   if (!cur) return;
-  const next: TeacherSession = { teacherId: cur.teacherId, ...(cur.projectIds ? { projectIds: cur.projectIds } : {}) };
+  const next: TeacherSession = {
+    teacherId: cur.teacherId,
+    ...(cur.projectIds ? { projectIds: cur.projectIds } : {}),
+    ...(cur.login ? { login: cur.login } : {}),
+  };
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(next));
 }
 
@@ -93,8 +108,8 @@ export async function loginTeacher(input: { login: string; password: string }): 
   }
 
   const session: TeacherSession = projectId
-    ? { teacherId: row.person_id, projectId, projectIds }
-    : { teacherId: row.person_id, projectIds };
+    ? { teacherId: row.person_id, projectId, projectIds, login }
+    : { teacherId: row.person_id, projectIds, login };
 
   localStorage.setItem(TEACHER_SESSION_KEY, JSON.stringify(session));
   return { ok: true, teacherId: row.person_id, projectIds, ...(projectId ? { projectId } : {}) };

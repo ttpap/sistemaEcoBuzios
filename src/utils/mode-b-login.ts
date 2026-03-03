@@ -60,14 +60,14 @@ export async function modeBLogin(input: {
     if (role === "teacher") {
       localStorage.setItem(
         "ecobuzios_teacher_session",
-        JSON.stringify({ teacherId: personId, projectIds }),
+        JSON.stringify({ teacherId: personId, projectIds, login: loginRaw }),
       );
 
       const preferred = getActiveProjectId();
       if (projectIds.length === 1) {
         localStorage.setItem(
           "ecobuzios_teacher_session",
-          JSON.stringify({ teacherId: personId, projectIds, projectId: projectIds[0] }),
+          JSON.stringify({ teacherId: personId, projectIds, projectId: projectIds[0], login: loginRaw }),
         );
         return { ok: true, role: "teacher", redirectTo: "/professor" };
       }
@@ -75,7 +75,7 @@ export async function modeBLogin(input: {
       if (preferred && projectIds.includes(preferred)) {
         localStorage.setItem(
           "ecobuzios_teacher_session",
-          JSON.stringify({ teacherId: personId, projectIds, projectId: preferred }),
+          JSON.stringify({ teacherId: personId, projectIds, projectId: preferred, login: loginRaw }),
         );
         return { ok: true, role: "teacher", redirectTo: "/professor" };
       }
@@ -90,14 +90,14 @@ export async function modeBLogin(input: {
     if (role === "coordinator") {
       localStorage.setItem(
         "ecobuzios_coordinator_session",
-        JSON.stringify({ coordinatorId: personId, projectIds }),
+        JSON.stringify({ coordinatorId: personId, projectIds, login: loginRaw }),
       );
 
       const preferred = getActiveProjectId();
       if (projectIds.length === 1) {
         localStorage.setItem(
           "ecobuzios_coordinator_session",
-          JSON.stringify({ coordinatorId: personId, projectIds, projectId: projectIds[0] }),
+          JSON.stringify({ coordinatorId: personId, projectIds, projectId: projectIds[0], login: loginRaw }),
         );
         return { ok: true, role: "coordinator", redirectTo: "/coordenador" };
       }
@@ -105,7 +105,7 @@ export async function modeBLogin(input: {
       if (preferred && projectIds.includes(preferred)) {
         localStorage.setItem(
           "ecobuzios_coordinator_session",
-          JSON.stringify({ coordinatorId: personId, projectIds, projectId: preferred }),
+          JSON.stringify({ coordinatorId: personId, projectIds, projectId: preferred, login: loginRaw }),
         );
         return { ok: true, role: "coordinator", redirectTo: "/coordenador" };
       }
@@ -117,6 +117,7 @@ export async function modeBLogin(input: {
       };
     }
 
+    // Se retornou algo inesperado
     return { ok: false, reason: "invalid_credentials" };
   }
 

@@ -7,6 +7,7 @@ type CoordinatorSession = {
   coordinatorId: string;
   projectId?: string;
   projectIds?: string[];
+  login?: string;
 };
 
 export type CoordinatorLoginResult =
@@ -30,15 +31,21 @@ export function getCoordinatorSession(): CoordinatorSession | null {
 
   const projectId = (parsed.projectId || "").trim() || undefined;
   const projectIds = Array.isArray(parsed.projectIds) ? parsed.projectIds : undefined;
+  const login = (parsed.login || "").trim() || undefined;
   return {
     coordinatorId: parsed.coordinatorId,
     ...(projectId ? { projectId } : {}),
     ...(projectIds ? { projectIds } : {}),
+    ...(login ? { login } : {}),
   };
 }
 
 export function getCoordinatorSessionCoordinatorId(): string | null {
   return getCoordinatorSession()?.coordinatorId || null;
+}
+
+export function getCoordinatorSessionLogin(): string | null {
+  return getCoordinatorSession()?.login || null;
 }
 
 export function getCoordinatorSessionProjectId(): string | null {
@@ -62,6 +69,7 @@ export function clearCoordinatorSessionProjectId() {
   const next: CoordinatorSession = {
     coordinatorId: cur.coordinatorId,
     ...(cur.projectIds ? { projectIds: cur.projectIds } : {}),
+    ...(cur.login ? { login: cur.login } : {}),
   };
   localStorage.setItem(COORDINATOR_SESSION_KEY, JSON.stringify(next));
 }
@@ -100,8 +108,8 @@ export async function loginCoordinator(input: { login: string; password: string 
   }
 
   const session: CoordinatorSession = projectId
-    ? { coordinatorId: row.person_id, projectId, projectIds }
-    : { coordinatorId: row.person_id, projectIds };
+    ? { coordinatorId: row.person_id, projectId, projectIds, login }
+    : { coordinatorId: row.person_id, projectIds, login };
 
   localStorage.setItem(COORDINATOR_SESSION_KEY, JSON.stringify(session));
   return { ok: true, coordinatorId: row.person_id, projectIds, ...(projectId ? { projectId } : {}) };
