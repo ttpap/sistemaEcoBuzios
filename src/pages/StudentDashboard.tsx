@@ -343,6 +343,16 @@ export default function StudentDashboard() {
       else if (hasScheduled) map.set(ymd, "scheduled");
     }
 
+    // Também marca dias onde existe justificativa enviada, mesmo que ainda não exista chamada/aula criada.
+    for (const j of justifications) {
+      const ymd = j.date;
+      if (selectedMonthKey && !ymd.startsWith(selectedMonthKey)) continue;
+      const cur = map.get(ymd);
+      // Presença/atraso/falta (já lançados) têm prioridade.
+      if (cur === "present" || cur === "late" || cur === "absent") continue;
+      map.set(ymd, "justified");
+    }
+
     return map;
   }, [entriesByDate, selectedMonthKey, justifications]);
 
@@ -666,11 +676,98 @@ export default function StudentDashboard() {
                 </div>
 
                 {selectedEntries.length === 0 ? (
-                  <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-6">
-                    <p className="text-slate-700 font-black">Sem aula marcada neste dia.</p>
-                    <p className="mt-2 text-sm font-bold text-slate-600">
-                      Quando o professor ou o administrador marcar uma aula, ela aparecerá aqui.
-                    </p>
+                  <div className="space-y-4">
+                    <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-6">
+                      <p className="text-slate-700 font-black">Sem aula marcada neste dia.</p>
+                      <p className="mt-2 text-sm font-bold text-slate-600">
+                        Mesmo assim, você pode enviar uma justificativa antecipada para que o professor veja quando fizer a chamada.
+                      </p>
+                    </div>
+
+                    {selectedYmd && selectedYmd >= todayYmd ? (
+                      <div className="rounded-[2rem] border border-slate-100 bg-white p-6">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          Justificativa antecipada (para o dia selecionado)
+                        </p>
+                        <p className="mt-2 text-sm font-bold text-slate-600">
+                          Selecione a turma e escreva a justificativa. O professor/coordenador/admin poderão ver.
+                        </p>
+
+                        <div className="mt-4 grid gap-3">
+                          {myClasses.map((cls) => {
+                            const key = `${cls.id}:${selectedYmd}`;
+                            const existing =
+                              projectId && effectiveStudentId
+                                ? justifications.find(
+                                    (j) =>
+                                      j.projectId === projectId &&
+                                      j.classId === cls.id &&
+                                      j.date === selectedYmd &&
+                                      j.studentId === effectiveStudentId,
+                                  ) || null
+                                : null;
+
+                            const value = futureJustDrafts[key] ?? existing?.message ?? "";
+
+                            return (
+                              <div key={cls.id} className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="font-black text-slate-900 truncate">{cls.name}</p>
+                                    <p className="mt-1 text-xs font-bold text-slate-600 flex items-center gap-2">
+                                      <Clock3 className="h-4 w-4 text-slate-500" /> {cls.startTime}–{cls.endTime}
+                                    </p>
+                                  </div>
+                                  {existing?.message?.trim() ? (
+                                    <Badge className="rounded-full border-none bg-orange-500/15 text-orange-800 font-black">
+                                      Já enviada
+                                    </Badge>
+                                  ) : null}
+                                </div>
+
+                                <Textarea
+                                  value={value}
+                                  onChange={(ev) => setFutureJustDrafts((prev) => ({ ...prev, [key]: ev.target.value }))}
+                                  placeholder="Ex.: consulta médica, motivo familiar, etc."
+                                  className="mt-3 min-h-[110px] rounded-[1.5rem] bg-white"
+                                />
+
+                                <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-2xl font-black"
+                                    onClick={() =>
+                                      setFutureJustDrafts((prev) => ({ ...prev, [key]: existing?.message ?? "" }))
+                                    }
+                                  >
+                                    Desfazer
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    className="rounded-2xl font-black"
+                                    onClick={() =>
+                                      saveFutureJustification({
+                                        ymd: selectedYmd,
+                                        classId: cls.id,
+                                        className: cls.name,
+                                        startTime: cls.startTime,
+                                        endTime: cls.endTime,
+                                        status: null,
+                                        isScheduled: true,
+                                        sessionId: `pre-${cls.id}-${selectedYmd}`,
+                                      })
+                                    }
+                                  >
+                                    Enviar justificativa
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="grid gap-3">
@@ -698,7 +795,6 @@ export default function StudentDashboard() {
 
                       const value = futureJustDrafts[key] ?? existing?.message ?? "";
                       const hasExistingJustification = Boolean(existing?.message?.trim());
-                      const canJustifyNow = e.status === "falta" || isFutureOrToday;
 
                       return (
                         <div key={e.sessionId} className="rounded-[2rem] border border-slate-100 bg-white p-5">
@@ -768,17 +864,15 @@ export default function StudentDashboard() {
                             <div className="flex flex-col gap-2 sm:items-end">
                               <Badge className={`rounded-full border-none font-black ${pill.className}`}>{pill.label}</Badge>
 
-                              {canJustifyNow && (
-                                <Button
-                                  type="button"
-                                  variant={hasExistingJustification ? "outline" : "default"}
-                                  className="rounded-2xl font-black"
-                                  onClick={() => openJustify(e)}
-                                >
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  {hasExistingJustification ? "Ver/editar justificativa" : "Justificar falta"}
-                                </Button>
-                              )}
+                              <Button
+                                type="button"
+                                variant={hasExistingJustification ? "outline" : "default"}
+                                className="rounded-2xl font-black"
+                                onClick={() => openJustify(e)}
+                              >
+                                <FileText className="h-4 w-4 mr-2" />
+                                {hasExistingJustification ? "Ver/editar justificativa" : "Justificar falta"}
+                              </Button>
 
                               {statusIcon(e.status) ? (
                                 <span className="text-xs font-bold text-slate-500">{statusIcon(e.status)}</span>
