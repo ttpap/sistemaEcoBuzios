@@ -38,12 +38,12 @@ const Classes = () => {
 
       const remote = await fetchClassesRemote(projectId);
       if (remote.length) {
-        // Cache para partes legadas do app
         writeScoped('classes', remote);
         setClasses(remote);
         return;
       }
 
+      showError("Nenhuma turma encontrada neste projeto (ou acesso bloqueado). Confira se você está alocado no projeto.");
       setClasses([]);
     };
 

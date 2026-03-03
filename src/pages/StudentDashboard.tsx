@@ -144,6 +144,19 @@ export default function StudentDashboard() {
   const localStudentId = useMemo(() => getStudentSessionStudentId(), []);
   const effectiveStudentId = profile?.student_id || localStudentId;
 
+  // DEBUG
+  useEffect(() => {
+    console.log("[StudentDashboard] auth", {
+      hasSession: Boolean(session),
+      userId: session?.user?.id,
+      role: profile?.role,
+      profileStudentId: profile?.student_id,
+      localStudentId,
+      effectiveStudentId,
+      projectId: getActiveProjectId(),
+    });
+  }, [session, profile?.role, profile?.student_id, localStudentId, effectiveStudentId]);
+
   const project = getActiveProject();
   const projectId = getActiveProjectId();
 
@@ -198,6 +211,11 @@ export default function StudentDashboard() {
         fetchAttendanceSessionsRemote(projectId),
         fetchStudentJustificationsRemote(projectId),
       ]);
+
+      console.log("[StudentDashboard] loaded", {
+        attendanceCount: remoteAttendance.length,
+        justificationsCount: remoteJust.length,
+      });
 
       setAttendanceSessions(remoteAttendance);
       setJustifications(remoteJust);
