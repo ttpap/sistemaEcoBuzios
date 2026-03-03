@@ -23,6 +23,7 @@ export default function StudentSidebar({
   ];
 
   const onLogout = async () => {
+    logoutStudent();
     await requireSupabase().auth.signOut();
     navigate("/login");
   };

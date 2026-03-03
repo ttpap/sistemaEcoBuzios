@@ -33,6 +33,7 @@ import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import type { AttendanceSession, AttendanceStatus } from "@/types/attendance";
 import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
+import { useNavigate } from "react-router-dom";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -132,6 +133,7 @@ type StudentDayEntry = {
 };
 
 export default function StudentDashboard() {
+  const navigate = useNavigate();
   const { session, profile } = useAuth();
 
   const localStudentId = useMemo(() => getStudentSessionStudentId(), []);
@@ -140,6 +142,13 @@ export default function StudentDashboard() {
   // sempre ler do storage atual
   const project = getActiveProject();
   const projectId = getActiveProjectId();
+
+  useEffect(() => {
+    // Se chegou aqui sem projeto ativo, manda para seleção.
+    if (!projectId) {
+      navigate("/aluno/selecionar-projeto", { replace: true });
+    }
+  }, [projectId, navigate]);
 
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
