@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showError } from '@/utils/toast';
 import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,6 +32,8 @@ import {
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
 } from '@/integrations/supabase/classes';
+import { readGlobalTeachers } from "@/utils/teachers";
+import { fetchTeachers } from "@/integrations/supabase/teachers";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -93,7 +95,19 @@ const ClassDetails = () => {
         setInfo(normalized.complementaryInfo || "");
       }
 
-      setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []));
+      // Professores: preferir Supabase (fonte da verdade). Se não houver, cair para storage.
+      try {
+        const remoteTeachers = await fetchTeachers();
+        if (remoteTeachers.length) {
+          setAllTeachers(remoteTeachers);
+        } else {
+          setAllTeachers(readScoped<TeacherRegistration[]>('teachers', []).length ? readScoped<TeacherRegistration[]>('teachers', []) : readGlobalTeachers([]));
+        }
+      } catch {
+        const scoped = readScoped<TeacherRegistration[]>('teachers', []);
+        setAllTeachers(scoped.length ? scoped : readGlobalTeachers([]));
+      }
+
       setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
     };
 
@@ -110,8 +124,8 @@ const ClassDetails = () => {
 
       try {
         await setClassTeacherIdsRemote(updatedClass.id, updatedClass.teacherIds || []);
-      } catch {
-        // ignore
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível salvar o vínculo do professor nesta turma.");
       }
     };
 
