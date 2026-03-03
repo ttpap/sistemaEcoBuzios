@@ -40,7 +40,29 @@
   * {
     @apply border-border;
   }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+@layer components {
+  /*
+   * Garante que modais (Dialog) e drawers (Sheet) tenham rolagem quando o conteúdo for maior
+   * que a altura disponível, evitando que partes da tela fiquem inacessíveis em telas pequenas.
+   */
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"] {
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
