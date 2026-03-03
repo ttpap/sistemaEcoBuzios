@@ -30,8 +30,11 @@ function getModeBStaffCreds(): { login: string; password: string } | null {
   return null;
 }
 
-export async function fetchClassesRemote(projectId: string): Promise<SchoolClass[]> {
-  if (!supabase) return [];
+export type FetchClassesIssue = "rpc_missing" | "not_allowed" | "unknown";
+export type FetchClassesResult = { classes: SchoolClass[]; issue?: FetchClassesIssue };
+
+export async function fetchClassesRemoteWithMeta(projectId: string): Promise<FetchClassesResult> {
+  if (!supabase) return { classes: [] };
 
   const { data, error } = await supabase
     .from("classes")
@@ -39,11 +42,11 @@ export async function fetchClassesRemote(projectId: string): Promise<SchoolClass
     .eq("project_id", projectId)
     .order("registration_date", { ascending: false });
 
-  if (!error && data) return data.map(mapRow);
+  if (!error && data) return { classes: data.map(mapRow) };
 
   // Fallback (modo B): usa RPC com login/senha quando RLS bloquear.
   const creds = getModeBStaffCreds();
-  if (!creds) return [];
+  if (!creds) return { classes: [] };
 
   const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_classes", {
     p_login: creds.login,
@@ -51,8 +54,24 @@ export async function fetchClassesRemote(projectId: string): Promise<SchoolClass
     p_project_id: projectId,
   });
 
-  if (rpcErr || !rpcData) return [];
-  return (rpcData as any[]).map(mapRow);
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (msg.includes("does not exist") || msg.includes("function") || msg.includes("mode_b_list_classes")) {
+      return { classes: [], issue: "rpc_missing" };
+    }
+    if (msg.includes("not_allowed")) {
+      return { classes: [], issue: "not_allowed" };
+    }
+    return { classes: [], issue: "unknown" };
+  }
+
+  if (!rpcData) return { classes: [] };
+  return { classes: (rpcData as any[]).map(mapRow) };
+}
+
+export async function fetchClassesRemote(projectId: string): Promise<SchoolClass[]> {
+  const res = await fetchClassesRemoteWithMeta(projectId);
+  return res.classes;
 }
 
 export async function fetchClassByIdRemote(classId: string): Promise<SchoolClass | null> {

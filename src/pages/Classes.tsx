@@ -12,7 +12,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
-import { deleteClassRemote, fetchClassesRemote } from '@/integrations/supabase/classes';
+import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/integrations/supabase/classes';
 import { ensureTeacherAuthForModeB, ensureCoordinatorAuthForModeB } from "@/utils/mode-b-staff";
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -38,10 +38,10 @@ const Classes = () => {
         // ignore
       }
 
-      const remote = await fetchClassesRemote(projectId);
-      if (remote.length) {
-        writeScoped('classes', remote);
-        setClasses(remote);
+      const res = await fetchClassesRemoteWithMeta(projectId);
+      if (res.classes.length) {
+        writeScoped('classes', res.classes);
+        setClasses(res.classes);
         return;
       }
 
@@ -55,6 +55,18 @@ const Classes = () => {
 
       if (base === "/coordenador" && !getCoordinatorSessionPassword()) {
         showError("Sua sessão do coordenador expirou. Saia e entre novamente para liberar o acesso às turmas.");
+        setClasses([]);
+        return;
+      }
+
+      if (res.issue === "rpc_missing") {
+        showError("O servidor ainda não foi atualizado com as permissões de turmas (RPC). Aplique a migração 0006 no Supabase e tente novamente.");
+        setClasses([]);
+        return;
+      }
+
+      if (res.issue === "not_allowed") {
+        showError("Acesso bloqueado: este professor/coordenador não está alocado neste projeto.");
         setClasses([]);
         return;
       }
