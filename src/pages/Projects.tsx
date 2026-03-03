@@ -33,10 +33,11 @@ import {
   migrateLegacyProjectDataToProjectIfNeeded,
   migrateLegacyStudentsToGlobalIfNeeded,
   setActiveProjectId,
+  clearActiveProjectId,
   updateProject,
   saveProjects,
 } from "@/utils/projects";
-import { fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
+import { deleteProjectRemote, fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
 import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 import { readGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
@@ -57,6 +58,7 @@ import {
   PieChart as PieChartIcon,
   Settings,
   KeyRound,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -242,6 +244,37 @@ export default function Projects() {
       showError(`Erro ao salvar no Supabase: ${e?.message || "erro"}`);
       return;
     }
+  };
+
+  const onDeleteProject = (p: Project) => {
+    const run = async () => {
+      const ok = window.confirm(
+        `Excluir o projeto "${p.name}"?\n\nIsso vai remover também as turmas, chamadas e justificativas deste projeto. Essa ação não pode ser desfeita.`,
+      );
+      if (!ok) return;
+
+      try {
+        await deleteProjectRemote(p.id);
+      } catch (e: any) {
+        showError(`Não foi possível excluir no Supabase: ${e?.message || "erro"}`);
+        return;
+      }
+
+      // Limpa caches locais vinculados ao projeto
+      localStorage.removeItem(getProjectScopedKey(p.id, "classes"));
+      localStorage.removeItem(getProjectScopedKey(p.id, "teachers"));
+      localStorage.removeItem(getProjectScopedKey(p.id, "attendance"));
+      invalidateProjectTheme(p.id);
+
+      if (getActiveProjectId() === p.id) {
+        clearActiveProjectId();
+      }
+
+      await refresh();
+      showSuccess("Projeto excluído.");
+    };
+
+    void run();
   };
 
   const onPickSystemLogo = (file: File | null) => {
@@ -759,7 +792,7 @@ export default function Projects() {
                               </div>
                             </button>
 
-                            <div className="p-4 pr-4 flex items-center">
+                            <div className="p-4 pr-4 flex items-center gap-2">
                               <Button
                                 type="button"
                                 variant="outline"
@@ -768,6 +801,16 @@ export default function Projects() {
                                 title="Editar projeto"
                               >
                                 <Pencil className="h-4 w-4 text-primary" />
+                              </Button>
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-11 w-11 rounded-2xl p-0 border-rose-200 bg-white hover:bg-rose-50"
+                                onClick={() => onDeleteProject(p)}
+                                title="Excluir projeto"
+                              >
+                                <Trash2 className="h-4 w-4 text-rose-600" />
                               </Button>
                             </div>
                           </div>
