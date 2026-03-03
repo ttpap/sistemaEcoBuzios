@@ -369,6 +369,14 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="turmas/:id"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <ClassDetails />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
                         path="professores"
                         element={
                           <CoordinatorActiveProjectGate>

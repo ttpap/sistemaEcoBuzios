@@ -32,7 +32,7 @@ import {
 } from "@/integrations/supabase/student-justifications";
 
 import { StudentRegistration } from "@/types/student";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
 import {
   CalendarDays,
@@ -298,7 +298,12 @@ export default function ClassAttendance({
         records: {},
       };
 
-      await upsertAttendanceSessionRemote(activeProjectId, session);
+      try {
+        await upsertAttendanceSessionRemote(activeProjectId, session);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível criar a chamada.");
+        return;
+      }
 
       const next = [session, ...sessions].sort((a, b) => {
         const byDate = b.date.localeCompare(a.date);
@@ -346,7 +351,13 @@ export default function ClassAttendance({
         records: { ...draftRecords },
       };
 
-      await upsertAttendanceSessionRemote(activeProjectId, next);
+      try {
+        await upsertAttendanceSessionRemote(activeProjectId, next);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível salvar a chamada.");
+        return;
+      }
+
       setSessions((prev) => prev.map((s) => (s.id === next.id ? next : s)));
       setIsDirty(false);
       showSuccess("Chamada salva com sucesso.");
@@ -360,17 +371,20 @@ export default function ClassAttendance({
       if (!activeProjectId) return;
       if (!deleteTarget) return;
 
-      await deleteAttendanceSessionRemote(deleteTarget.id);
+      try {
+        await deleteAttendanceSessionRemote(deleteTarget.id);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível remover a chamada.");
+        return;
+      }
 
-      const list = sessions.filter((s) => s.id !== deleteTarget.id);
-      setSessions(list);
-
+      setSessions((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
       setSelectedId((prev) => {
         if (prev !== deleteTarget.id) return prev;
-        return list[0]?.id || null;
+        const remaining = sessions.filter((s) => s.id !== deleteTarget.id);
+        return remaining[0]?.id || null;
       });
-
-      setDeleteTarget(null);
       showSuccess("Dia de chamada removido.");
     };
 

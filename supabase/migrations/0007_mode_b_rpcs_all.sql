@@ -295,6 +295,144 @@ END;
 $$;
 
 -- =====================
+-- Chamadas (attendance) — modo B (staff)
+-- =====================
+
+CREATE OR REPLACE FUNCTION public.mode_b_list_attendance_sessions(
+  p_login text,
+  p_password text,
+  p_project_id uuid,
+  p_class_id uuid
+)
+RETURNS TABLE(
+  id uuid,
+  class_id uuid,
+  date date,
+  created_at timestamptz,
+  finalized_at timestamptz,
+  student_ids uuid[],
+  records jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    s.id,
+    s.class_id,
+    s.date,
+    s.created_at,
+    s.finalized_at,
+    COALESCE(ss.student_ids, '{}'::uuid[]) AS student_ids,
+    COALESCE(rr.records, '{}'::jsonb) AS records
+  FROM public.attendance_sessions s
+  LEFT JOIN (
+    SELECT session_id, array_agg(student_id) AS student_ids
+    FROM public.attendance_session_students
+    GROUP BY session_id
+  ) ss ON ss.session_id = s.id
+  LEFT JOIN (
+    SELECT session_id, jsonb_object_agg(student_id::text, status::text) AS records
+    FROM public.attendance_records
+    GROUP BY session_id
+  ) rr ON rr.session_id = s.id
+  WHERE s.project_id = p_project_id
+    AND (p_class_id IS NULL OR s.class_id = p_class_id)
+  ORDER BY s.date DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mode_b_upsert_attendance_session(
+  p_login text,
+  p_password text,
+  p_project_id uuid,
+  p_id uuid,
+  p_class_id uuid,
+  p_date date,
+  p_created_at timestamptz,
+  p_finalized_at timestamptz,
+  p_student_ids uuid[],
+  p_records jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  k text;
+  v text;
+BEGIN
+  IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  INSERT INTO public.attendance_sessions (id, project_id, class_id, date, created_at, finalized_at)
+  VALUES (p_id, p_project_id, p_class_id, p_date, COALESCE(p_created_at, now()), p_finalized_at)
+  ON CONFLICT (id) DO UPDATE SET
+    class_id = EXCLUDED.class_id,
+    date = EXCLUDED.date,
+    created_at = EXCLUDED.created_at,
+    finalized_at = EXCLUDED.finalized_at;
+
+  -- Snapshot students
+  DELETE FROM public.attendance_session_students WHERE session_id = p_id;
+  IF p_student_ids IS NOT NULL AND array_length(p_student_ids, 1) > 0 THEN
+    INSERT INTO public.attendance_session_students (session_id, student_id)
+    SELECT p_id, unnest(p_student_ids);
+  END IF;
+
+  -- Records
+  DELETE FROM public.attendance_records WHERE session_id = p_id;
+  IF p_records IS NOT NULL AND jsonb_typeof(p_records) = 'object' THEN
+    FOR k, v IN SELECT * FROM jsonb_each_text(p_records)
+    LOOP
+      -- v deve ser um dos valores do enum attendance_status
+      INSERT INTO public.attendance_records (session_id, student_id, status)
+      VALUES (p_id, k::uuid, v::public.attendance_status);
+    END LOOP;
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mode_b_delete_attendance_session(
+  p_login text,
+  p_password text,
+  p_session_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  pid uuid;
+BEGIN
+  SELECT s.project_id INTO pid
+  FROM public.attendance_sessions s
+  WHERE s.id = p_session_id;
+
+  IF pid IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF NOT public.mode_b_staff_can_access_project(p_login, p_password, pid) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  DELETE FROM public.attendance_records WHERE session_id = p_session_id;
+  DELETE FROM public.attendance_session_students WHERE session_id = p_session_id;
+  DELETE FROM public.attendance_sessions WHERE id = p_session_id;
+END;
+$$;
+
+-- =====================
 -- Calendário/Justificativas (modo B)
 -- =====================
 CREATE OR REPLACE FUNCTION public.mode_b_student_month_schedule(
@@ -440,6 +578,10 @@ GRANT EXECUTE ON FUNCTION public.mode_b_staff_can_access_project(text, text, uui
 GRANT EXECUTE ON FUNCTION public.mode_b_list_classes(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_upsert_class(text, text, uuid, uuid, text, text, text, text, int, int, timestamptz, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_delete_class(text, text, uuid) TO anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.mode_b_list_attendance_sessions(text, text, uuid, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_upsert_attendance_session(text, text, uuid, uuid, uuid, date, timestamptz, timestamptz, uuid[], jsonb) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_delete_attendance_session(text, text, uuid) TO anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.mode_b_student_month_schedule(uuid, uuid, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_set_student_justification(uuid, uuid, uuid, date, text) TO anon, authenticated;
