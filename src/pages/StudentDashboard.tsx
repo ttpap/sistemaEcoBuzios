@@ -45,8 +45,9 @@ import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendanc
 import type { StudentJustification } from "@/integrations/supabase/student-justifications";
 import {
   fetchStudentJustificationsRemote,
-  upsertStudentJustificationRemote,
 } from "@/integrations/supabase/student-justifications";
+
+import { setModeBStudentJustification } from "@/integrations/supabase/mode-b";
 
 import { showError, showSuccess } from "@/utils/toast";
 
@@ -304,6 +305,13 @@ export default function StudentDashboard() {
 
   const dayStatusByYmd = useMemo(() => {
     const map = new Map<string, DayStatus>();
+
+    const justKey = (classId: string, ymd: string) => `${classId}:${ymd}`;
+    const justSet = new Set<string>();
+    for (const j of justifications) {
+      justSet.add(justKey(j.classId, j.date));
+    }
+
     for (const [ymd, arr] of entriesByDate) {
       if (selectedMonthKey && !ymd.startsWith(selectedMonthKey)) continue;
 
@@ -312,6 +320,7 @@ export default function StudentDashboard() {
       let hasLate = false;
       let hasPresent = false;
       let hasScheduled = false;
+      let hasStudentJustification = false;
 
       for (const e of arr) {
         if (e.status === "falta") hasAbsent = true;
@@ -319,17 +328,23 @@ export default function StudentDashboard() {
         else if (e.status === "atrasado") hasLate = true;
         else if (e.status === "presente") hasPresent = true;
         else if (e.isScheduled) hasScheduled = true;
+
+        if (justSet.has(justKey(e.classId, e.ymd))) {
+          hasStudentJustification = true;
+        }
       }
 
-      if (hasAbsent) map.set(ymd, "absent");
-      else if (hasJustified) map.set(ymd, "justified");
+      // Se o aluno enviou justificativa, marcamos o dia como "justified" no calendário
+      // (mesmo que o professor ainda não tenha alterado o status para 'justificada').
+      if (hasJustified || hasStudentJustification) map.set(ymd, "justified");
+      else if (hasAbsent) map.set(ymd, "absent");
       else if (hasLate) map.set(ymd, "late");
       else if (hasPresent) map.set(ymd, "present");
       else if (hasScheduled) map.set(ymd, "scheduled");
     }
 
     return map;
-  }, [entriesByDate, selectedMonthKey]);
+  }, [entriesByDate, selectedMonthKey, justifications]);
 
   const calendarModifiers = useMemo(() => {
     const scheduled: Date[] = [];
@@ -376,35 +391,40 @@ export default function StudentDashboard() {
     if (!justifyTarget) return;
 
     const now = new Date().toISOString();
-    const existing =
-      justifications.find(
-        (j) =>
-          j.projectId === currentProjectId &&
-          j.classId === justifyTarget.classId &&
-          j.date === justifyTarget.ymd &&
-          j.studentId === effectiveStudentId,
-      ) || null;
 
-    const next: StudentJustification = {
-      id: existing?.id || crypto.randomUUID(),
-      projectId: currentProjectId,
-      classId: justifyTarget.classId,
-      studentId: effectiveStudentId,
-      date: justifyTarget.ymd,
-      message: justifyText.trim(),
-      createdAt: existing?.createdAt || now,
-    };
+    const message = justifyText.trim();
+    if (!message) {
+      showError("Escreva uma justificativa antes de salvar.");
+      return;
+    }
 
+    let id: string;
     try {
-      await upsertStudentJustificationRemote(next);
+      id = await setModeBStudentJustification({
+        projectId: currentProjectId,
+        classId: justifyTarget.classId,
+        studentId: effectiveStudentId,
+        ymd: justifyTarget.ymd,
+        message,
+      });
     } catch (e: any) {
       showError(e?.message || "Não foi possível salvar a justificativa.");
       return;
     }
 
+    const next: StudentJustification = {
+      id,
+      projectId: currentProjectId,
+      classId: justifyTarget.classId,
+      studentId: effectiveStudentId,
+      date: justifyTarget.ymd,
+      message,
+      createdAt: now,
+    };
+
     setJustifications((prev) => [next, ...prev.filter((j) => j.id !== next.id)]);
     setJustifyOpen(false);
-    showSuccess("Justificativa salva.");
+    showSuccess("Justificativa enviada.");
   };
 
   const saveFutureJustification = async (entry: StudentDayEntry) => {
@@ -415,35 +435,39 @@ export default function StudentDashboard() {
     const key = `${entry.classId}:${entry.ymd}`;
     const message = (futureJustDrafts[key] || "").trim();
 
+    if (!message) {
+      showError("Escreva uma justificativa antes de salvar.");
+      return;
+    }
+
     const now = new Date().toISOString();
-    const existing =
-      justifications.find(
-        (j) =>
-          j.projectId === currentProjectId &&
-          j.classId === entry.classId &&
-          j.date === entry.ymd &&
-          j.studentId === effectiveStudentId,
-      ) || null;
 
-    const next: StudentJustification = {
-      id: existing?.id || crypto.randomUUID(),
-      projectId: currentProjectId,
-      classId: entry.classId,
-      studentId: effectiveStudentId,
-      date: entry.ymd,
-      message,
-      createdAt: existing?.createdAt || now,
-    };
-
+    let id: string;
     try {
-      await upsertStudentJustificationRemote(next);
+      id = await setModeBStudentJustification({
+        projectId: currentProjectId,
+        classId: entry.classId,
+        studentId: effectiveStudentId,
+        ymd: entry.ymd,
+        message,
+      });
     } catch (e: any) {
       showError(e?.message || "Não foi possível salvar a justificativa.");
       return;
     }
 
+    const next: StudentJustification = {
+      id,
+      projectId: currentProjectId,
+      classId: entry.classId,
+      studentId: effectiveStudentId,
+      date: entry.ymd,
+      message,
+      createdAt: now,
+    };
+
     setJustifications((prev) => [next, ...prev.filter((j) => j.id !== next.id)]);
-    showSuccess("Justificativa salva.");
+    showSuccess("Justificativa enviada.");
   };
 
   if (!student) {
@@ -673,6 +697,8 @@ export default function StudentDashboard() {
                       const isFutureOrToday = e.ymd >= todayYmd;
 
                       const value = futureJustDrafts[key] ?? existing?.message ?? "";
+                      const hasExistingJustification = Boolean(existing?.message?.trim());
+                      const canJustifyNow = e.status === "falta" || isFutureOrToday;
 
                       return (
                         <div key={e.sessionId} className="rounded-[2rem] border border-slate-100 bg-white p-5">
@@ -699,14 +725,14 @@ export default function StudentDashboard() {
                               {isFutureOrToday ? (
                                 <div className="mt-4 rounded-[2rem] border border-slate-100 bg-slate-50/60 p-4">
                                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Justificativa antecipada (visível para professor, coordenação e admin)
+                                    Justificativa (para hoje ou datas futuras)
                                   </p>
                                   <Textarea
                                     value={value}
                                     onChange={(ev) =>
                                       setFutureJustDrafts((prev) => ({ ...prev, [key]: ev.target.value }))
                                     }
-                                    placeholder="Escreva aqui se você já sabe que vai faltar..."
+                                    placeholder="Escreva aqui se você vai faltar / faltou hoje..."
                                     className="mt-3 min-h-[120px] rounded-[1.5rem] bg-white"
                                   />
                                   <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:justify-end">
@@ -723,17 +749,17 @@ export default function StudentDashboard() {
                                       className="rounded-2xl font-black"
                                       onClick={() => saveFutureJustification(e)}
                                     >
-                                      Salvar justificativa
+                                      Enviar justificativa
                                     </Button>
                                   </div>
                                 </div>
-                              ) : existing ? (
+                              ) : hasExistingJustification ? (
                                 <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                                    Sua justificativa
+                                    Sua justificativa enviada
                                   </p>
                                   <p className="mt-2 text-sm font-bold text-slate-700 whitespace-pre-wrap">
-                                    {existing.message}
+                                    {existing!.message}
                                   </p>
                                 </div>
                               ) : null}
@@ -742,14 +768,17 @@ export default function StudentDashboard() {
                             <div className="flex flex-col gap-2 sm:items-end">
                               <Badge className={`rounded-full border-none font-black ${pill.className}`}>{pill.label}</Badge>
 
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="rounded-2xl font-black"
-                                onClick={() => openJustify(e)}
-                              >
-                                <FileText className="h-4 w-4 mr-2" /> Abrir justificativa
-                              </Button>
+                              {canJustifyNow && (
+                                <Button
+                                  type="button"
+                                  variant={hasExistingJustification ? "outline" : "default"}
+                                  className="rounded-2xl font-black"
+                                  onClick={() => openJustify(e)}
+                                >
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  {hasExistingJustification ? "Ver/editar justificativa" : "Justificar falta"}
+                                </Button>
+                              )}
 
                               {statusIcon(e.status) ? (
                                 <span className="text-xs font-bold text-slate-500">{statusIcon(e.status)}</span>
