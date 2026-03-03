@@ -5,6 +5,7 @@
 -- - Login de aluno (mode_b_login_student)
 -- - Permissões/CRUD de turmas para staff (mode_b_*_class*)
 -- - Matrícula/remoção de alunos em turmas (mode_b_*_enrollment*)
+-- - Listagem de alunos (modo B) para não depender de SELECT/RLS
 -- - Calendário/justificativas do aluno (mode_b_student_month_schedule / mode_b_set_student_justification)
 --
 -- Este SQL é idempotente (CREATE OR REPLACE / DO ... duplicate_object), podendo ser colado no SQL Editor.
@@ -549,6 +550,57 @@ END;
 $$;
 
 -- =====================
+-- Alunos (modo B)
+-- =====================
+
+CREATE OR REPLACE FUNCTION public.mode_b_list_students(
+  p_login text,
+  p_password text,
+  p_project_id uuid
+)
+RETURNS SETOF public.students
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  RETURN QUERY
+    SELECT *
+    FROM public.students s
+    ORDER BY s.registration_date DESC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.mode_b_list_class_students(
+  p_login text,
+  p_password text,
+  p_class_id uuid
+)
+RETURNS SETOF public.students
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NOT public.mode_b_staff_can_manage_class(p_login, p_password, p_class_id) THEN
+    RAISE EXCEPTION 'not_allowed';
+  END IF;
+
+  RETURN QUERY
+    SELECT s.*
+    FROM public.class_student_enrollments e
+    JOIN public.students s ON s.id = e.student_id
+    WHERE e.class_id = p_class_id
+      AND e.removed_at IS NULL
+    ORDER BY s.full_name ASC;
+END;
+$$;
+
+-- =====================
 -- Chamadas (attendance) — modo B (staff)
 -- =====================
 
@@ -842,6 +894,9 @@ GRANT EXECUTE ON FUNCTION public.mode_b_delete_class(text, text, uuid) TO anon, 
 GRANT EXECUTE ON FUNCTION public.mode_b_list_class_enrollments(text, text, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_enroll_student(text, text, uuid, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_remove_student_enrollment(text, text, uuid, uuid) TO anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.mode_b_list_students(text, text, uuid) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mode_b_list_class_students(text, text, uuid) TO anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.mode_b_list_attendance_sessions(text, text, uuid, uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.mode_b_upsert_attendance_session(text, text, uuid, uuid, uuid, date, timestamptz, timestamptz, uuid[], jsonb) TO anon, authenticated;

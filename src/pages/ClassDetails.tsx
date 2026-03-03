@@ -24,6 +24,7 @@ import ClassAttendance from '@/components/ClassAttendance';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
+import { getActiveProjectId } from '@/utils/projects';
 import {
   enrollStudentRemote,
   fetchClassTeacherIdsRemote,
@@ -33,6 +34,7 @@ import {
 } from '@/integrations/supabase/classes';
 import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchStudentsRemote } from "@/integrations/supabase/students";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -125,6 +127,20 @@ const ClassDetails = () => {
       } catch {
         const scoped = readScoped<TeacherRegistration[]>('teachers', []);
         setAllTeachers(scoped.length ? scoped : readGlobalTeachers([]));
+      }
+
+      // Alunos: no professor, buscar do Supabase (com fallback modo B) para não depender do storage local.
+      const projectId = getActiveProjectId();
+      if (projectId) {
+        try {
+          const remoteStudents = await fetchStudentsRemote(projectId);
+          if (remoteStudents.length) {
+            setAllStudents(remoteStudents);
+            return;
+          }
+        } catch {
+          // fallback abaixo
+        }
       }
 
       setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
