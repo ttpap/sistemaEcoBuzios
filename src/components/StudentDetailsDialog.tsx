@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Camera,
@@ -83,7 +82,7 @@ const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
       {label}
     </p>
-    <div className="mt-1 text-sm font-bold text-slate-700">{value ?? "---"}</div>
+    <div className="mt-1 text-sm font-bold text-slate-700 break-words">{value ?? "---"}</div>
   </div>
 );
 
@@ -149,8 +148,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   <User className="h-10 w-10 text-white/50" />
                 )}
               </div>
-              <div className="space-y-2">
-                <DialogTitle className="text-2xl font-black tracking-tight">
+              <div className="space-y-2 min-w-0">
+                <DialogTitle className="text-2xl font-black tracking-tight truncate">
                   {student.fullName}
                 </DialogTitle>
                 <div className="flex flex-wrap items-center gap-2">
@@ -187,8 +186,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
+        <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
+          <div className="min-w-[720px] md:min-w-0 p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
             <Tabs defaultValue="pessoais" className="w-full">
               <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">
@@ -465,7 +464,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
               </TabsContent>
             </Tabs>
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
