@@ -65,7 +65,6 @@ export default function TeacherSidebar({
   const menuItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
-      { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },

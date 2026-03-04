@@ -64,7 +64,6 @@ export default function CoordinatorSidebar({
   const menuItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/coordenador" },
-      { icon: GraduationCap, label: "Alunos", path: "/coordenador/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/coordenador/turmas" },
       { icon: UserCog, label: "Professores", path: "/coordenador/professores" },
       { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
