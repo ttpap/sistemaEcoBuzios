@@ -18,14 +18,16 @@ function mapRow(row: any): SchoolClass {
   };
 }
 
-function getModeBStaffCreds(): { login: string; password: string } | null {
+type ModeBStaffSession = { role: "teacher" | "coordinator"; login: string; password: string };
+
+function getModeBStaffSession(): ModeBStaffSession | null {
   const tLogin = getTeacherSessionLogin();
   const tPw = getTeacherSessionPassword();
-  if (tLogin && tPw) return { login: tLogin, password: tPw };
+  if (tLogin && tPw) return { role: "teacher", login: tLogin, password: tPw };
 
   const cLogin = getCoordinatorSessionLogin();
   const cPw = getCoordinatorSessionPassword();
-  if (cLogin && cPw) return { login: cLogin, password: cPw };
+  if (cLogin && cPw) return { role: "coordinator", login: cLogin, password: cPw };
 
   return null;
 }
@@ -62,13 +64,13 @@ async function selectClassesByProject(projectId: string): Promise<SchoolClass[]>
 export async function fetchClassesRemoteWithMeta(projectId: string): Promise<FetchClassesResult> {
   if (!supabase) return { classes: [] };
 
-  const creds = getModeBStaffCreds();
+  const staff = getModeBStaffSession();
 
   // Modo B (professor/coordenador): tenta RPC primeiro.
-  if (creds) {
+  if (staff) {
     const { data: canAccess, error: canErr } = await supabase.rpc("mode_b_staff_can_access_project", {
-      p_login: creds.login,
-      p_password: creds.password,
+      p_login: staff.login,
+      p_password: staff.password,
       p_project_id: projectId,
     });
 
@@ -85,9 +87,12 @@ export async function fetchClassesRemoteWithMeta(projectId: string): Promise<Fet
       return { classes: [], issue: "not_allowed" };
     }
 
-    const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_my_classes", {
-      p_login: creds.login,
-      p_password: creds.password,
+    // Coordenador: deve enxergar as turmas do projeto (não depende de class_teachers)
+    const rpcName = staff.role === "coordinator" ? "mode_b_list_classes" : "mode_b_list_my_classes";
+
+    const { data: rpcData, error: rpcErr } = await supabase.rpc(rpcName as any, {
+      p_login: staff.login,
+      p_password: staff.password,
       p_project_id: projectId,
     });
 
@@ -145,8 +150,8 @@ export async function fetchProjectEnrollmentsRemoteWithMeta(projectId: string): 
   }
 
   // 2) Fallback (modo B) — via RPC do 0007
-  const creds = getModeBStaffCreds();
-  if (!creds) {
+  const staff = getModeBStaffSession();
+  if (!staff) {
     return {
       enrollments: Array.isArray(data)
         ? (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id }))
@@ -155,8 +160,8 @@ export async function fetchProjectEnrollmentsRemoteWithMeta(projectId: string): 
   }
 
   const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_project_enrollments", {
-    p_login: creds.login,
-    p_password: creds.password,
+    p_login: staff.login,
+    p_password: staff.password,
     p_project_id: projectId,
   });
 
@@ -198,12 +203,12 @@ export async function upsertClassRemote(projectId: string, input: SchoolClass) {
   if (!error) return;
 
   // Fallback (modo B)
-  const creds = getModeBStaffCreds();
-  if (!creds) throw error;
+  const staff = getModeBStaffSession();
+  if (!staff) throw error;
 
   const { error: rpcErr } = await supabase.rpc("mode_b_upsert_class", {
-    p_login: creds.login,
-    p_password: creds.password,
+    p_login: staff.login,
+    p_password: staff.password,
     p_project_id: projectId,
     p_id: input.id,
     p_name: input.name,
@@ -226,12 +231,12 @@ export async function deleteClassRemote(classId: string) {
   const { error } = await supabase.from("classes").delete().eq("id", classId);
   if (!error) return;
 
-  const creds = getModeBStaffCreds();
-  if (!creds) throw error;
+  const staff = getModeBStaffSession();
+  if (!staff) throw error;
 
   const { error: rpcErr } = await supabase.rpc("mode_b_delete_class", {
-    p_login: creds.login,
-    p_password: creds.password,
+    p_login: staff.login,
+    p_password: staff.password,
     p_class_id: classId,
   });
 
@@ -274,7 +279,7 @@ export async function setClassTeacherIdsRemote(classId: string, teacherIds: stri
 export async function fetchEnrollmentsRemoteWithMeta(classId: string): Promise<FetchEnrollmentsResult> {
   if (!supabase) return { enrollments: [] };
 
-  const creds = getModeBStaffCreds();
+  const staff = getModeBStaffSession();
 
   // 1) Tentativa normal
   const { data, error } = await supabase
@@ -284,19 +289,19 @@ export async function fetchEnrollmentsRemoteWithMeta(classId: string): Promise<F
 
   if (!error && data) {
     // Aqui, lista vazia pode ser real OU RLS. Se não estivermos no modo B, retornamos como está.
-    if (!creds) return { enrollments: data as ClassStudentEnrollmentRow[] };
+    if (!staff) return { enrollments: data as ClassStudentEnrollmentRow[] };
 
     // Se veio preenchido, é confiável.
     if (data.length > 0) return { enrollments: data as ClassStudentEnrollmentRow[] };
   }
 
   // 2) Fallback (modo B) — tenta listar via RPC
-  if (!creds) return { enrollments: [] };
+  if (!staff) return { enrollments: [] };
 
   // Confirma se o staff pode gerenciar a turma.
   const { data: canManage, error: canErr } = await supabase.rpc("mode_b_staff_can_manage_class", {
-    p_login: creds.login,
-    p_password: creds.password,
+    p_login: staff.login,
+    p_password: staff.password,
     p_class_id: classId,
   });
 
@@ -311,8 +316,8 @@ export async function fetchEnrollmentsRemoteWithMeta(classId: string): Promise<F
   }
 
   const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_class_enrollments", {
-    p_login: creds.login,
-    p_password: creds.password,
+    p_login: staff.login,
+    p_password: staff.password,
     p_class_id: classId,
   });
 
@@ -363,12 +368,12 @@ export async function enrollStudentRemote(classId: string, studentId: string) {
     if (error) throw error;
     return;
   } catch (e) {
-    const creds = getModeBStaffCreds();
-    if (!creds) throw e;
+    const staff = getModeBStaffSession();
+    if (!staff) throw e;
 
     const { error: rpcErr } = await supabase.rpc("mode_b_enroll_student", {
-      p_login: creds.login,
-      p_password: creds.password,
+      p_login: staff.login,
+      p_password: staff.password,
       p_class_id: classId,
       p_student_id: studentId,
     });
@@ -390,12 +395,12 @@ export async function removeStudentEnrollmentRemote(classId: string, studentId: 
     if (error) throw error;
     return;
   } catch (e) {
-    const creds = getModeBStaffCreds();
-    if (!creds) throw e;
+    const staff = getModeBStaffSession();
+    if (!staff) throw e;
 
     const { error: rpcErr } = await supabase.rpc("mode_b_remove_student_enrollment", {
-      p_login: creds.login,
-      p_password: creds.password,
+      p_login: staff.login,
+      p_password: staff.password,
       p_class_id: classId,
       p_student_id: studentId,
     });
