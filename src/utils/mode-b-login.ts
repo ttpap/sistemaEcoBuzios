@@ -20,6 +20,8 @@ function clearModeBSessions() {
   localStorage.removeItem("ecobuzios_student_session");
   sessionStorage.removeItem("ecobuzios_teacher_password");
   sessionStorage.removeItem("ecobuzios_coordinator_password");
+  localStorage.removeItem("ecobuzios_teacher_password");
+  localStorage.removeItem("ecobuzios_coordinator_password");
 }
 
 export async function modeBLogin(input: {
@@ -61,6 +63,7 @@ export async function modeBLogin(input: {
 
     if (role === "teacher") {
       sessionStorage.setItem("ecobuzios_teacher_password", passwordRaw);
+      localStorage.setItem("ecobuzios_teacher_password", passwordRaw);
       localStorage.setItem(
         "ecobuzios_teacher_session",
         JSON.stringify({ teacherId: personId, projectIds, login: loginRaw }),
@@ -92,6 +95,7 @@ export async function modeBLogin(input: {
 
     if (role === "coordinator") {
       sessionStorage.setItem("ecobuzios_coordinator_password", passwordRaw);
+      localStorage.setItem("ecobuzios_coordinator_password", passwordRaw);
       localStorage.setItem(
         "ecobuzios_coordinator_session",
         JSON.stringify({ coordinatorId: personId, projectIds, login: loginRaw }),

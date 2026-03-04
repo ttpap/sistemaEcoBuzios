@@ -58,11 +58,12 @@ export function getTeacherSessionProjectIds(): string[] {
 }
 
 export function getTeacherSessionPassword(): string | null {
-  return sessionStorage.getItem(TEACHER_PASSWORD_KEY);
+  return sessionStorage.getItem(TEACHER_PASSWORD_KEY) || localStorage.getItem(TEACHER_PASSWORD_KEY);
 }
 
 export function setTeacherSessionPassword(password: string) {
   sessionStorage.setItem(TEACHER_PASSWORD_KEY, password);
+  localStorage.setItem(TEACHER_PASSWORD_KEY, password);
 }
 
 export function setTeacherSessionProjectId(projectId: string) {
@@ -127,4 +128,5 @@ export async function loginTeacher(input: { login: string; password: string }): 
 export function logoutTeacher() {
   localStorage.removeItem(TEACHER_SESSION_KEY);
   sessionStorage.removeItem(TEACHER_PASSWORD_KEY);
+  localStorage.removeItem(TEACHER_PASSWORD_KEY);
 }

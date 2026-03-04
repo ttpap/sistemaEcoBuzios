@@ -376,11 +376,48 @@ const StudentForm = ({
 
       if (!supabase) return;
 
-      // Se não tiver sessão Supabase Auth, tenta RPC do Modo B (professor/coordenador) antes de cair na Edge Function.
+      // Se não tiver sessão Supabase Auth, tenta RPC do Modo B (professor/coordenador).
+      // Em EDIÇÃO, nunca cai na Edge Function (ela pode não estar disponível em produção).
       if (!session) {
         const creds = getModeBStaffCreds();
         const projectId = getActiveProjectId();
 
+        if (initialData) {
+          if (!projectId) {
+            throw new Error("Nenhum projeto ativo. Selecione um projeto e tente novamente.");
+          }
+          if (!creds) {
+            throw new Error(
+              "Sua sessão do Professor/Coordenador expirou. Faça login novamente (Modo B) e tente salvar de novo.",
+            );
+          }
+
+          const { error: rpcErr } = await supabase.rpc("mode_b_upsert_student", {
+            p_login: creds.login,
+            p_password: creds.password,
+            p_project_id: projectId,
+            p_row: row as any,
+          });
+
+          if (rpcErr) {
+            const msgLower = String(rpcErr.message || "").toLowerCase();
+            const looksMissing =
+              msgLower.includes("does not exist") ||
+              (msgLower.includes("function") && msgLower.includes("mode_b_upsert_student"));
+
+            if (looksMissing) {
+              throw new Error(
+                "O banco ainda não tem a função mode_b_upsert_student (SQL do Modo B). Após aplicar o SQL no Supabase, tente novamente.",
+              );
+            }
+
+            throw rpcErr;
+          }
+
+          return;
+        }
+
+        // Cadastro novo (sem sessão): tenta RPC do Modo B quando possível; caso não exista no banco, cai no fluxo antigo.
         if (creds && projectId) {
           const { error: rpcErr } = await supabase.rpc("mode_b_upsert_student", {
             p_login: creds.login,
@@ -395,19 +432,8 @@ const StudentForm = ({
           const looksMissing =
             msgLower.includes("does not exist") ||
             (msgLower.includes("function") && msgLower.includes("mode_b_upsert_student"));
-
-          // Em edição, NÃO cai na Edge Function (que costuma falhar em ambientes sem deploy).
-          if (initialData) {
-            if (looksMissing) {
-              throw new Error(
-                "O banco ainda não tem a função mode_b_upsert_student. É preciso aplicar o SQL do Modo B (migrations) no Supabase para permitir editar/altera aluno sem sessão."
-              );
-            }
-            throw rpcErr;
-          }
-
-          // Se for cadastro novo e a RPC não existir no banco, cai no fluxo antigo abaixo.
           if (!looksMissing) throw rpcErr;
+          // se a RPC não existir no banco, cai no fluxo antigo abaixo.
         }
 
         const { error } = await supabase.functions.invoke("public-student-signup", { body: row });

@@ -80,11 +80,12 @@ export function isCoordinatorLoggedIn() {
 }
 
 export function getCoordinatorSessionPassword(): string | null {
-  return sessionStorage.getItem(COORDINATOR_PASSWORD_KEY);
+  return sessionStorage.getItem(COORDINATOR_PASSWORD_KEY) || localStorage.getItem(COORDINATOR_PASSWORD_KEY);
 }
 
 export function setCoordinatorSessionPassword(password: string) {
   sessionStorage.setItem(COORDINATOR_PASSWORD_KEY, password);
+  localStorage.setItem(COORDINATOR_PASSWORD_KEY, password);
 }
 
 type StaffLoginRow = { role: string; person_id: string; project_ids: string[] | null };
@@ -127,4 +128,5 @@ export async function loginCoordinator(input: { login: string; password: string 
 export function logoutCoordinator() {
   localStorage.removeItem(COORDINATOR_SESSION_KEY);
   sessionStorage.removeItem(COORDINATOR_PASSWORD_KEY);
+  localStorage.removeItem(COORDINATOR_PASSWORD_KEY);
 }
