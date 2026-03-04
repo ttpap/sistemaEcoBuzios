@@ -23,7 +23,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { getActiveProject } from "@/utils/projects";
+import { getActiveProject, getActiveProjectId } from "@/utils/projects";
+
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
@@ -118,7 +119,7 @@ export default function MonthlyReports() {
   );
 
   const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
-  const projectId = activeProject?.id || null;
+  const projectId = activeProject?.id || getActiveProjectId() || null;
 
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
