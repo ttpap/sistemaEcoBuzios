@@ -8,13 +8,13 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { getActiveProjectId } from '@/utils/projects';
 import { fetchClassByIdRemote } from '@/integrations/supabase/classes';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const EditClass = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
-  const base = isTeacherArea ? '/professor' : '';
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
 
@@ -48,9 +48,9 @@ const EditClass = () => {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
           onClick={() => navigate(`${base}/turmas`)}
         >

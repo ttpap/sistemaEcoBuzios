@@ -5,19 +5,19 @@ import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const NewClass = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
-  const base = isTeacherArea ? '/professor' : '';
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
           onClick={() => navigate(`${base}/turmas`)}
         >

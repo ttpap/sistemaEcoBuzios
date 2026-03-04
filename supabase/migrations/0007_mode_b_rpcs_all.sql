@@ -319,7 +319,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Coordenador (vê todas as turmas do projeto)
+  -- Coordenador (mesma lógica do professor: só turmas em que está vinculado como professor)
   SELECT id INTO c_id
   FROM public.coordinators
   WHERE auth_login = trim(p_login)
@@ -336,10 +336,14 @@ BEGIN
       RETURN;
     END IF;
 
+    -- Sem tabela de vínculo coordenador->turma, adotamos a mesma regra do professor:
+    -- o coordenador só vê turmas onde ele está explicitamente vinculado via class_teachers.
     RETURN QUERY
-      SELECT *
+      SELECT c.*
       FROM public.classes c
+      JOIN public.class_teachers ct ON ct.class_id = c.id
       WHERE c.project_id = p_project_id
+        AND ct.teacher_id = c_id
       ORDER BY c.registration_date DESC;
     RETURN;
   END IF;

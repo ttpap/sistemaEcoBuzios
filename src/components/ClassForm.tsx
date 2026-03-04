@@ -4,8 +4,8 @@ import React, { useMemo } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { 
-  BookOpen, Clock, Users, AlertCircle, Save, ArrowLeft
+import {
+  BookOpen, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import { getActiveProjectId } from '@/utils/projects';
 import { upsertClassRemote } from '@/integrations/supabase/classes';
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const formSchema = z.object({
   name: z.string().min(2, "Nome da turma é obrigatório"),
@@ -37,9 +38,8 @@ interface ClassFormProps {
 const ClassForm = ({ initialData }: ClassFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isTeacherArea = useMemo(() => location.pathname.startsWith('/professor'), [location.pathname]);
-  const base = isTeacherArea ? '/professor' : '';
-  
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: initialData ? {
@@ -135,7 +135,9 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
               <div className="bg-primary/10 p-3 rounded-2xl">
                 <BookOpen className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-xl font-black text-primary uppercase tracking-tight">Adicionar Turma</h3>
+              <h3 className="text-xl font-black text-primary uppercase tracking-tight">
+                {initialData ? "Editar Turma" : "Adicionar Turma"}
+              </h3>
             </div>
 
             <div className="space-y-8">

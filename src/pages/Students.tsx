@@ -221,7 +221,7 @@ const Students = () => {
     // Admin vê todos os alunos
     if (profile?.role === 'admin') return students;
 
-    // Professor/Coordenador: dentro do projeto, só aparecem alunos vinculados a turmas do projeto
+    // Professor/Coordenador: só alunos das turmas listadas para este perfil (classes já vêm filtradas no modo B)
     return students.filter((s) => allowedStudentIds.has(s.id));
   }, [students, allowedStudentIds, profile?.role]);
 
@@ -249,14 +249,16 @@ const Students = () => {
           <p className="text-slate-500 font-medium">Cadastros e fichas de inscrição.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            className="rounded-2xl gap-2 h-12 px-5 font-black border-slate-200 bg-white hover:bg-slate-50"
-            onClick={seedTestStudents}
-          >
-            <Sparkles className="h-5 w-5 text-secondary" />
-            Criar 10 alunos (teste)
-          </Button>
+          {profile?.role === 'admin' && (
+            <Button
+              variant="outline"
+              className="rounded-2xl gap-2 h-12 px-5 font-black border-slate-200 bg-white hover:bg-slate-50"
+              onClick={seedTestStudents}
+            >
+              <Sparkles className="h-5 w-5 text-secondary" />
+              Criar 10 alunos (teste)
+            </Button>
+          )}
           <Button
             className="rounded-2xl gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20"
             onClick={() => navigate(`${base}/alunos/novo`) }

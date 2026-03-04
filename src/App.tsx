@@ -361,10 +361,42 @@ const App = () => (
                         }
                       />
                       <Route
+                        path="alunos/novo"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <NewStudent />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="alunos/editar/:id"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <EditStudent />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
                         path="turmas"
                         element={
                           <CoordinatorActiveProjectGate>
                             <Classes />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/nova"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <NewClass />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="turmas/editar/:id"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <EditClass />
                           </CoordinatorActiveProjectGate>
                         }
                       />
