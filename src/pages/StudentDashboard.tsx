@@ -48,6 +48,7 @@ import {
 } from "@/integrations/supabase/student-justifications";
 
 import { setModeBStudentJustification } from "@/integrations/supabase/mode-b";
+import { fetchModeBStudentMonthSchedule } from "@/integrations/supabase/mode-b-student-schedule";
 
 import { showError, showSuccess } from "@/utils/toast";
 
@@ -170,6 +171,19 @@ export default function StudentDashboard() {
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
   const [futureJustDrafts, setFutureJustDrafts] = useState<Record<string, string>>({});
 
+  const [scheduleRows, setScheduleRows] = useState<
+    Array<{
+      ymd: string;
+      classId: string;
+      className: string;
+      startTime: string;
+      endTime: string;
+      finalizedAt: string | null;
+      status: AttendanceStatus | null;
+      justificationMessage: string | null;
+    }>
+  >([]);
+
   const [justifyOpen, setJustifyOpen] = useState(false);
   const [justifyTarget, setJustifyTarget] = useState<StudentDayEntry | null>(null);
   const [justifyText, setJustifyText] = useState("");
@@ -205,25 +219,48 @@ export default function StudentDashboard() {
       if (!projectId || !effectiveStudentId) {
         setAttendanceSessions([]);
         setJustifications([]);
+        setScheduleRows([]);
         return;
       }
 
-      const [remoteAttendance, remoteJust] = await Promise.all([
-        fetchAttendanceSessionsRemote(projectId),
+      // Para o aluno, a fonte mais confiável é a RPC do calendário (não depende de RLS de classes/attendance).
+      // A gente carrega apenas o mês selecionado.
+      const month = selectedMonthKey || monthKey(todayYmd);
+
+      const [rows, remoteJust] = await Promise.all([
+        fetchModeBStudentMonthSchedule({ projectId, studentId: effectiveStudentId, month }),
         fetchStudentJustificationsRemote(projectId),
       ]);
 
+      setScheduleRows(
+        rows.map((r) => ({
+          ymd: r.ymd,
+          classId: r.class_id,
+          className: r.class_name,
+          startTime: r.start_time,
+          endTime: r.end_time,
+          finalizedAt: r.finalized_at,
+          status: (r.status as AttendanceStatus | null) || null,
+          justificationMessage: r.justification_message,
+        })),
+      );
+
+      setJustifications(remoteJust);
+
+      // Mantém attendanceSessions apenas por compatibilidade (não é mais a fonte principal do calendário do aluno).
+      // Se der certo via RLS, ótimo; se vier vazio, o calendário ainda funciona via scheduleRows.
+      const remoteAttendance = await fetchAttendanceSessionsRemote(projectId);
+      setAttendanceSessions(remoteAttendance);
+
       console.log("[StudentDashboard] loaded", {
+        scheduleRows: rows.length,
         attendanceCount: remoteAttendance.length,
         justificationsCount: remoteJust.length,
       });
-
-      setAttendanceSessions(remoteAttendance);
-      setJustifications(remoteJust);
     };
 
     void run();
-  }, [projectId, effectiveStudentId, profile?.student_id]);
+  }, [projectId, effectiveStudentId, profile?.student_id, selectedMonthKey, todayYmd]);
 
   const student = useMemo(() => {
     if (!effectiveStudentId) return null;
@@ -249,11 +286,34 @@ export default function StudentDashboard() {
 
   const myClasses = useMemo(() => {
     if (!effectiveStudentId) return [] as SchoolClass[];
+
+    // 1) Se tivermos schedule do mês, usamos ele como fonte (não depende do cache local).
+    if (scheduleRows.length) {
+      const map = new Map<string, SchoolClass>();
+      for (const r of scheduleRows) {
+        if (!map.has(r.classId)) {
+          map.set(r.classId, {
+            id: r.classId,
+            name: r.className,
+            period: "Manhã",
+            startTime: r.startTime,
+            endTime: r.endTime,
+            capacity: 0,
+            absenceLimit: 0,
+            registrationDate: new Date().toISOString(),
+            status: "Ativo",
+          });
+        }
+      }
+      return Array.from(map.values());
+    }
+
+    // 2) Fallback: cache local
     const all = readScoped<SchoolClass[]>("classes", []);
     return all.filter(
       (c) => (c.status || "").toLowerCase() !== "inativo" && isStudentCurrentlyInClass(c, effectiveStudentId),
     );
-  }, [effectiveStudentId]);
+  }, [effectiveStudentId, scheduleRows]);
 
   const classById = useMemo(() => {
     const map = new Map<string, SchoolClass>();
@@ -270,7 +330,39 @@ export default function StudentDashboard() {
     const map = new Map<string, StudentDayEntry[]>();
     if (!effectiveStudentId) return map;
 
-    for (const sess of myAttendanceSessions) {
+    // Prefer scheduleRows (RPC) para preencher o calendário.
+    if (scheduleRows.length) {
+      for (const r of scheduleRows) {
+        const isScheduled = !r.finalizedAt || r.ymd >= todayYmd;
+        const entry: StudentDayEntry = {
+          ymd: r.ymd,
+          classId: r.classId,
+          className: r.className,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          status: r.finalizedAt ? r.status : null,
+          isScheduled,
+          sessionId: `${r.classId}:${r.ymd}`,
+        };
+
+        const arr = map.get(r.ymd) || [];
+        arr.push(entry);
+        map.set(r.ymd, arr);
+      }
+
+      for (const [k, arr] of map) {
+        arr.sort((a, b) => `${a.startTime}`.localeCompare(`${b.startTime}`));
+        map.set(k, arr);
+      }
+
+      return map;
+    }
+
+    // Fallback (legado): derive de attendance sessions + cache de turmas
+    const allowed = new Set(myClasses.map((c) => c.id));
+    const filtered = attendanceSessions.filter((s) => allowed.has(s.classId));
+
+    for (const sess of filtered) {
       const cls = classById.get(sess.classId);
       if (!cls) continue;
 
@@ -299,7 +391,7 @@ export default function StudentDashboard() {
     }
 
     return map;
-  }, [myAttendanceSessions, classById, effectiveStudentId, todayYmd]);
+  }, [scheduleRows, attendanceSessions, myClasses, classById, effectiveStudentId, todayYmd]);
 
   const selectedEntries = (selectedYmd && entriesByDate.get(selectedYmd)) || [];
 

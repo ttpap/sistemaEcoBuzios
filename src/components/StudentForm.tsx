@@ -29,6 +29,21 @@ import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/uti
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
 import { supabase } from "@/integrations/supabase/client";
+import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+import { getActiveProjectId } from "@/utils/projects";
+
+function getModeBStaffCreds(): { login: string; password: string } | null {
+  const tLogin = getTeacherSessionLogin();
+  const tPw = getTeacherSessionPassword();
+  if (tLogin && tPw) return { login: tLogin, password: tPw };
+
+  const cLogin = getCoordinatorSessionLogin();
+  const cPw = getCoordinatorSessionPassword();
+  if (cLogin && cPw) return { login: cLogin, password: cPw };
+
+  return null;
+}
 
 function makeId() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -259,14 +274,26 @@ const StudentForm = ({
     };
   }, [cep, form]);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    try {
+      const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
+      const dataUrl = await imageFileToCompressedDataUrl(file, {
+        maxSide: 1024,
+        quality: 0.82,
+        outputType: "image/jpeg",
+      });
+      setPhotoPreview(dataUrl);
+      form.setValue("photo", dataUrl);
+    } catch {
+      // fallback: original behavior
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
         setPhotoPreview(base64);
-        form.setValue('photo', base64);
+        form.setValue("photo", base64);
       };
       reader.readAsDataURL(file);
     }
@@ -344,12 +371,29 @@ const StudentForm = ({
         ...(input.class ? { class: input.class } : null),
       };
 
-      // Para evitar quebra em contas que ainda não estão com Supabase configurado,
-      // só tenta persistir se o client existir.
       if (!supabase) return;
 
-      // Fluxo público (sem sessão): grava via Edge Function (service role) para não depender de SELECT/RLS.
+      // Se não tiver sessão Supabase Auth, tenta RPC do Modo B (professor/coordenador) antes de cair na Edge Function.
       if (!session) {
+        const creds = getModeBStaffCreds();
+        const projectId = getActiveProjectId();
+
+        if (creds && projectId) {
+          const { error: rpcErr } = await supabase.rpc("mode_b_upsert_student", {
+            p_login: creds.login,
+            p_password: creds.password,
+            p_project_id: projectId,
+            p_row: row as any,
+          });
+
+          if (!rpcErr) return;
+
+          const msgLower = String(rpcErr.message || "").toLowerCase();
+          const looksMissing = msgLower.includes("does not exist") || (msgLower.includes("function") && msgLower.includes("mode_b_upsert_student"));
+          if (!looksMissing) throw rpcErr;
+          // se a RPC não existir no banco, cai no fluxo antigo abaixo.
+        }
+
         const { error } = await supabase.functions.invoke("public-student-signup", { body: row });
         if (error) throw error;
         return;

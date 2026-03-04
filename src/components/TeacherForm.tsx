@@ -112,9 +112,20 @@ const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: Te
     };
   }, [cep, form]);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    try {
+      const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
+      const dataUrl = await imageFileToCompressedDataUrl(file, {
+        maxSide: 1024,
+        quality: 0.82,
+        outputType: "image/jpeg",
+      });
+      setPhotoPreview(dataUrl);
+      form.setValue("photo", dataUrl);
+    } catch {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;

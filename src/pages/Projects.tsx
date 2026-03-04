@@ -168,7 +168,7 @@ export default function Projects() {
     navigate("/");
   };
 
-  const onPickFile = (file: File | null) => {
+  const onPickFile = async (file: File | null) => {
     if (!file) {
       setImageUrl("");
       setImageFileName("");
@@ -182,6 +182,22 @@ export default function Projects() {
     }
 
     setImageFileName(file.name);
+
+    // Se for imagem, comprime para não pesar.
+    if (file.type.startsWith("image/")) {
+      try {
+        const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
+        const dataUrl = await imageFileToCompressedDataUrl(file, {
+          maxSide: 1024,
+          quality: 0.82,
+          outputType: "image/jpeg",
+        });
+        setImageUrl(dataUrl);
+        return;
+      } catch {
+        // fallback abaixo
+      }
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -199,7 +215,7 @@ export default function Projects() {
     setEditOpen(true);
   };
 
-  const onPickEditFile = (file: File | null) => {
+  const onPickEditFile = async (file: File | null) => {
     if (!file) {
       setEditImageUrl("");
       setEditImageFileName("");
@@ -213,6 +229,21 @@ export default function Projects() {
     }
 
     setEditImageFileName(file.name);
+
+    if (file.type.startsWith("image/")) {
+      try {
+        const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
+        const dataUrl = await imageFileToCompressedDataUrl(file, {
+          maxSide: 1024,
+          quality: 0.82,
+          outputType: "image/jpeg",
+        });
+        setEditImageUrl(dataUrl);
+        return;
+      } catch {
+        // fallback abaixo
+      }
+    }
 
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -277,7 +308,7 @@ export default function Projects() {
     void run();
   };
 
-  const onPickSystemLogo = (file: File | null) => {
+  const onPickSystemLogo = async (file: File | null) => {
     if (!file) {
       setSystemLogoState("");
       setSystemLogoFileName("");
@@ -292,12 +323,22 @@ export default function Projects() {
 
     setSystemLogoFileName(file.name);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = String(reader.result || "");
+    try {
+      const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
+      const dataUrl = await imageFileToCompressedDataUrl(file, {
+        maxSide: 1024,
+        quality: 0.82,
+        outputType: "image/jpeg",
+      });
       setSystemLogoState(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = String(reader.result || "");
+        setSystemLogoState(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const onSaveSettings = () => {
