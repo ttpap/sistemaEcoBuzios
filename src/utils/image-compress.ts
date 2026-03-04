@@ -13,7 +13,10 @@ export async function imageFileToCompressedDataUrl(
 
   const quality = outType === "image/jpeg" ? (opts?.quality ?? 0.82) : undefined;
 
-  const { source, width, height, cleanup } = await loadImageSource(file);
+  // iPhone costuma gerar HEIC/HEIF — convertemos para JPEG no browser antes de comprimir.
+  const normalizedFile = await normalizeHeicIfNeeded(file);
+
+  const { source, width, height, cleanup } = await loadImageSource(normalizedFile);
 
   try {
     const largest = Math.max(width, height);
@@ -38,6 +41,41 @@ export async function imageFileToCompressedDataUrl(
   } finally {
     cleanup?.();
   }
+}
+
+function isHeicFile(file: File) {
+  const type = (file.type || "").toLowerCase();
+  const name = (file.name || "").toLowerCase();
+  return (
+    type.includes("heic") ||
+    type.includes("heif") ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
+async function normalizeHeicIfNeeded(file: File): Promise<File> {
+  if (!isHeicFile(file)) return file;
+
+  // heic2any converte HEIC/HEIF para JPEG no client.
+  const mod = await import("heic2any");
+  const heic2any = (mod as any).default || (mod as any);
+
+  const outBlob = (await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: 0.9,
+  })) as Blob;
+
+  const nextName = (file.name || "foto")
+    .replace(/\.(heic|heif)$/i, ".jpg")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return new File([outBlob], nextName || "foto.jpg", {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
 }
 
 async function loadImageSource(file: File): Promise<{

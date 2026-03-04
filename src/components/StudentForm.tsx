@@ -278,17 +278,6 @@ const StudentForm = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const type = (file.type || "").toLowerCase();
-    const name = (file.name || "").toLowerCase();
-    const isHeic = type.includes("heic") || type.includes("heif") || name.endsWith(".heic") || name.endsWith(".heif");
-
-    if (isHeic) {
-      showError(
-        "Essa foto está em formato HEIC/HEIF (comum no iPhone) e não é suportada aqui. No iPhone, vá em Ajustes → Câmera → Formatos → Mais compatível e tente novamente.",
-      );
-      return;
-    }
-
     try {
       const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
       const dataUrl = await imageFileToCompressedDataUrl(file, {
@@ -298,15 +287,18 @@ const StudentForm = ({
       });
       setPhotoPreview(dataUrl);
       form.setValue("photo", dataUrl);
-    } catch {
-      // fallback: original behavior
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setPhotoPreview(base64);
-        form.setValue("photo", base64);
-      };
-      reader.readAsDataURL(file);
+    } catch (e: any) {
+      // Fallback: se algo der errado, avisa o usuário.
+      const msg = String(e?.message || "");
+      const maybeHeic = (file.type || "").toLowerCase().includes("heic") || (file.name || "").toLowerCase().endsWith(".heic");
+      if (maybeHeic) {
+        showError(
+          "Não consegui converter essa foto do iPhone (HEIC). Tente no iPhone: Ajustes → Câmera → Formatos → Mais compatível, e envie novamente.",
+        );
+        return;
+      }
+
+      showError("Não foi possível processar a imagem. Tente outra foto.");
     }
   };
 
