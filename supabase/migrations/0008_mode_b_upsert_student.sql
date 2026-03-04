@@ -1,5 +1,5 @@
--- RPC (SECURITY DEFINER) para criar/atualizar aluno no Modo B (login/senha)
--- Evita depender de Edge Functions e de sessão Supabase Auth para staff.
+-- Mode B: permitir criar/editar alunos via login/senha (professor/coordenador)
+-- Necessário quando não existe sessão Supabase Auth (ex.: áreas /professor e /coordenador no Modo B).
 
 CREATE OR REPLACE FUNCTION public.mode_b_upsert_student(
   p_login text,
@@ -19,14 +19,7 @@ BEGIN
     RAISE EXCEPTION 'not_allowed';
   END IF;
 
-  IF p_row IS NULL THEN
-    RAISE EXCEPTION 'invalid_payload';
-  END IF;
-
-  v_id := NULLIF(p_row->>'id', '')::uuid;
-  IF v_id IS NULL THEN
-    RAISE EXCEPTION 'invalid_id';
-  END IF;
+  v_id := NULLIF(trim(coalesce(p_row->>'id','')), '')::uuid;
 
   INSERT INTO public.students (
     id,
@@ -41,12 +34,15 @@ BEGIN
     gender,
     race,
     photo,
+
     guardian_name,
     guardian_kinship,
     guardian_phone,
+
     school_type,
     school_name,
     school_other,
+
     cep,
     street,
     number,
@@ -54,7 +50,9 @@ BEGIN
     neighborhood,
     city,
     uf,
+
     enel_client_number,
+
     blood_type,
     has_allergy,
     allergy_detail,
@@ -70,59 +68,67 @@ BEGIN
     health_problems,
     health_problems_other,
     observations,
+
     image_authorization,
     docs_delivered,
+
     status,
     class
   ) VALUES (
     v_id,
-    p_row->>'registration',
-    p_row->>'full_name',
-    NULLIF(p_row->>'social_name', ''),
-    NULLIF(p_row->>'email', ''),
-    NULLIF(p_row->>'cpf', ''),
-    (p_row->>'birth_date')::date,
-    COALESCE(NULLIF(p_row->>'age', '')::int, 0),
-    NULLIF(p_row->>'cell_phone', ''),
-    NULLIF(p_row->>'gender', ''),
-    NULLIF(p_row->>'race', ''),
-    NULLIF(p_row->>'photo', ''),
-    NULLIF(p_row->>'guardian_name', ''),
-    NULLIF(p_row->>'guardian_kinship', ''),
-    NULLIF(p_row->>'guardian_phone', ''),
-    NULLIF(p_row->>'school_type', ''),
-    NULLIF(p_row->>'school_name', ''),
-    NULLIF(p_row->>'school_other', ''),
-    NULLIF(p_row->>'cep', ''),
-    NULLIF(p_row->>'street', ''),
-    NULLIF(p_row->>'number', ''),
-    NULLIF(p_row->>'complement', ''),
-    NULLIF(p_row->>'neighborhood', ''),
-    NULLIF(p_row->>'city', ''),
-    NULLIF(p_row->>'uf', ''),
-    NULLIF(p_row->>'enel_client_number', ''),
-    NULLIF(p_row->>'blood_type', ''),
+    NULLIF(trim(coalesce(p_row->>'registration','')), ''),
+    NULLIF(trim(coalesce(p_row->>'full_name','')), ''),
+    NULLIF(trim(coalesce(p_row->>'social_name','')), ''),
+    NULLIF(trim(coalesce(p_row->>'email','')), ''),
+    NULLIF(trim(coalesce(p_row->>'cpf','')), ''),
+    NULLIF(trim(coalesce(p_row->>'birth_date','')), '')::date,
+    COALESCE(NULLIF(trim(coalesce(p_row->>'age','')), '')::int, 0),
+    NULLIF(trim(coalesce(p_row->>'cell_phone','')), ''),
+    NULLIF(trim(coalesce(p_row->>'gender','')), ''),
+    NULLIF(trim(coalesce(p_row->>'race','')), ''),
+    NULLIF(coalesce(p_row->>'photo',''), ''),
+
+    NULLIF(trim(coalesce(p_row->>'guardian_name','')), ''),
+    NULLIF(trim(coalesce(p_row->>'guardian_kinship','')), ''),
+    NULLIF(trim(coalesce(p_row->>'guardian_phone','')), ''),
+
+    NULLIF(trim(coalesce(p_row->>'school_type','')), ''),
+    NULLIF(trim(coalesce(p_row->>'school_name','')), ''),
+    NULLIF(trim(coalesce(p_row->>'school_other','')), ''),
+
+    NULLIF(trim(coalesce(p_row->>'cep','')), ''),
+    NULLIF(trim(coalesce(p_row->>'street','')), ''),
+    NULLIF(trim(coalesce(p_row->>'number','')), ''),
+    NULLIF(trim(coalesce(p_row->>'complement','')), ''),
+    NULLIF(trim(coalesce(p_row->>'neighborhood','')), ''),
+    NULLIF(trim(coalesce(p_row->>'city','')), ''),
+    NULLIF(trim(coalesce(p_row->>'uf','')), ''),
+
+    NULLIF(trim(coalesce(p_row->>'enel_client_number','')), ''),
+
+    NULLIF(trim(coalesce(p_row->>'blood_type','')), ''),
     COALESCE((p_row->>'has_allergy')::boolean, false),
-    NULLIF(p_row->>'allergy_detail', ''),
+    NULLIF(trim(coalesce(p_row->>'allergy_detail','')), ''),
     COALESCE((p_row->>'has_special_needs')::boolean, false),
-    NULLIF(p_row->>'special_needs_detail', ''),
+    NULLIF(trim(coalesce(p_row->>'special_needs_detail','')), ''),
     COALESCE((p_row->>'uses_medication')::boolean, false),
-    NULLIF(p_row->>'medication_detail', ''),
+    NULLIF(trim(coalesce(p_row->>'medication_detail','')), ''),
     COALESCE((p_row->>'has_physical_restriction')::boolean, false),
-    NULLIF(p_row->>'physical_restriction_detail', ''),
+    NULLIF(trim(coalesce(p_row->>'physical_restriction_detail','')), ''),
     COALESCE((p_row->>'practiced_activity')::boolean, false),
-    NULLIF(p_row->>'practiced_activity_detail', ''),
+    NULLIF(trim(coalesce(p_row->>'practiced_activity_detail','')), ''),
     COALESCE((p_row->>'family_heart_history')::boolean, false),
-    COALESCE((p_row->'health_problems')::jsonb, '[]'::jsonb),
-    NULLIF(p_row->>'health_problems_other', ''),
-    NULLIF(p_row->>'observations', ''),
-    NULLIF(p_row->>'image_authorization', ''),
-    COALESCE((p_row->'docs_delivered')::jsonb, '[]'::jsonb),
-    NULLIF(p_row->>'status', ''),
-    NULLIF(p_row->>'class', '')
+    COALESCE(p_row->'health_problems', '[]'::jsonb),
+    NULLIF(trim(coalesce(p_row->>'health_problems_other','')), ''),
+    NULLIF(trim(coalesce(p_row->>'observations','')), ''),
+
+    NULLIF(trim(coalesce(p_row->>'image_authorization','')), ''),
+    COALESCE(p_row->'docs_delivered', '[]'::jsonb),
+
+    NULLIF(trim(coalesce(p_row->>'status','')), ''),
+    NULLIF(trim(coalesce(p_row->>'class','')), '')
   )
-  ON CONFLICT (id)
-  DO UPDATE SET
+  ON CONFLICT (id) DO UPDATE SET
     registration = EXCLUDED.registration,
     full_name = EXCLUDED.full_name,
     social_name = EXCLUDED.social_name,
@@ -134,12 +140,15 @@ BEGIN
     gender = EXCLUDED.gender,
     race = EXCLUDED.race,
     photo = EXCLUDED.photo,
+
     guardian_name = EXCLUDED.guardian_name,
     guardian_kinship = EXCLUDED.guardian_kinship,
     guardian_phone = EXCLUDED.guardian_phone,
+
     school_type = EXCLUDED.school_type,
     school_name = EXCLUDED.school_name,
     school_other = EXCLUDED.school_other,
+
     cep = EXCLUDED.cep,
     street = EXCLUDED.street,
     number = EXCLUDED.number,
@@ -147,7 +156,9 @@ BEGIN
     neighborhood = EXCLUDED.neighborhood,
     city = EXCLUDED.city,
     uf = EXCLUDED.uf,
+
     enel_client_number = EXCLUDED.enel_client_number,
+
     blood_type = EXCLUDED.blood_type,
     has_allergy = EXCLUDED.has_allergy,
     allergy_detail = EXCLUDED.allergy_detail,
@@ -163,10 +174,12 @@ BEGIN
     health_problems = EXCLUDED.health_problems,
     health_problems_other = EXCLUDED.health_problems_other,
     observations = EXCLUDED.observations,
+
     image_authorization = EXCLUDED.image_authorization,
     docs_delivered = EXCLUDED.docs_delivered,
-    status = COALESCE(EXCLUDED.status, public.students.status),
-    class = COALESCE(EXCLUDED.class, public.students.class);
+
+    status = EXCLUDED.status,
+    class = EXCLUDED.class;
 
   RETURN v_id;
 END;

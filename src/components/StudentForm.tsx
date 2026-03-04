@@ -278,6 +278,17 @@ const StudentForm = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const type = (file.type || "").toLowerCase();
+    const name = (file.name || "").toLowerCase();
+    const isHeic = type.includes("heic") || type.includes("heif") || name.endsWith(".heic") || name.endsWith(".heif");
+
+    if (isHeic) {
+      showError(
+        "Essa foto está em formato HEIC/HEIF (comum no iPhone) e não é suportada aqui. No iPhone, vá em Ajustes → Câmera → Formatos → Mais compatível e tente novamente.",
+      );
+      return;
+    }
+
     try {
       const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
       const dataUrl = await imageFileToCompressedDataUrl(file, {
@@ -389,9 +400,22 @@ const StudentForm = ({
           if (!rpcErr) return;
 
           const msgLower = String(rpcErr.message || "").toLowerCase();
-          const looksMissing = msgLower.includes("does not exist") || (msgLower.includes("function") && msgLower.includes("mode_b_upsert_student"));
+          const looksMissing =
+            msgLower.includes("does not exist") ||
+            (msgLower.includes("function") && msgLower.includes("mode_b_upsert_student"));
+
+          // Em edição, NÃO cai na Edge Function (que costuma falhar em ambientes sem deploy).
+          if (initialData) {
+            if (looksMissing) {
+              throw new Error(
+                "O banco ainda não tem a função mode_b_upsert_student. É preciso aplicar o SQL do Modo B (migrations) no Supabase para permitir editar/altera aluno sem sessão."
+              );
+            }
+            throw rpcErr;
+          }
+
+          // Se for cadastro novo e a RPC não existir no banco, cai no fluxo antigo abaixo.
           if (!looksMissing) throw rpcErr;
-          // se a RPC não existir no banco, cai no fluxo antigo abaixo.
         }
 
         const { error } = await supabase.functions.invoke("public-student-signup", { body: row });
