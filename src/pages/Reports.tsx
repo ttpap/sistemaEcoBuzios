@@ -23,8 +23,10 @@ import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enr
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { downloadAttendanceXls } from "@/utils/attendance-xls";
 import { showError } from "@/utils/toast";
-import { readGlobalStudents, readScoped } from "@/utils/storage";
+import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { getActiveProject } from "@/utils/projects";
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
+import { fetchStudentsRemoteWithMeta } from "@/integrations/supabase/students";
 import { getSystemLogo } from "@/utils/system-settings";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 
@@ -266,11 +268,34 @@ export default function Reports() {
 
   useEffect(() => {
     const run = async () => {
+      // Primeiro: carrega cache local
       setClasses(readScoped<SchoolClass[]>("classes", []));
       setStudents(readGlobalStudents<StudentRegistration[]>([]));
 
       const activeProjectId = getActiveProject()?.id;
       if (activeProjectId) {
+        // Atualiza classes + matrículas + alunos do servidor (necessário no modo B)
+        const classRes = await fetchClassesRemoteWithMeta(activeProjectId);
+        const baseClasses = classRes.classes.length
+          ? classRes.classes
+          : readScoped<SchoolClass[]>("classes", []);
+
+        const enriched: SchoolClass[] = [];
+        for (const c of baseClasses) {
+          const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
+          const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
+          enriched.push({ ...c, studentIds });
+        }
+
+        writeScoped("classes", enriched);
+        setClasses(enriched);
+
+        const stuRes = await fetchStudentsRemoteWithMeta(activeProjectId);
+        if (stuRes.students.length) {
+          writeGlobalStudents(stuRes.students);
+          setStudents(stuRes.students);
+        }
+
         const remote = await fetchAttendanceSessionsRemote(activeProjectId);
         setAttendanceSessions(remote);
       } else {

@@ -26,7 +26,9 @@ import { cn } from "@/lib/utils";
 import { getActiveProject } from "@/utils/projects";
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
-import { readGlobalStudents, readScoped } from "@/utils/storage";
+import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
+import { fetchStudentsRemoteWithMeta } from "@/integrations/supabase/students";
 import type { SchoolClass } from "@/types/class";
 import type { StudentRegistration } from "@/types/student";
 import type { MonthlyReport } from "@/types/monthly-report";
@@ -89,9 +91,8 @@ function statusBadge(r: ReportLike) {
   );
 }
 
-function projectStudentPool(classes: SchoolClass[], allStudents: StudentRegistration[]) {
-  const ids = new Set<string>();
-  for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
+function projectStudentPoolFromIds(ids: Set<string>, allStudents: StudentRegistration[]) {
+  if (!ids.size) return [];
   return allStudents
     .filter((s) => ids.has(s.id))
     .sort((a, b) =>
@@ -148,10 +149,54 @@ export default function MonthlyReports() {
     return map;
   }, []);
 
-  const classes = useMemo(() => readScoped<SchoolClass[]>("classes", []), [projectId]);
-  const students = useMemo(() => readGlobalStudents<StudentRegistration[]>([]), [projectId]);
+  const [classes, setClasses] = useState<SchoolClass[]>(() => readScoped<SchoolClass[]>("classes", []));
+  const [students, setStudents] = useState<StudentRegistration[]>(() => readGlobalStudents<StudentRegistration[]>([]));
+  const [enrollmentIds, setEnrollmentIds] = useState<Set<string>>(new Set());
 
-  const selectableStudents = useMemo(() => projectStudentPool(classes, students), [classes, students]);
+  // Garante que a área do professor/coordenador tenha classes + matrículas + alunos carregados do servidor.
+  React.useEffect(() => {
+    const run = async () => {
+      if (!projectId) return;
+
+      const classRes = await fetchClassesRemoteWithMeta(projectId);
+      const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>("classes", []);
+
+      const enriched: SchoolClass[] = [];
+      for (const c of baseClasses) {
+        const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
+        const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
+        enriched.push({ ...c, studentIds });
+      }
+
+      writeScoped("classes", enriched);
+      setClasses(enriched);
+
+      // Carrega pool de alunos (por matrículas do projeto)
+      const prjEnr = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+      const ids = new Set<string>();
+      for (const e of prjEnr.enrollments) ids.add(String(e.student_id));
+      setEnrollmentIds(ids);
+
+      const stuRes = await fetchStudentsRemoteWithMeta(projectId);
+      if (stuRes.issue === 'rpc_missing') {
+        showError('O servidor ainda não foi atualizado com as permissões (RPC).');
+      }
+      if (stuRes.issue === 'not_allowed') {
+        showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
+      }
+
+      if (stuRes.students.length) {
+        writeGlobalStudents(stuRes.students);
+        setStudents(stuRes.students);
+      } else {
+        setStudents(readGlobalStudents<StudentRegistration[]>([]));
+      }
+    };
+
+    void run();
+  }, [projectId]);
+
+  const selectableStudents = useMemo(() => projectStudentPoolFromIds(enrollmentIds, students), [enrollmentIds, students]);
 
   const teacherReportsAll = useMemo(() => {
     if (!projectId) return [];

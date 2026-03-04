@@ -26,7 +26,7 @@ import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { fetchStudentsRemoteWithMeta, deleteStudent } from "@/integrations/supabase/students";
 import { getActiveProjectId } from '@/utils/projects';
-import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from '@/integrations/supabase/classes';
+import { fetchClassesRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from '@/integrations/supabase/classes';
 import { useAuth } from '@/context/AuthContext';
 
 const Students = () => {
@@ -35,8 +35,16 @@ const Students = () => {
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
   const { profile } = useAuth();
 
+  const effectiveRole = useMemo(() => {
+    if (profile?.role) return profile.role;
+    if (base === '/professor') return 'teacher';
+    if (base === '/coordenador') return 'coordinator';
+    return null;
+  }, [profile?.role, base]);
+
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [allowedIds, setAllowedIds] = useState<Set<string>>(new Set());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
@@ -48,33 +56,26 @@ const Students = () => {
       if (!projectId) {
         setClasses(readScoped<SchoolClass[]>('classes', []));
         setStudents(readGlobalStudents<StudentRegistration[]>([]));
+        setAllowedIds(new Set());
         return;
       }
 
-      // 1) Classes (com fallback RPC para modo B)
+      // 1) Classes (RPC quando existir; senão SELECT)
       const classRes = await fetchClassesRemoteWithMeta(projectId);
       const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>('classes', []);
+      writeScoped('classes', baseClasses);
+      setClasses(baseClasses);
 
-      // 1a) Para professor/coordenador: precisamos dos vínculos aluno<->turma para filtrar.
-      const role = profile?.role;
-      if (role && role !== 'admin') {
-        const enriched: SchoolClass[] = [];
-        for (const c of baseClasses) {
-          const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
-          const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
-          enriched.push({ ...c, studentIds });
-        }
-        writeScoped('classes', enriched);
-        setClasses(enriched);
-      } else {
-        writeScoped('classes', baseClasses);
-        setClasses(baseClasses);
-      }
+      // 2) Vínculos aluno<->turma do projeto (mais confiável que buscar turma por turma)
+      const enrRes = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+      const ids = new Set<string>();
+      for (const e of enrRes.enrollments) ids.add(String(e.student_id));
+      setAllowedIds(ids);
 
-      // 2) Students (com fallback RPC para modo B)
+      // 3) Students
       const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
       if (studentsRes.issue === 'rpc_missing') {
-        showError('O servidor ainda não foi atualizado com as permissões (RPC).');
+        // não bloqueia a UI
       }
       if (studentsRes.issue === 'not_allowed') {
         showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
@@ -104,7 +105,7 @@ const Students = () => {
     };
 
     void run();
-  }, [profile?.role]);
+  }, [effectiveRole]);
 
   const handleDelete = (id: string) => {
     const run = async () => {
@@ -224,16 +225,17 @@ const Students = () => {
     showSuccess("10 alunos de teste criados!");
   };
 
-  const allowedStudentIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
-    return ids;
-  }, [classes]);
-
   const visibleStudents = useMemo(() => {
-    if (profile?.role === 'admin') return students;
-    return students.filter((s) => allowedStudentIds.has(s.id));
-  }, [students, allowedStudentIds, profile?.role]);
+    if (effectiveRole === 'admin') return students;
+
+    // teacher/coordinator/student: se já temos vínculos do projeto, filtra por eles.
+    if (effectiveRole && allowedIds.size > 0) {
+      return students.filter((s) => allowedIds.has(s.id));
+    }
+
+    // fallback: não deixar a tela zerada se ainda não carregou vínculos
+    return students;
+  }, [students, allowedIds, effectiveRole]);
 
   const filtered = visibleStudents.filter(s =>
     s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,7 +261,7 @@ const Students = () => {
           <p className="text-slate-500 font-medium">Cadastros e fichas de inscrição.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          {profile?.role === 'admin' && (
+          {effectiveRole === 'admin' && (
             <Button
               variant="outline"
               className="rounded-2xl gap-2 h-12 px-5 font-black border-slate-200 bg-white hover:bg-slate-50"

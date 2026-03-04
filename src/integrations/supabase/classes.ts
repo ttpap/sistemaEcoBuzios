@@ -43,8 +43,20 @@ function isRpcMissingErrorMessage(msgLower: string) {
     msgLower.includes("mode_b_list_class_enrollments") ||
     msgLower.includes("mode_b_enroll_student") ||
     msgLower.includes("mode_b_remove_student_enrollment") ||
-    msgLower.includes("mode_b_staff_can_manage_class")
+    msgLower.includes("mode_b_staff_can_manage_class") ||
+    msgLower.includes("mode_b_list_project_enrollments")
   );
+}
+
+async function selectClassesByProject(projectId: string): Promise<SchoolClass[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("registration_date", { ascending: false });
+  if (error || !data) return [];
+  return data.map(mapRow);
 }
 
 export async function fetchClassesRemoteWithMeta(projectId: string): Promise<FetchClassesResult> {
@@ -52,60 +64,51 @@ export async function fetchClassesRemoteWithMeta(projectId: string): Promise<Fet
 
   const creds = getModeBStaffCreds();
 
-  // 1) Tentativa normal (Admin / sessão Supabase Auth com role).
-  const { data, error } = await supabase
-    .from("classes")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("registration_date", { ascending: false });
+  // Modo B (professor/coordenador): tenta RPC primeiro.
+  if (creds) {
+    const { data: canAccess, error: canErr } = await supabase.rpc("mode_b_staff_can_access_project", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_project_id: projectId,
+    });
 
-  // Se retornou dados, ótimo.
-  if (!error && Array.isArray(data) && data.length > 0) {
-    return { classes: data.map(mapRow) };
+    if (canErr) {
+      const msg = String(canErr.message || "").toLowerCase();
+      // RPC ausente → fallback total para SELECT (evita telas vazias)
+      if (isRpcMissingErrorMessage(msg)) {
+        return { classes: await selectClassesByProject(projectId), issue: "rpc_missing" };
+      }
+      return { classes: [], issue: "unknown" };
+    }
+
+    if (!canAccess) {
+      return { classes: [], issue: "not_allowed" };
+    }
+
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_my_classes", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_project_id: projectId,
+    });
+
+    if (rpcErr) {
+      const msg = String(rpcErr.message || "").toLowerCase();
+      if (isRpcMissingErrorMessage(msg)) {
+        return { classes: await selectClassesByProject(projectId), issue: "rpc_missing" };
+      }
+      if (msg.includes("not_allowed")) return { classes: [], issue: "not_allowed" };
+      return { classes: [], issue: "unknown" };
+    }
+
+    const rpcClasses = (rpcData || []).map(mapRow);
+    if (rpcClasses.length) return { classes: rpcClasses };
+
+    // Se a lista veio vazia, faz fallback para SELECT para evitar bloquear a operação.
+    return { classes: await selectClassesByProject(projectId) };
   }
 
-  // Observação importante: quando RLS bloqueia SELECT, o Supabase normalmente não dá erro —
-  // ele simplesmente retorna lista vazia. Por isso, quando estamos no modo B e a lista veio vazia,
-  // tentamos o fallback por RPC.
-  if (!creds) {
-    return { classes: Array.isArray(data) ? data.map(mapRow) : [] };
-  }
-
-  // 2) Checa se o staff tem acesso ao projeto (RPC vinda do 0007).
-  const { data: canAccess, error: canErr } = await supabase.rpc("mode_b_staff_can_access_project", {
-    p_login: creds.login,
-    p_password: creds.password,
-    p_project_id: projectId,
-  });
-
-  if (canErr) {
-    const msg = String(canErr.message || "").toLowerCase();
-    if (isRpcMissingErrorMessage(msg)) return { classes: [], issue: "rpc_missing" };
-    return { classes: [], issue: "unknown" };
-  }
-
-  if (!canAccess) {
-    return { classes: [], issue: "not_allowed" };
-  }
-
-  // 3) Staff autorizado: lista turmas via RPC.
-  // - professor: só turmas vinculadas
-  // - coordenador: todas do projeto
-  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_my_classes", {
-    p_login: creds.login,
-    p_password: creds.password,
-    p_project_id: projectId,
-  });
-
-  if (rpcErr) {
-    const msg = String(rpcErr.message || "").toLowerCase();
-    if (isRpcMissingErrorMessage(msg)) return { classes: [], issue: "rpc_missing" };
-    if (msg.includes("not_allowed")) return { classes: [], issue: "not_allowed" };
-    return { classes: [], issue: "unknown" };
-  }
-
-  if (!rpcData) return { classes: [] };
-  return { classes: (rpcData as any[]).map(mapRow) };
+  // Admin / sessão Supabase Auth (sem modo B)
+  return { classes: await selectClassesByProject(projectId) };
 }
 
 export async function fetchClassesRemote(projectId: string): Promise<SchoolClass[]> {
@@ -120,6 +123,58 @@ export async function fetchClassByIdRemote(classId: string): Promise<SchoolClass
 
   // Sem RPC específica por ID por enquanto.
   return null;
+}
+
+export type ProjectEnrollmentRow = { class_id: string; student_id: string };
+export type FetchProjectEnrollmentsIssue = "rpc_missing" | "not_allowed" | "unknown";
+export type FetchProjectEnrollmentsResult = { enrollments: ProjectEnrollmentRow[]; issue?: FetchProjectEnrollmentsIssue };
+
+export async function fetchProjectEnrollmentsRemoteWithMeta(projectId: string): Promise<FetchProjectEnrollmentsResult> {
+  if (!supabase) return { enrollments: [] };
+
+  // 1) Tentativa normal (RLS)
+  const { data, error } = await supabase
+    .from("class_student_enrollments")
+    .select("class_id,student_id,classes!inner(project_id)")
+    .eq("classes.project_id", projectId);
+
+  if (!error && data && data.length > 0) {
+    return {
+      enrollments: (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id })),
+    };
+  }
+
+  // 2) Fallback (modo B) — via RPC do 0007
+  const creds = getModeBStaffCreds();
+  if (!creds) {
+    return {
+      enrollments: Array.isArray(data)
+        ? (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id }))
+        : [],
+    };
+  }
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_project_enrollments", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_project_id: projectId,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) return { enrollments: [], issue: "rpc_missing" };
+    if (msg.includes("not_allowed")) return { enrollments: [], issue: "not_allowed" };
+    return { enrollments: [], issue: "unknown" };
+  }
+
+  return {
+    enrollments: (rpcData || []).map((r: any) => ({ class_id: r.class_id, student_id: r.student_id })),
+  };
+}
+
+export async function fetchProjectEnrollmentsRemote(projectId: string): Promise<ProjectEnrollmentRow[]> {
+  const res = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+  return res.enrollments;
 }
 
 export async function upsertClassRemote(projectId: string, input: SchoolClass) {
