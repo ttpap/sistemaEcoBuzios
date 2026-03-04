@@ -24,9 +24,9 @@ import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
-import { fetchStudents, deleteStudent } from "@/integrations/supabase/students";
+import { fetchStudentsRemoteWithMeta, deleteStudent } from "@/integrations/supabase/students";
 import { getActiveProjectId } from '@/utils/projects';
-import { fetchClassesRemote } from '@/integrations/supabase/classes';
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from '@/integrations/supabase/classes';
 import { useAuth } from '@/context/AuthContext';
 
 const Students = () => {
@@ -44,26 +44,46 @@ const Students = () => {
 
   useEffect(() => {
     const run = async () => {
-      // Carrega turmas do projeto (necessário para filtrar alunos por projeto)
       const projectId = getActiveProjectId();
-      if (projectId) {
-        const remoteClasses = await fetchClassesRemote(projectId);
-        if (remoteClasses.length) {
-          writeScoped('classes', remoteClasses);
-          setClasses(remoteClasses);
-        } else {
-          setClasses(readScoped<SchoolClass[]>('classes', []));
-        }
-      } else {
+      if (!projectId) {
         setClasses(readScoped<SchoolClass[]>('classes', []));
+        setStudents(readGlobalStudents<StudentRegistration[]>([]));
+        return;
       }
 
-      const remote = await fetchStudents();
+      // 1) Classes (com fallback RPC para modo B)
+      const classRes = await fetchClassesRemoteWithMeta(projectId);
+      const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>('classes', []);
+
+      // 1a) Para professor/coordenador: precisamos dos vínculos aluno<->turma para filtrar.
+      const role = profile?.role;
+      if (role && role !== 'admin') {
+        const enriched: SchoolClass[] = [];
+        for (const c of baseClasses) {
+          const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
+          const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
+          enriched.push({ ...c, studentIds });
+        }
+        writeScoped('classes', enriched);
+        setClasses(enriched);
+      } else {
+        writeScoped('classes', baseClasses);
+        setClasses(baseClasses);
+      }
+
+      // 2) Students (com fallback RPC para modo B)
+      const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
+      if (studentsRes.issue === 'rpc_missing') {
+        showError('O servidor ainda não foi atualizado com as permissões (RPC).');
+      }
+      if (studentsRes.issue === 'not_allowed') {
+        showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
+      }
+
+      const remote = studentsRes.students;
       if (remote.length > 0) {
-        // Fonte de verdade: Supabase. Mantém cache local para o restante do app que ainda não migrou.
         const normalized = normalizeStudentRegistrations(remote);
         if (normalized.changed) {
-          // Não regrava no Supabase aqui para evitar alterar matrículas existentes sem confirmação.
           writeGlobalStudents(normalized.students);
           setStudents(normalized.students);
         } else {
@@ -73,7 +93,6 @@ const Students = () => {
         return;
       }
 
-      // Fallback (legado)
       const saved = readGlobalStudents<StudentRegistration[]>([]);
       const normalized = normalizeStudentRegistrations(saved);
       if (normalized.changed) {
@@ -85,7 +104,7 @@ const Students = () => {
     };
 
     void run();
-  }, []);
+  }, [profile?.role]);
 
   const handleDelete = (id: string) => {
     const run = async () => {
@@ -160,25 +179,21 @@ const Students = () => {
     const seeded: StudentRegistration[] = samples.map((s, index) => {
       const n = (index + 1).toString().padStart(4, '0');
       return {
-        // Required
         id: makeId(),
         registration: `${year}-${n}`,
         registrationDate,
         fullName: s.fullName,
         birthDate: s.birthDate,
         age: s.age,
-        phone: "(22) 0000-0000",
         cellPhone: s.cellPhone,
         gender: s.gender,
         race: s.race,
         status: "Ativo",
 
-        // Optional-ish (depends on schema)
         preferredName: s.preferredName,
         email: `${s.fullName.split(' ')[0].toLowerCase()}${index + 1}${base.emailDomain}`,
         cpf: "",
 
-        // Address
         cep: base.cep,
         street: base.street,
         number: String(100 + index),
@@ -187,21 +202,19 @@ const Students = () => {
         city: base.city,
         uf: base.uf,
 
-        // School
         schoolType: base.schoolType as any,
         schoolName: base.schoolName,
         schoolOther: "",
         class: "",
 
-        // Health / Docs
         healthProblems: base.healthProblems,
         imageAuthorization: base.imageAuthorization as any,
         docsDelivered: base.docsDelivered as any,
 
-        // Contacts
         guardianName: "",
         guardianKinship: "",
         guardianPhone: "",
+        guardianDeclarationConfirmed: true,
       } as StudentRegistration;
     });
 
@@ -218,10 +231,7 @@ const Students = () => {
   }, [classes]);
 
   const visibleStudents = useMemo(() => {
-    // Admin vê todos os alunos
     if (profile?.role === 'admin') return students;
-
-    // Professor/Coordenador: só alunos das turmas listadas para este perfil (classes já vêm filtradas no modo B)
     return students.filter((s) => allowedStudentIds.has(s.id));
   }, [students, allowedStudentIds, profile?.role]);
 

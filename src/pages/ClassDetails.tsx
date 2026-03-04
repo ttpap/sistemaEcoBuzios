@@ -410,8 +410,12 @@ const ClassDetails = () => {
                         filteredAvailableStudents.map(student => (
                           <div key={student.id} className="p-4 bg-white rounded-2xl border border-slate-100 flex items-center justify-between">
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-10 h-10 rounded-2xl bg-secondary/15 border border-secondary/20 flex items-center justify-center font-black text-primary shrink-0">
-                                {student.fullName.charAt(0)}
+                              <div className="w-10 h-10 rounded-2xl bg-secondary/15 border border-secondary/20 flex items-center justify-center font-black text-primary shrink-0 overflow-hidden">
+                                {student.photo ? (
+                                  <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span>{student.fullName.charAt(0)}</span>
+                                )}
                               </div>
                               <div className="min-w-0">
                                 <p className="font-black text-slate-800 truncate">{student.fullName}</p>
@@ -436,8 +440,12 @@ const ClassDetails = () => {
                     classStudents.map(s => (
                       <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-black text-xs shrink-0">
-                            {s.fullName.charAt(0)}
+                          <div className="w-8 h-8 rounded-lg bg-secondary/20 flex items-center justify-center text-primary font-black text-xs shrink-0 overflow-hidden">
+                            {s.photo ? (
+                              <img src={s.photo} alt={s.fullName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{s.fullName.charAt(0)}</span>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="font-black text-slate-700 truncate">{s.fullName}</p>

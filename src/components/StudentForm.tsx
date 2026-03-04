@@ -146,41 +146,55 @@ const HEALTH_PROBLEMS = [
 ];
 
 const DOCUMENTS = [
-  "RG do Aluno", "CPF do Aluno", "RG do Responsável", "CPF do Responsável", 
-  "Comprovante de Residência", "Declaração Escolar", "Foto 3x4", "Atestado Médico"
+  "Certidão de Nascimento",
+  "Comprovante de Residência",
+  "Declaração Escolar",
+  "Atestado Médico",
+  "CPF do Aluno",
+  "CPF do Responsável",
 ];
 
-const formSchema = z.object({
-  fullName: z.string().min(3, "Nome muito curto"),
+const schema = z.object({
+  // 1. Dados pessoais
+  fullName: z.string().min(1, "Obrigatório"),
   socialName: z.string().optional(),
+  preferredName: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   cpf: z.string().optional(),
   birthDate: z.string().min(1, "Obrigatório"),
-  age: z.number().min(0),
+  age: z.coerce.number().min(0),
   cellPhone: z.string().min(1, "Obrigatório"),
-  gender: z.string().min(1, "Selecione o gênero"),
-  genderOther: z.string().optional(),
-  race: z.string().min(1, "Selecione a cor/raça"),
+  gender: z.string().min(1, "Obrigatório"),
+  race: z.string().min(1, "Obrigatório"),
   photo: z.string().optional(),
 
+  // 2. Responsável
   guardianName: z.string().optional(),
   guardianKinship: z.string().optional(),
   guardianPhone: z.string().optional(),
 
-  schoolType: z.string().min(1, "Selecione a rede"),
-  schoolName: z.string().min(1, "Selecione a escola"),
+  guardianDeclarationConfirmed: z
+    .boolean()
+    .refine((v) => v === true, { message: "Você precisa confirmar a declaração do responsável." }),
+
+  // 3. Escola
+  schoolType: z.string().min(1, "Obrigatório"),
+  schoolName: z.string().min(1, "Obrigatório"),
   schoolOther: z.string().optional(),
 
-  cep: z.string().min(8, "CEP inválido"),
+  // 4. Endereço
+  cep: z.string().min(1, "Obrigatório"),
   street: z.string().min(1, "Obrigatório"),
   number: z.string().min(1, "Obrigatório"),
   complement: z.string().optional(),
   neighborhood: z.string().min(1, "Obrigatório"),
-  city: z.string().default("Armação dos Búzios"),
-  uf: z.string().default("RJ"),
+  city: z.string().min(1, "Obrigatório"),
+  uf: z.string().min(1, "Obrigatório"),
 
-  enelClientNumber: z.string().optional().or(z.literal("")), 
+  // Utilidades
+  enelClientNumber: z.string().optional(),
 
+  // 5. Saúde
   bloodType: z.string().optional(),
   hasAllergy: z.boolean().default(false),
   allergyDetail: z.string().optional(),
@@ -197,7 +211,10 @@ const formSchema = z.object({
   healthProblemsOther: z.string().optional(),
   observations: z.string().optional(),
 
+  // 6. Imagem
   imageAuthorization: z.string().min(1, "Obrigatório"),
+
+  // 7. Documentos
   docsDelivered: z.array(z.string()).default([]),
 });
 
@@ -223,21 +240,58 @@ const StudentForm = ({
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
-      city: "Armação dos Búzios",
-      uf: "RJ",
-      healthProblems: [],
-      docsDelivered: [],
-      age: 0,
-      hasAllergy: false,
-      hasSpecialNeeds: false,
-      usesMedication: false,
-      hasPhysicalRestriction: false,
-      practicedActivity: false,
-      familyHeartHistory: false,
-      imageAuthorization: "authorized",
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      fullName: initialData?.fullName || "",
+      socialName: initialData?.socialName || "",
+      preferredName: initialData?.preferredName || "",
+      email: initialData?.email || "",
+      cpf: initialData?.cpf || "",
+      birthDate: initialData?.birthDate || "",
+      age: initialData?.age || 0,
+      cellPhone: initialData?.cellPhone || "",
+      gender: initialData?.gender || "",
+      race: initialData?.race || "",
+      photo: initialData?.photo || null,
+
+      guardianName: initialData?.guardianName || "",
+      guardianKinship: initialData?.guardianKinship || "",
+      guardianPhone: initialData?.guardianPhone || "",
+      guardianDeclarationConfirmed: Boolean((initialData as any)?.guardianDeclarationConfirmed),
+
+      schoolType: initialData?.schoolType || "",
+      schoolName: initialData?.schoolName || "",
+      schoolOther: initialData?.schoolOther || "",
+      
+      cep: initialData?.cep || "",
+      street: initialData?.street || "",
+      number: initialData?.number || "",
+      complement: initialData?.complement || "",
+      neighborhood: initialData?.neighborhood || "",
+      city: initialData?.city || "",
+      uf: initialData?.uf || "",
+      
+      enelClientNumber: initialData?.enelClientNumber || "",
+      
+      bloodType: initialData?.bloodType || "",
+      hasAllergy: initialData?.hasAllergy || false,
+      allergyDetail: initialData?.allergyDetail || "",
+      hasSpecialNeeds: initialData?.hasSpecialNeeds || false,
+      specialNeedsDetail: initialData?.specialNeedsDetail || "",
+      usesMedication: initialData?.usesMedication || false,
+      medicationDetail: initialData?.medicationDetail || "",
+      hasPhysicalRestriction: initialData?.hasPhysicalRestriction || false,
+      physicalRestrictionDetail: initialData?.physicalRestrictionDetail || "",
+      practicedActivity: initialData?.practicedActivity || false,
+      practicedActivityDetail: initialData?.practicedActivityDetail || "",
+      familyHeartHistory: initialData?.familyHeartHistory || false,
+      healthProblems: initialData?.healthProblems || [],
+      healthProblemsOther: initialData?.healthProblemsOther || "",
+      observations: initialData?.observations || "",
+      
+      imageAuthorization: initialData?.imageAuthorization || "authorized",
+      docsDelivered: initialData?.docsDelivered || [],
     },
   });
 
@@ -302,7 +356,7 @@ const StudentForm = ({
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: z.infer<typeof schema>) {
     const existingStudents = readGlobalStudents<StudentRegistration[]>([]);
 
     const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
@@ -336,6 +390,7 @@ const StudentForm = ({
         guardian_name: values.guardianName || null,
         guardian_kinship: values.guardianKinship || null,
         guardian_phone: values.guardianPhone || null,
+        guardian_declaration_confirmed: values.guardianDeclarationConfirmed,
 
         school_type: values.schoolType,
         school_name: (finalSchoolName || values.schoolName) as string,
@@ -447,7 +502,7 @@ const StudentForm = ({
         }
 
         const updated = existingStudents.map((s: any) =>
-          s.id === initialData.id ? { ...s, ...studentData } : s
+          s.id === initialData.id ? { ...s, ...studentData, guardianDeclarationConfirmed: values.guardianDeclarationConfirmed } : s
         );
         writeGlobalStudents(updated);
 
@@ -532,15 +587,16 @@ const StudentForm = ({
           return;
         }
 
-        const newStudent = {
+        const created: any = {
           ...studentData,
           id: createdId,
           registrationDate: new Date().toISOString(),
           registration: registration,
           status: 'Ativo',
-          class: 'A definir'
+          class: 'A definir',
+          guardianDeclarationConfirmed: values.guardianDeclarationConfirmed
         };
-        writeGlobalStudents([...existingStudents, newStudent]);
+        writeGlobalStudents([...existingStudents, created]);
 
         showSuccess("Inscrição realizada!");
         onCompleted?.({
@@ -629,10 +685,10 @@ const StudentForm = ({
         </Card>
 
         {/* 2. Responsável */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
+        <section className="rounded-[2.5rem] bg-white border border-slate-100 shadow-xl shadow-slate-200/30 overflow-hidden">
           <CardContent className="p-10">
             <SectionHeader icon={ShieldAlert} title="2. Responsável" subtitle="Dados do Tutor Legal" />
-            <div className="grid gap-8 md:grid-cols-3">
+            <div className="p-8 pt-0 grid gap-4 md:grid-cols-2">
               <FormField control={form.control} name="guardianName" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Nome Completo do Responsável</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
@@ -642,9 +698,35 @@ const StudentForm = ({
               <FormField control={form.control} name="guardianPhone" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Telefone de Contato</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
+
+              <div className="md:col-span-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                  Declaração do responsável
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-700">
+                  Declaro que sou responsável legal pelo(a) aluno(a) e confirmo que as informações fornecidas nesta ficha
+                  são verdadeiras.
+                </p>
+
+                <FormField
+                  control={form.control}
+                  name="guardianDeclarationConfirmed"
+                  render={({ field }) => (
+                    <FormItem className="mt-4 flex flex-row items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(Boolean(v))} />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel className="font-black">Confirmo a declaração do responsável</FormLabel>
+                        <FormMessage />
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
           </CardContent>
-        </Card>
+        </section>
 
         {/* 3. Escola */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">

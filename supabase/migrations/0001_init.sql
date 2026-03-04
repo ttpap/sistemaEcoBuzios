@@ -103,6 +103,7 @@ create table if not exists public.students (
   guardian_name text,
   guardian_kinship text,
   guardian_phone text,
+  guardian_declaration_confirmed boolean not null default false,
 
   school_type text not null,
   school_name text not null,

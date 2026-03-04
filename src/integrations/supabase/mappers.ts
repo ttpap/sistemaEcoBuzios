@@ -21,6 +21,7 @@ export function mapStudentRowToModel(row: any): StudentRegistration {
     guardianName: row.guardian_name ?? undefined,
     guardianKinship: row.guardian_kinship ?? undefined,
     guardianPhone: row.guardian_phone ?? undefined,
+    guardianDeclarationConfirmed: row.guardian_declaration_confirmed ?? undefined,
 
     schoolType: row.school_type,
     schoolName: row.school_name,
@@ -48,12 +49,12 @@ export function mapStudentRowToModel(row: any): StudentRegistration {
     practicedActivity: row.practiced_activity,
     practicedActivityDetail: row.practiced_activity_detail ?? undefined,
     familyHeartHistory: row.family_heart_history,
-    healthProblems: row.health_problems ?? [],
+    healthProblems: row.health_problems || [],
     healthProblemsOther: row.health_problems_other ?? undefined,
     observations: row.observations ?? undefined,
 
     imageAuthorization: row.image_authorization,
-    docsDelivered: row.docs_delivered ?? [],
+    docsDelivered: row.docs_delivered || [],
 
     registrationDate: row.registration_date,
     status: row.status,

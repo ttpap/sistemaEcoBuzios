@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { getActiveProjectId } from '@/utils/projects';
-import { fetchClassByIdRemote } from '@/integrations/supabase/classes';
+import { fetchClassesRemoteWithMeta } from '@/integrations/supabase/classes';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const EditClass = () => {
@@ -21,12 +21,16 @@ const EditClass = () => {
   useEffect(() => {
     const run = async () => {
       const projectId = getActiveProjectId();
-      if (!projectId) {
+      if (!projectId || !id) {
         navigate(`${base}/turmas`);
         return;
       }
 
-      const found = id ? await fetchClassByIdRemote(id) : null;
+      // Importante: no modo B (professor/coordenador), o SELECT direto pode vir vazio por RLS.
+      // Por isso, carregamos a lista do projeto (com fallback RPC) e encontramos a turma por ID.
+      const res = await fetchClassesRemoteWithMeta(projectId);
+      const found = res.classes.find((c) => c.id === id) || null;
+
       if (found) {
         setSchoolClass(found);
       } else {

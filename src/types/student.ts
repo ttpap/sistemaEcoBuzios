@@ -19,6 +19,7 @@ export interface StudentRegistration {
   guardianName?: string;
   guardianKinship?: string;
   guardianPhone?: string;
+  guardianDeclarationConfirmed?: boolean;
 
   // 3. Escola
   schoolType: string;

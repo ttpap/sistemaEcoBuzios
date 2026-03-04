@@ -18,6 +18,7 @@ DECLARE
   v_docs_delivered text[];
   v_status text;
   v_class text;
+  v_guardian_declaration_confirmed boolean;
   cur_status text;
   cur_class text;
 BEGIN
@@ -35,6 +36,8 @@ BEGIN
 
   SELECT COALESCE(array_agg(x), '{}'::text[]) INTO v_docs_delivered
   FROM jsonb_array_elements_text(COALESCE(p_row->'docs_delivered', '[]'::jsonb)) AS x;
+
+  v_guardian_declaration_confirmed := COALESCE((p_row->>'guardian_declaration_confirmed')::boolean, false);
 
   SELECT status, class INTO cur_status, cur_class
   FROM public.students
@@ -63,6 +66,7 @@ BEGIN
     guardian_name,
     guardian_kinship,
     guardian_phone,
+    guardian_declaration_confirmed,
 
     school_type,
     school_name,
@@ -116,6 +120,7 @@ BEGIN
     NULLIF(trim(coalesce(p_row->>'guardian_name','')), ''),
     NULLIF(trim(coalesce(p_row->>'guardian_kinship','')), ''),
     NULLIF(trim(coalesce(p_row->>'guardian_phone','')), ''),
+    v_guardian_declaration_confirmed,
 
     NULLIF(trim(coalesce(p_row->>'school_type','')), ''),
     NULLIF(trim(coalesce(p_row->>'school_name','')), ''),
@@ -169,6 +174,7 @@ BEGIN
     guardian_name = EXCLUDED.guardian_name,
     guardian_kinship = EXCLUDED.guardian_kinship,
     guardian_phone = EXCLUDED.guardian_phone,
+    guardian_declaration_confirmed = EXCLUDED.guardian_declaration_confirmed,
 
     school_type = EXCLUDED.school_type,
     school_name = EXCLUDED.school_name,

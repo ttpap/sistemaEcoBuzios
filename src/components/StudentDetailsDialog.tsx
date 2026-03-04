@@ -30,6 +30,7 @@ import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
 import { readScoped } from "@/utils/storage";
 import { Button } from "@/components/ui/button";
+import { getAreaBaseFromPathname } from "@/utils/route-base";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -118,8 +119,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
   const onEdit = () => {
     onClose();
-    const isTeacherArea = location.pathname.startsWith('/professor');
-    const base = isTeacherArea ? '/professor' : '';
+    const base = getAreaBaseFromPathname(location.pathname);
     navigate(`${base}/alunos/editar/${student.id}`);
   };
 
@@ -233,7 +233,6 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   <Row label="Gênero" value={student.gender || "---"} />
                   <Row label="Cor/Raça" value={student.race || "---"} />
                   <Row label="E-mail" value={student.email || "---"} />
-                  <Row label="Telefone" value={student.phone || "---"} />
                   <Row label="Celular / WhatsApp" value={student.cellPhone || "---"} />
                 </div>
 
@@ -247,6 +246,12 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                       <Row label="Nome" value={student.guardianName || "---"} />
                       <Row label="Parentesco" value={student.guardianKinship || "---"} />
                       <Row label="Telefone" value={student.guardianPhone || "---"} />
+                      {student.guardianDeclarationConfirmed !== undefined && (
+                        <Row
+                          label="Declaração do responsável"
+                          value={student.guardianDeclarationConfirmed ? "Confirmada" : "Não confirmada"}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
