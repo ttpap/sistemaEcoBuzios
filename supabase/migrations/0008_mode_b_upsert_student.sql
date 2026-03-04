@@ -16,18 +16,35 @@ DECLARE
   v_id uuid;
   v_health_problems text[];
   v_docs_delivered text[];
+  v_status text;
+  v_class text;
+  cur_status text;
+  cur_class text;
 BEGIN
   IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
     RAISE EXCEPTION 'not_allowed';
   END IF;
 
   v_id := NULLIF(trim(coalesce(p_row->>'id','')), '')::uuid;
+  IF v_id IS NULL THEN
+    v_id := gen_random_uuid();
+  END IF;
 
   SELECT COALESCE(array_agg(x), '{}'::text[]) INTO v_health_problems
   FROM jsonb_array_elements_text(COALESCE(p_row->'health_problems', '[]'::jsonb)) AS x;
 
   SELECT COALESCE(array_agg(x), '{}'::text[]) INTO v_docs_delivered
   FROM jsonb_array_elements_text(COALESCE(p_row->'docs_delivered', '[]'::jsonb)) AS x;
+
+  SELECT status, class INTO cur_status, cur_class
+  FROM public.students
+  WHERE id = v_id;
+
+  v_status := NULLIF(trim(coalesce(p_row->>'status','')), '');
+  v_class := NULLIF(trim(coalesce(p_row->>'class','')), '');
+
+  v_status := COALESCE(v_status, cur_status, 'Ativo');
+  v_class := COALESCE(v_class, cur_class, 'A definir');
 
   INSERT INTO public.students (
     id,
@@ -133,8 +150,8 @@ BEGIN
     NULLIF(trim(coalesce(p_row->>'image_authorization','')), ''),
     v_docs_delivered,
 
-    NULLIF(trim(coalesce(p_row->>'status','')), ''),
-    NULLIF(trim(coalesce(p_row->>'class','')), '')
+    v_status,
+    v_class
   )
   ON CONFLICT (id) DO UPDATE SET
     registration = EXCLUDED.registration,
@@ -186,8 +203,8 @@ BEGIN
     image_authorization = EXCLUDED.image_authorization,
     docs_delivered = EXCLUDED.docs_delivered,
 
-    status = EXCLUDED.status,
-    class = EXCLUDED.class;
+    status = COALESCE(EXCLUDED.status, students.status),
+    class = COALESCE(EXCLUDED.class, students.class);
 
   RETURN v_id;
 END;
