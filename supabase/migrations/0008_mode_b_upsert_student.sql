@@ -14,12 +14,20 @@ SET search_path TO 'public'
 AS $$
 DECLARE
   v_id uuid;
+  v_health_problems text[];
+  v_docs_delivered text[];
 BEGIN
   IF NOT public.mode_b_staff_can_access_project(p_login, p_password, p_project_id) THEN
     RAISE EXCEPTION 'not_allowed';
   END IF;
 
   v_id := NULLIF(trim(coalesce(p_row->>'id','')), '')::uuid;
+
+  SELECT COALESCE(array_agg(x), '{}'::text[]) INTO v_health_problems
+  FROM jsonb_array_elements_text(COALESCE(p_row->'health_problems', '[]'::jsonb)) AS x;
+
+  SELECT COALESCE(array_agg(x), '{}'::text[]) INTO v_docs_delivered
+  FROM jsonb_array_elements_text(COALESCE(p_row->'docs_delivered', '[]'::jsonb)) AS x;
 
   INSERT INTO public.students (
     id,
@@ -118,12 +126,12 @@ BEGIN
     COALESCE((p_row->>'practiced_activity')::boolean, false),
     NULLIF(trim(coalesce(p_row->>'practiced_activity_detail','')), ''),
     COALESCE((p_row->>'family_heart_history')::boolean, false),
-    COALESCE(p_row->'health_problems', '[]'::jsonb),
+    v_health_problems,
     NULLIF(trim(coalesce(p_row->>'health_problems_other','')), ''),
     NULLIF(trim(coalesce(p_row->>'observations','')), ''),
 
     NULLIF(trim(coalesce(p_row->>'image_authorization','')), ''),
-    COALESCE(p_row->'docs_delivered', '[]'::jsonb),
+    v_docs_delivered,
 
     NULLIF(trim(coalesce(p_row->>'status','')), ''),
     NULLIF(trim(coalesce(p_row->>'class','')), '')
