@@ -31,6 +31,7 @@ import {
   fetchEnrollmentsRemoteWithMeta,
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
+  fetchClassesRemoteWithMeta,
 } from '@/integrations/supabase/classes';
 import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
@@ -53,10 +54,41 @@ const ClassDetails = () => {
 
   useEffect(() => {
     const run = async () => {
-      const classes = readScoped<SchoolClass[]>('classes', []);
+      if (!id) {
+        navigate(`${base}/turmas`, { replace: true });
+        return;
+      }
+
+      const projectId = getActiveProjectId();
+
+      // 1) Tenta carregar as turmas do storage (pode falhar se não houver projeto ativo)
+      let classes: SchoolClass[] = [];
+      try {
+        classes = readScoped<SchoolClass[]>('classes', []);
+      } catch {
+        classes = [];
+      }
+
+      // 2) Se não houver cache local, tenta buscar do servidor (evita página em branco)
+      if (classes.length === 0 && projectId) {
+        try {
+          const res = await fetchClassesRemoteWithMeta(projectId);
+          if (res.classes.length) {
+            classes = res.classes;
+            try {
+              writeScoped('classes', classes);
+            } catch {
+              // ignore
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       const found = classes.find((c: any) => c.id === id);
       if (!found) {
-        navigate(`${base}/turmas`);
+        navigate(`${base}/turmas`, { replace: true });
         return;
       }
 
@@ -98,7 +130,11 @@ const ClassDetails = () => {
 
         const normalized = ensureStudentEnrollments(merged);
         const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
-        writeScoped('classes', newClasses);
+        try {
+          writeScoped('classes', newClasses);
+        } catch {
+          // ignore
+        }
 
         setSchoolClass(normalized);
         setInfo(normalized.complementaryInfo || "");
@@ -106,7 +142,11 @@ const ClassDetails = () => {
         const normalized = ensureStudentEnrollments(localNormalized);
         if (!found.studentEnrollments) {
           const newClasses = classes.map((c: any) => (c.id === id ? normalized : c));
-          writeScoped('classes', newClasses);
+          try {
+            writeScoped('classes', newClasses);
+          } catch {
+            // ignore
+          }
         }
         setSchoolClass(normalized);
         setInfo(normalized.complementaryInfo || "");
@@ -130,7 +170,6 @@ const ClassDetails = () => {
       }
 
       // Alunos: no professor, buscar do Supabase (com fallback modo B) para não depender do storage local.
-      const projectId = getActiveProjectId();
       if (projectId) {
         try {
           const remoteStudents = await fetchStudentsRemote(projectId);
