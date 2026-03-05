@@ -39,7 +39,7 @@ import {
 } from "@/utils/projects";
 import { deleteProjectRemote, fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
 import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
-import { readGlobalStudents } from "@/utils/storage";
+import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
 import { setAdminPassword, resetAdminPasswordToDefault, getDefaultAdminPassword } from "@/utils/admin-auth";
 import { invalidateProjectTheme } from "@/utils/theme";
@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
+import { fetchStudents } from "@/integrations/supabase/students";
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -122,7 +123,19 @@ export default function Projects() {
       setDbMode("local");
     }
 
-    setStudents(readGlobalStudents<StudentRegistration[]>([]));
+    // Admin: lista global de alunos vem do Supabase quando possível.
+    try {
+      const remoteStudents = await fetchStudents();
+      if (remoteStudents.length > 0) {
+        writeGlobalStudents(remoteStudents);
+        setStudents(remoteStudents);
+      } else {
+        setStudents(readGlobalStudents<StudentRegistration[]>([]));
+      }
+    } catch {
+      setStudents(readGlobalStudents<StudentRegistration[]>([]));
+    }
+
     setSystemLogoState(getSystemLogo() || "");
   }, []);
 
