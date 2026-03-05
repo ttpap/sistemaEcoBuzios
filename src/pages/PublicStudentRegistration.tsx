@@ -178,6 +178,7 @@ export default function PublicStudentRegistration() {
               <StudentForm
                 redirectTo={null}
                 hideDiscard
+                hideDocumentation
                 submitLabel="Finalizar inscrição"
                 onCompleted={(result) => setDone(result)}
               />

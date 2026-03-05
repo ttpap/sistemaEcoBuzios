@@ -224,14 +224,16 @@ interface StudentFormProps {
   hideDiscard?: boolean;
   submitLabel?: string;
   onCompleted?: (result: { registration: string; login: string; password: string }) => void;
+  hideDocumentation?: boolean;
 }
 
 const StudentForm = ({ 
   initialData, 
   redirectTo, 
-  onCompleted, 
+  hideDiscard, 
   submitLabel, 
-  hideDiscard 
+  onCompleted, 
+  hideDocumentation 
 }: StudentFormProps) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -941,30 +943,31 @@ const StudentForm = ({
           </CardContent>
         </Card>
 
-        {/* 8. Documentação */}
-        <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
-          <CardContent className="p-10">
-            <SectionHeader icon={FileText} title="8. Documentação" subtitle="Checklist de Entrega" />
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {DOCUMENTS.map((doc) => (
-                <FormField key={doc} control={form.control} name="docsDelivered" render={({ field }) => (
-                  <FormItem className="flex items-center space-x-3 space-y-0 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <FormControl>
-                      <Checkbox 
-                        checked={field.value?.includes(doc)} 
-                        onCheckedChange={(checked) => {
-                          const current = field.value || [];
-                          return checked ? field.onChange([...current, doc]) : field.onChange(current.filter(v => v !== doc));
-                        }} 
-                      />
-                    </FormControl>
-                    <FormLabel className="text-xs font-bold text-slate-600 cursor-pointer">{doc}</FormLabel>
-                  </FormItem>
-                )} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {!hideDocumentation && (
+          <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">
+            <CardContent className="p-10">
+              <SectionHeader icon={FileText} title="8. Documentação" subtitle="Checklist de Entrega" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {DOCUMENTS.map((doc) => (
+                  <FormField key={doc} control={form.control} name="docsDelivered" render={({ field }) => (
+                    <FormItem className="flex items-center space-x-3 space-y-0 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <FormControl>
+                        <Checkbox 
+                          checked={field.value?.includes(doc)} 
+                          onCheckedChange={(checked) => {
+                            const current = field.value || [];
+                            return checked ? field.onChange([...current, doc]) : field.onChange(current.filter(v => v !== doc));
+                          }} 
+                        />
+                      </FormControl>
+                      <FormLabel className="text-xs font-bold text-slate-600 cursor-pointer">{doc}</FormLabel>
+                    </FormItem>
+                  )} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="bg-primary/5 p-10 rounded-[3rem] border border-primary/10 text-center space-y-8">
           <div className="flex justify-center"><CheckCircle2 className="h-16 w-16 text-primary animate-bounce" /></div>
