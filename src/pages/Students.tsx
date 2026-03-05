@@ -24,7 +24,7 @@ import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
-import { fetchStudentsRemoteWithMeta, deleteStudent } from "@/integrations/supabase/students";
+import { fetchStudentsRemoteWithMeta, deleteStudent, fetchStudents } from "@/integrations/supabase/students";
 import { getActiveProjectId } from '@/utils/projects';
 import { fetchClassesRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from '@/integrations/supabase/classes';
 import { useAuth } from '@/context/AuthContext';
@@ -53,6 +53,27 @@ const Students = () => {
   useEffect(() => {
     const run = async () => {
       const projectId = getActiveProjectId();
+
+      // Admin: lista global (todos os alunos do sistema), independente de projeto.
+      if (effectiveRole === 'admin') {
+        try {
+          const remote = await fetchStudents();
+          if (remote.length > 0) {
+            const normalized = normalizeStudentRegistrations(remote);
+            const finalList = normalized.changed ? normalized.students : remote;
+            writeGlobalStudents(finalList);
+            setStudents(finalList);
+          } else {
+            setStudents(readGlobalStudents<StudentRegistration[]>([]));
+          }
+        } catch {
+          setStudents(readGlobalStudents<StudentRegistration[]>([]));
+        }
+        setClasses(projectId ? readScoped<SchoolClass[]>('classes', []) : []);
+        setAllowedIds(new Set());
+        return;
+      }
+
       if (!projectId) {
         setClasses(readScoped<SchoolClass[]>('classes', []));
         setStudents(readGlobalStudents<StudentRegistration[]>([]));
