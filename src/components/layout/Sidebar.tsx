@@ -34,7 +34,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: FolderPlus, label: 'Projetos', path: '/projetos' },
       { icon: Users, label: 'Professores', path: '/professores' },
       { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
-      { icon: Link2, label: 'Link de inscrição', path: '/inscricao' },
+      { icon: Link2, label: 'Links de inscrição', path: '/links-inscricao' },
     ];
 
     // Mostra Alunos/Turmas assim que existe um projeto ativo (id no storage),

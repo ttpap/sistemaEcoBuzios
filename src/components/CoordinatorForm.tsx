@@ -61,9 +61,11 @@ const formSchema = z.object({
 
 interface CoordinatorFormProps {
   initialData?: CoordinatorRegistration | null;
+  redirectTo?: string | null;
+  onCompleted?: (result: { login: string; password: string }) => void;
 }
 
-export default function CoordinatorForm({ initialData }: CoordinatorFormProps) {
+export default function CoordinatorForm({ initialData, redirectTo, onCompleted }: CoordinatorFormProps) {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   const [isCustomBank, setIsCustomBank] = useState(false);
@@ -156,26 +158,32 @@ export default function CoordinatorForm({ initialData }: CoordinatorFormProps) {
         }
 
         showSuccess("Cadastro atualizado!");
-      } else {
-        const created = createGlobalCoordinator(payload);
-        try {
-          await upsertCoordinator(created);
-        } catch (e: any) {
-          // rollback local
-          try {
-            const { deleteGlobalCoordinator } = await import("@/utils/coordinators");
-            deleteGlobalCoordinator(created.id);
-          } catch {
-            // ignore
-          }
-          showError(e?.message || "Não foi possível salvar no Supabase.");
-          return;
-        }
 
-        showSuccess("Cadastro realizado! Login e senha foram gerados.");
+        const target = redirectTo === undefined ? "/coordenadores" : redirectTo;
+        if (target !== null) navigate(target);
+        return;
       }
 
-      navigate("/coordenadores");
+      const created = createGlobalCoordinator(payload);
+      try {
+        await upsertCoordinator(created);
+      } catch (e: any) {
+        // rollback local
+        try {
+          const { deleteGlobalCoordinator } = await import("@/utils/coordinators");
+          deleteGlobalCoordinator(created.id);
+        } catch {
+          // ignore
+        }
+        showError(e?.message || "Não foi possível salvar no Supabase.");
+        return;
+      }
+
+      showSuccess("Cadastro realizado! Login e senha foram gerados.");
+      onCompleted?.({ login: created.authLogin, password: created.authPassword });
+
+      const target = redirectTo === undefined ? "/coordenadores" : redirectTo;
+      if (target !== null) navigate(target);
     };
 
     void run();

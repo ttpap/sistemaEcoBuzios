@@ -64,10 +64,18 @@ const formSchema = z.object({
 interface TeacherFormProps {
   initialData?: TeacherRegistration | null;
   backPath?: string;
+  redirectTo?: string | null;
   onAfterSave?: (teacherId: string, mode: "create" | "update") => void;
+  onCompleted?: (result: { login: string; password: string }) => void;
 }
 
-const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: TeacherFormProps) => {
+const TeacherForm = ({ 
+  initialData, 
+  backPath = "/professores", 
+  redirectTo,
+  onAfterSave,
+  onCompleted,
+}: TeacherFormProps) => {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   const [isCustomBank, setIsCustomBank] = useState(false);
@@ -159,27 +167,33 @@ const TeacherForm = ({ initialData, backPath = '/professores', onAfterSave }: Te
 
         showSuccess("Cadastro atualizado!");
         onAfterSave?.(initialData.id, "update");
-      } else {
-        const created = createGlobalTeacher(teacherData);
-        try {
-          await upsertTeacher(created);
-        } catch (e: any) {
-          // rollback local
-          try {
-            const { deleteGlobalTeacher } = await import("@/utils/teachers");
-            deleteGlobalTeacher(created.id);
-          } catch {
-            // ignore
-          }
-          showError(e?.message || "Não foi possível salvar no Supabase.");
-          return;
-        }
 
-        showSuccess("Cadastro realizado! Login e senha foram gerados.");
-        onAfterSave?.(created.id, "create");
+        const target = redirectTo === undefined ? backPath : redirectTo;
+        if (target !== null) navigate(target);
+        return;
       }
 
-      navigate(backPath);
+      const created = createGlobalTeacher(teacherData);
+      try {
+        await upsertTeacher(created);
+      } catch (e: any) {
+        // rollback local
+        try {
+          const { deleteGlobalTeacher } = await import("@/utils/teachers");
+          deleteGlobalTeacher(created.id);
+        } catch {
+          // ignore
+        }
+        showError(e?.message || "Não foi possível salvar no Supabase.");
+        return;
+      }
+
+      showSuccess("Cadastro realizado! Login e senha foram gerados.");
+      onAfterSave?.(created.id, "create");
+      onCompleted?.({ login: created.authLogin, password: created.authPassword });
+
+      const target = redirectTo === undefined ? backPath : redirectTo;
+      if (target !== null) navigate(target);
     };
 
     void run();
