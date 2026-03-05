@@ -273,35 +273,54 @@ const ClassDetails = () => {
     showSuccess("Informações salvas!");
   };
 
-  if (!schoolClass) return null;
+  const classTeachers = useMemo(() => {
+    if (!schoolClass) return [] as TeacherRegistration[];
+    const ids = schoolClass.teacherIds || [];
+    return allTeachers.filter((t) => ids.includes(t.id));
+  }, [allTeachers, schoolClass]);
 
-  const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
   const classStudents = useMemo(() => {
+    if (!schoolClass) return [] as StudentRegistration[];
+    const ids = new Set(schoolClass.studentIds || []);
     return allStudents
-      .filter((s) => schoolClass.studentIds?.includes(s.id))
-      .sort((a, b) => (a.socialName || a.preferredName || a.fullName).localeCompare(
-        b.socialName || b.preferredName || b.fullName,
-        "pt-BR",
-      ));
-  }, [allStudents, schoolClass.studentIds]);
+      .filter((s) => ids.has(s.id))
+      .sort((a, b) =>
+        (a.socialName || a.preferredName || a.fullName).localeCompare(
+          b.socialName || b.preferredName || b.fullName,
+          "pt-BR",
+        ),
+      );
+  }, [allStudents, schoolClass]);
 
-  // LÓGICA DE FILTRAGEM DINÂMICA (Executada a cada renderização)
-  const enrolledIds = schoolClass.studentIds || [];
-  const searchNormalized = studentSearch.toLowerCase().trim();
+  const filteredAvailableStudents = useMemo(() => {
+    if (!schoolClass) return [] as StudentRegistration[];
 
-  const filteredAvailableStudents = allStudents
-    .filter(student => {
-      const search = studentSearch.toLowerCase();
-      const name = (student.fullName || "").toLowerCase();
-      const registration = (student.registration || "");
-      const isAlreadyInClass = schoolClass.studentIds?.includes(student.id);
-      const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
-      return !isAlreadyInClass && matchesSearch;
-    })
-    .sort((a, b) => (a.socialName || a.preferredName || a.fullName).localeCompare(
-      b.socialName || b.preferredName || b.fullName,
-      "pt-BR",
-    ));
+    const search = studentSearch.toLowerCase();
+    const enrolled = new Set(schoolClass.studentIds || []);
+
+    return allStudents
+      .filter((student) => {
+        const name = (student.fullName || "").toLowerCase();
+        const registration = student.registration || "";
+        const isAlreadyInClass = enrolled.has(student.id);
+        const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
+        return !isAlreadyInClass && matchesSearch;
+      })
+      .sort((a, b) =>
+        (a.socialName || a.preferredName || a.fullName).localeCompare(
+          b.socialName || b.preferredName || b.fullName,
+          "pt-BR",
+        ),
+      );
+  }, [allStudents, schoolClass, studentSearch]);
+
+  if (!schoolClass) {
+    return (
+      <div className="p-10">
+        <p className="text-slate-600 font-bold">Carregando turma...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
