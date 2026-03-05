@@ -1150,11 +1150,20 @@ export default function Projects() {
                         .map((s) => (
                           <TableRow key={s.id} className="border-slate-100">
                             <TableCell className="px-6 py-4">
-                              <div className="min-w-0">
-                                <p className="font-black text-slate-800 truncate">{s.fullName}</p>
-                                <p className="text-xs font-bold text-slate-500 truncate">
-                                  {s.cellPhone || s.phone || ""}
-                                </p>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0">
+                                  {s.photo ? (
+                                    <img src={s.photo} alt={s.fullName} className="h-full w-full object-cover" />
+                                  ) : (
+                                    (s.fullName || "A").charAt(0)
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-black text-slate-800 truncate">{s.fullName}</p>
+                                  <p className="text-xs font-bold text-slate-500 truncate">
+                                    {s.cellPhone || s.phone || ""}
+                                  </p>
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell className="font-bold text-slate-700">{s.registration}</TableCell>
