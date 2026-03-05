@@ -56,6 +56,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import TeacherLogin from "./pages/TeacherLogin";
 import StudentLogin from "./pages/StudentLogin";
 import CoordinatorLogin from "@/pages/CoordinatorLogin";
+import EnelReport from "@/pages/EnelReport";
 
 const queryClient = new QueryClient();
 
@@ -211,6 +212,14 @@ const App = () => (
                           </TeacherActiveProjectGate>
                         }
                       />
+                      <Route
+                        path="relatorios/enel"
+                        element={
+                          <TeacherActiveProjectGate>
+                            <EnelReport />
+                          </TeacherActiveProjectGate>
+                        }
+                      />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppShell>
@@ -329,7 +338,14 @@ const App = () => (
                           </ActiveProjectGate>
                         }
                       />
-
+                      <Route
+                        path="relatorios/enel"
+                        element={
+                          <ActiveProjectGate>
+                            <EnelReport />
+                          </ActiveProjectGate>
+                        }
+                      />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </AppShell>
@@ -460,6 +476,14 @@ const App = () => (
                         element={
                           <CoordinatorActiveProjectGate>
                             <MonthlyReports />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
+                      <Route
+                        path="relatorios/enel"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <EnelReport />
                           </CoordinatorActiveProjectGate>
                         }
                       />

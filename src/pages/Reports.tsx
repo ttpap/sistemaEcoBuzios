@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -29,6 +29,8 @@ import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from "@/in
 import { fetchStudentsRemoteWithMeta } from "@/integrations/supabase/students";
 import { getSystemLogo } from "@/utils/system-settings";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
+import { useAuth } from "@/context/AuthContext";
+import { Zap } from "lucide-react";
 
 import {
   BarChart3,
@@ -41,6 +43,7 @@ import {
   Layers,
   NotebookPen,
   Users,
+  FileText,
 } from "lucide-react";
 
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
@@ -254,6 +257,9 @@ export default function Reports() {
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
   const isTeacherArea = useMemo(() => location.pathname.startsWith("/professor"), [location.pathname]);
 
+  const { profile } = useAuth();
+  const canSeeEnel = profile?.role === "admin" || profile?.role === "coordinator";
+
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
@@ -438,58 +444,48 @@ export default function Reports() {
       </div>
 
       {report === "home" ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 lg:grid-cols-2">
           <Card
-            className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
+            className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
             onClick={() => setReport("attendance")}
           >
-            <div className="p-7 bg-slate-50/60 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-[1.6rem] bg-primary/10 text-primary flex items-center justify-center">
-                    <ClipboardCheck className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-black text-primary">Chamada</p>
-                    <p className="text-sm font-bold text-slate-500">Mensal por turma</p>
-                  </div>
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-3xl bg-primary/10 text-primary flex items-center justify-center border border-primary/15 group-hover:scale-110 transition-transform">
+                  <FileText className="h-7 w-7" />
                 </div>
-                <Badge className="bg-secondary text-primary border-none font-black">Tabela</Badge>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-lg font-black text-primary">Relatório de chamada</p>
+                  <p className="text-sm font-bold text-slate-500 mt-1">
+                    Gere um relatório com todas as datas registradas no mês e o status de cada aluno.
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="p-7">
-              <p className="text-slate-600 font-medium">
-                Gere um relatório com todas as datas registradas no mês e o status de cada aluno.
-              </p>
-            </div>
+            </CardContent>
           </Card>
 
-          <Card
-            className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer hover:shadow-2xl transition-all"
-            onClick={() => navigate(`${base}/relatorios/mensais`) }
-          >
-            <div className="p-7 bg-slate-50/60 border-b border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-[1.6rem] bg-primary/10 text-primary flex items-center justify-center">
-                    <NotebookPen className="h-6 w-6" />
+          {canSeeEnel ? (
+            <Card
+              className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+              onClick={() => navigate(`${base}/relatorios/enel`)}
+            >
+              <CardContent className="p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-3xl bg-amber-50 text-amber-800 flex items-center justify-center border border-amber-200 group-hover:scale-110 transition-transform">
+                    <Zap className="h-7 w-7" />
                   </div>
                   <div>
-                    <p className="text-lg font-black text-primary">Relatório mensal</p>
-                    <p className="text-sm font-bold text-slate-500">Professor → Admin</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-lg font-black text-primary">Relatório ENEL</p>
+                    <p className="text-sm font-bold text-slate-500 mt-1">
+                      Lista mensal de alunos matriculados nas turmas do projeto, com CPF e Nº ENEL.
+                    </p>
                   </div>
                 </div>
-                <Badge className="bg-secondary text-primary border-none font-black">Envio</Badge>
-              </div>
-            </div>
-            <div className="p-7">
-              <p className="text-slate-600 font-medium">
-                {isTeacherArea
-                  ? "Crie, salve e envie seu relatório mensal para o administrador do projeto."
-                  : "Veja os relatórios mensais enviados pelos professores neste projeto."}
-              </p>
-            </div>
-          </Card>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-6">

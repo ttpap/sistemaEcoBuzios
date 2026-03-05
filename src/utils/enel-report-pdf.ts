@@ -64,14 +64,21 @@ function loadImageToPngDataUrl(url: string): Promise<string | null> {
   });
 }
 
-export async function generateEnelPdf(input: { month: string; rows: EnelRow[] }) {
-  const project = getActiveProject();
-  const projectName = project?.name || "Projeto";
+export async function generateEnelPdf(input: {
+  month: string;
+  rows: EnelRow[];
+  projectName?: string;
+  projectLogoUrl?: string | null;
+  includeEnelNumber?: boolean;
+}) {
+  const activeProject = getActiveProject();
+  const projectName = input.projectName || activeProject?.name || "Projeto";
+  const includeEnel = input.includeEnelNumber !== false;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
 
   // Header
-  const logoUrl = getReportLogoUrl();
+  const logoUrl = input.projectLogoUrl ?? getReportLogoUrl();
   const logoDataUrl = logoUrl.startsWith("data:image/") ? logoUrl : await loadImageToPngDataUrl(logoUrl);
 
   const marginX = 40;
@@ -98,17 +105,19 @@ export async function generateEnelPdf(input: { month: string; rows: EnelRow[] })
 
   y += 78;
 
+  const head = includeEnel
+    ? [["Nome", "Celular", "Nascimento", "Idade", "CPF", "Nº ENEL"]]
+    : [["Nome", "Celular", "Nascimento", "Idade", "CPF"]];
+
+  const body = input.rows.map((r) => {
+    const base = [r.name, r.cellPhone, formatBirthDate(r.birthDate), String(r.age ?? ""), r.cpf];
+    return includeEnel ? [...base, r.enelClientNumber] : base;
+  });
+
   autoTable(doc, {
     startY: y,
-    head: [["Nome", "Celular", "Nascimento", "Idade", "CPF", "Nº ENEL"]],
-    body: input.rows.map((r) => [
-      r.name,
-      r.cellPhone,
-      formatBirthDate(r.birthDate),
-      String(r.age ?? ""),
-      r.cpf,
-      r.enelClientNumber,
-    ]),
+    head,
+    body,
     styles: {
       font: "helvetica",
       fontSize: 9,
@@ -122,14 +131,22 @@ export async function generateEnelPdf(input: { month: string; rows: EnelRow[] })
       fontStyle: "bold",
       halign: "center",
     },
-    columnStyles: {
-      0: { cellWidth: 160 },
-      1: { cellWidth: 90, halign: "center" },
-      2: { cellWidth: 80, halign: "center" },
-      3: { cellWidth: 45, halign: "center" },
-      4: { cellWidth: 90, halign: "center" },
-      5: { cellWidth: 80, halign: "center" },
-    },
+    columnStyles: includeEnel
+      ? {
+          0: { cellWidth: 160 },
+          1: { cellWidth: 90, halign: "center" },
+          2: { cellWidth: 80, halign: "center" },
+          3: { cellWidth: 45, halign: "center" },
+          4: { cellWidth: 90, halign: "center" },
+          5: { cellWidth: 80, halign: "center" },
+        }
+      : {
+          0: { cellWidth: 190 },
+          1: { cellWidth: 100, halign: "center" },
+          2: { cellWidth: 90, halign: "center" },
+          3: { cellWidth: 55, halign: "center" },
+          4: { cellWidth: 110, halign: "center" },
+        },
   });
 
   const filename = filenameSafe(`relatorio-enel-${projectName}-${input.month}.pdf`);
