@@ -121,7 +121,13 @@ export default function ClassAttendance({
   classId: string;
   students: StudentRegistration[];
 }) {
-  const studentIds = useMemo(() => students.map((s) => s.id), [students]);
+  const studentsSorted = useMemo(
+    () =>
+      [...students].sort((a, b) => displaySocialName(a).localeCompare(displaySocialName(b), "pt-BR")),
+    [students],
+  );
+
+  const studentIds = useMemo(() => studentsSorted.map((s) => s.id), [studentsSorted]);
   const activeProjectId = getActiveProjectId();
   const todayYmd = useMemo(() => toYMD(new Date()), []);
 
@@ -717,12 +723,12 @@ export default function ClassAttendance({
                 </div>
               ) : null}
 
-              {students.length === 0 ? (
+              {studentsSorted.length === 0 ? (
                 <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center">
                   <p className="text-sm font-bold text-slate-500">Nenhum aluno matriculado na turma.</p>
                 </div>
               ) : (
-                students.map((st) => {
+                studentsSorted.map((st) => {
                   const status = (draftRecords?.[st.id] || selectedSession.records?.[st.id] || null) as
                     | AttendanceStatus
                     | null;
