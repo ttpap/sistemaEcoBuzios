@@ -19,6 +19,7 @@ import { TeacherRegistration } from '@/types/teacher';
 import { createGlobalTeacher, updateGlobalTeacher } from '@/utils/teachers';
 import { lookupCep } from '@/utils/cep';
 import { upsertTeacher } from "@/integrations/supabase/teachers";
+import { insertTeacherPublic } from "@/integrations/supabase/public-staff";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -175,7 +176,11 @@ const TeacherForm = ({
 
       const created = createGlobalTeacher(teacherData);
       try {
-        await upsertTeacher(created);
+        if (redirectTo === null) {
+          await insertTeacherPublic(created);
+        } else {
+          await upsertTeacher(created);
+        }
       } catch (e: any) {
         // rollback local
         try {

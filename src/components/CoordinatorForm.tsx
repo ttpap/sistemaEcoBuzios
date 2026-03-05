@@ -17,6 +17,7 @@ import type { CoordinatorRegistration } from "@/types/coordinator";
 import { createGlobalCoordinator, updateGlobalCoordinator } from "@/utils/coordinators";
 import { lookupCep } from "@/utils/cep";
 import { upsertCoordinator } from "@/integrations/supabase/coordinators";
+import { insertCoordinatorPublic } from "@/integrations/supabase/public-staff";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",
@@ -166,7 +167,11 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted }
 
       const created = createGlobalCoordinator(payload);
       try {
-        await upsertCoordinator(created);
+        if (redirectTo === null) {
+          await insertCoordinatorPublic(created);
+        } else {
+          await upsertCoordinator(created);
+        }
       } catch (e: any) {
         // rollback local
         try {
