@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -237,26 +237,32 @@ const ClassDetails = () => {
   if (!schoolClass) return null;
 
   const classTeachers = allTeachers.filter(t => schoolClass.teacherIds?.includes(t.id));
-  const classStudents = allStudents.filter(s => schoolClass.studentIds?.includes(s.id));
+  const classStudents = useMemo(() => {
+    return allStudents
+      .filter((s) => schoolClass.studentIds?.includes(s.id))
+      .sort((a, b) => (a.socialName || a.preferredName || a.fullName).localeCompare(
+        b.socialName || b.preferredName || b.fullName,
+        "pt-BR",
+      ));
+  }, [allStudents, schoolClass.studentIds]);
 
   // LÓGICA DE FILTRAGEM DINÂMICA (Executada a cada renderização)
   const enrolledIds = schoolClass.studentIds || [];
   const searchNormalized = studentSearch.toLowerCase().trim();
 
-  const filteredAvailableStudents = allStudents.filter(student => {
-    // 1. Remove quem já está na turma
-    const isNotEnrolled = !enrolledIds.includes(student.id);
-    if (!isNotEnrolled) return false;
-
-    // 2. Se não houver busca, mostra todos os disponíveis
-    if (!searchNormalized) return true;
-
-    // 3. Filtra por nome ou matrícula
-    const nameMatch = student.fullName.toLowerCase().includes(searchNormalized);
-    const regMatch = student.registration?.toLowerCase().includes(searchNormalized);
-
-    return nameMatch || regMatch;
-  });
+  const filteredAvailableStudents = allStudents
+    .filter(student => {
+      const search = studentSearch.toLowerCase();
+      const name = (student.fullName || "").toLowerCase();
+      const registration = (student.registration || "");
+      const isAlreadyInClass = schoolClass.studentIds?.includes(student.id);
+      const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
+      return !isAlreadyInClass && matchesSearch;
+    })
+    .sort((a, b) => (a.socialName || a.preferredName || a.fullName).localeCompare(
+      b.socialName || b.preferredName || b.fullName,
+      "pt-BR",
+    ));
 
   return (
     <div className="space-y-6">

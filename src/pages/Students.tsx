@@ -237,8 +237,17 @@ const Students = () => {
     return students;
   }, [students, allowedIds, effectiveRole]);
 
-  const filtered = visibleStudents.filter(s =>
-    s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const visibleStudentsSorted = useMemo(() => {
+    return [...visibleStudents].sort((a, b) =>
+      (a.socialName || a.preferredName || a.fullName).localeCompare(
+        b.socialName || b.preferredName || b.fullName,
+        "pt-BR",
+      ),
+    );
+  }, [visibleStudents]);
+
+  const filtered = visibleStudentsSorted.filter(s =>
+    (s.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.registration || "").includes(searchTerm)
   );
 
