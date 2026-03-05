@@ -1,0 +1,15 @@
+{
+  "name": "EcoBuzios gestor",
+  "short_name": "EcoBuzios",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#008ca0",
+  "icons": [
+    {
+      "src": "/ecobuzios-logo-square.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
