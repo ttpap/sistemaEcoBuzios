@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import TeacherForm from "@/components/TeacherForm";
 import { getActiveProjectId } from "@/utils/projects";
 import { addTeacherToProject } from "@/utils/teachers";
+import { assignTeacherToProjectRemote } from "@/integrations/supabase/teacher-assignments";
 
 export default function CoordinatorNewTeacher() {
   const navigate = useNavigate();
@@ -18,7 +19,12 @@ export default function CoordinatorNewTeacher() {
       if (mode !== "create") return;
       const pid = getActiveProjectId();
       if (!pid) return;
-      addTeacherToProject(teacherId, pid);
+
+      // Source-of-truth: Supabase
+      void assignTeacherToProjectRemote(teacherId, pid).catch(() => {
+        // fallback local (compat)
+        addTeacherToProject(teacherId, pid);
+      });
     };
   }, []);
 

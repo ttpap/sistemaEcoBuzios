@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import TeacherForm from "@/components/TeacherForm";
 import type { TeacherRegistration } from "@/types/teacher";
 import { readGlobalTeachers } from "@/utils/teachers";
+import { fetchTeacherById } from "@/integrations/supabase/teachers";
 
 export default function CoordinatorEditTeacher() {
   const { id } = useParams();
@@ -16,13 +17,29 @@ export default function CoordinatorEditTeacher() {
   const backPath = "/coordenador/professores";
 
   useEffect(() => {
-    const saved = readGlobalTeachers([]);
-    const found = saved.find((t) => t.id === id) || null;
-    if (!found) {
-      navigate(backPath);
-      return;
-    }
-    setTeacher(found);
+    const run = async () => {
+      if (!id) {
+        navigate(backPath);
+        return;
+      }
+
+      const remote = await fetchTeacherById(id);
+      if (remote) {
+        setTeacher(remote);
+        return;
+      }
+
+      // Fallback legado
+      const saved = readGlobalTeachers([]);
+      const found = saved.find((t) => t.id === id) || null;
+      if (!found) {
+        navigate(backPath);
+        return;
+      }
+      setTeacher(found);
+    };
+
+    void run();
   }, [id, navigate]);
 
   if (!teacher) {

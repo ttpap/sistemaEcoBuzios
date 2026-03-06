@@ -29,6 +29,12 @@ import {
   DEFAULT_TEACHER_PASSWORD,
 } from "@/utils/teachers";
 import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
+import { fetchTeachers } from "@/integrations/supabase/teachers";
+import {
+  fetchTeacherAssignments,
+  assignTeacherToProjectRemote,
+  removeTeacherFromProjectRemote,
+} from "@/integrations/supabase/teacher-assignments";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -51,8 +57,31 @@ export default function CoordinatorTeachers() {
   const [addExistingId, setAddExistingId] = useState<string>("");
 
   const refresh = () => {
-    setTeachers(readGlobalTeachers([]));
-    setAssignments(getTeacherAssignments());
+    const run = async () => {
+      // Source-of-truth: Supabase
+      const remoteTeachers = await fetchTeachers();
+      if (remoteTeachers.length > 0) {
+        localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
+        setTeachers(remoteTeachers);
+      } else {
+        setTeachers(readGlobalTeachers([]));
+      }
+
+      const remoteAssignments = await fetchTeacherAssignments();
+      if (remoteAssignments.length > 0) {
+        const map: Record<string, string[]> = {};
+        for (const a of remoteAssignments) {
+          map[a.teacher_id] = map[a.teacher_id] || [];
+          if (!map[a.teacher_id].includes(a.project_id)) map[a.teacher_id].push(a.project_id);
+        }
+        localStorage.setItem("ecobuzios_teacher_assignments", JSON.stringify(map));
+        setAssignments(map);
+      } else {
+        setAssignments(getTeacherAssignments());
+      }
+    };
+
+    void run();
   };
 
   useEffect(() => {
@@ -101,34 +130,52 @@ export default function CoordinatorTeachers() {
   };
 
   const onAddExisting = (teacherId: string) => {
-    if (!projectId) {
-      showError("Selecione um projeto.");
-      return;
-    }
-    if (!teacherId) return;
+    const run = async () => {
+      if (!projectId) {
+        showError("Selecione um projeto.");
+        return;
+      }
+      if (!teacherId) return;
 
-    const res = addTeacherToProject(teacherId, projectId);
-    if (!res.ok) {
-      showError("Não foi possível adicionar o professor ao projeto.");
-      return;
-    }
+      try {
+        await assignTeacherToProjectRemote(teacherId, projectId);
+      } catch {
+        const res = addTeacherToProject(teacherId, projectId);
+        if (!res.ok) {
+          showError("Não foi possível adicionar o professor ao projeto.");
+          return;
+        }
+      }
 
-    refresh();
-    setAddExistingId("");
+      refresh();
+      setAddExistingId("");
 
-    const t = readGlobalTeachers([]).find((x) => x.id === teacherId) || null;
-    setDeliverTeacher(t);
-    setDeliverOpen(true);
-    showSuccess("Professor adicionado ao projeto.");
+      const t = (teachers || []).find((x) => x.id === teacherId) || null;
+      setDeliverTeacher(t);
+      setDeliverOpen(true);
+      showSuccess("Professor adicionado ao projeto.");
+    };
+
+    void run();
   };
 
   const onRemoveFromProject = (teacherId: string) => {
-    if (!projectId) return;
-    const ok = window.confirm("Remover este professor do projeto? Isso não apaga o cadastro global.");
-    if (!ok) return;
-    removeTeacherFromProject(teacherId, projectId);
-    refresh();
-    showSuccess("Professor removido do projeto.");
+    const run = async () => {
+      if (!projectId) return;
+      const ok = window.confirm("Remover este professor do projeto? Isso não apaga o cadastro global.");
+      if (!ok) return;
+
+      try {
+        await removeTeacherFromProjectRemote(teacherId, projectId);
+      } catch {
+        removeTeacherFromProject(teacherId, projectId);
+      }
+
+      refresh();
+      showSuccess("Professor removido do projeto.");
+    };
+
+    void run();
   };
 
   const onResetPassword = (teacherId: string) => {
