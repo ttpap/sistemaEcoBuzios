@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getTeacherSessionTeacherId, isTeacherLoggedIn } from "@/utils/teacher-auth";
+import { getTeacherSessionLogin, getTeacherSessionPassword, isTeacherLoggedIn } from "@/utils/teacher-auth";
 import { ensureTeacherAuthForModeB } from "@/utils/mode-b-staff";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,15 +15,15 @@ export default function TeacherGate({ children }: { children: React.ReactNode })
 
       await ensureTeacherAuthForModeB();
 
-      const teacherId = getTeacherSessionTeacherId();
-      if (!teacherId) return;
+      const login = getTeacherSessionLogin();
+      const password = getTeacherSessionPassword();
+      if (!login || !password) return;
 
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (!userId) return;
-
-      // Mapeia o usuário auth (modo B) para o professor para liberar RLS.
-      await supabase.from("profiles").update({ role: "teacher", teacher_id: teacherId }).eq("user_id", userId);
+      // Vincula o usuário auth (modo B) ao teacher_id via RPC segura.
+      await supabase.rpc("mode_b_bind_staff_profile", {
+        p_login: login,
+        p_password: password,
+      });
     };
 
     void run();

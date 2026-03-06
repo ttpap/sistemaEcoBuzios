@@ -29,6 +29,7 @@ import {
   DEFAULT_STUDENT_PASSWORD,
   getStudentLoginFromRegistration,
   getStudentSessionStudentId,
+  getStudentSessionLogin,
 } from "@/utils/student-auth";
 import { ensureStudentAuthForModeB } from "@/utils/mode-b-student";
 
@@ -201,17 +202,22 @@ export default function StudentDashboard() {
     });
   }, []);
 
-  // Garante profiles.student_id = nosso studentId (para RLS)
+  // Garante profiles.student_id via RPC (para RLS)
   useEffect(() => {
     const run = async () => {
       if (!session?.user?.id) return;
       if (profile?.student_id) return;
-      if (!localStudentId) return;
 
-      await supabase.from("profiles").update({ student_id: localStudentId }).eq("user_id", session.user.id);
+      const login = getStudentSessionLogin();
+      if (!login) return;
+
+      await supabase.rpc("mode_b_bind_student_profile", {
+        p_registration_or_last4: login,
+        p_password: DEFAULT_STUDENT_PASSWORD,
+      });
     };
     void run();
-  }, [session?.user?.id, profile?.student_id, localStudentId]);
+  }, [session?.user?.id, profile?.student_id]);
 
   // Carrega dados remotos (só depois de ter um effectiveStudentId)
   useEffect(() => {

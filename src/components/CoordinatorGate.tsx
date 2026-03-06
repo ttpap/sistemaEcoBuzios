@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getCoordinatorSessionCoordinatorId, isCoordinatorLoggedIn } from "@/utils/coordinator-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword, isCoordinatorLoggedIn } from "@/utils/coordinator-auth";
 import { ensureCoordinatorAuthForModeB } from "@/utils/mode-b-staff";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,18 +15,15 @@ export default function CoordinatorGate({ children }: { children: React.ReactNod
 
       await ensureCoordinatorAuthForModeB();
 
-      const coordinatorId = getCoordinatorSessionCoordinatorId();
-      if (!coordinatorId) return;
+      const login = getCoordinatorSessionLogin();
+      const password = getCoordinatorSessionPassword();
+      if (!login || !password) return;
 
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (!userId) return;
-
-      // Mapeia o usuário auth (modo B) para o coordenador para liberar RLS.
-      await supabase
-        .from("profiles")
-        .update({ role: "coordinator", coordinator_id: coordinatorId })
-        .eq("user_id", userId);
+      // Vincula o usuário auth (modo B) ao coordinator_id via RPC segura.
+      await supabase.rpc("mode_b_bind_staff_profile", {
+        p_login: login,
+        p_password: password,
+      });
     };
 
     void run();
