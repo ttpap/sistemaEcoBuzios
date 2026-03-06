@@ -32,6 +32,7 @@ import {
   assignTeacherToProjectRemote,
   removeTeacherFromProjectRemote,
 } from "@/integrations/supabase/teacher-assignments";
+import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -313,6 +314,15 @@ export default function AdminTeachers() {
           <p className="text-slate-500 font-medium">
             Cadastre professores no sistema e aloque cada um em um projeto.
           </p>
+
+          {supabaseUsingFallbackConfig ? (
+            <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+              Este app está usando uma configuração padrão de Supabase (fallback). Isso pode fazer os painéis mostrarem
+              dados de outro projeto. Configure <span className="font-black">VITE_SUPABASE_URL</span> e
+              <span className="font-black"> VITE_SUPABASE_ANON_KEY</span> para apontar para o seu Supabase.
+            </div>
+          ) : null}
+
           {dataWarning ? (
             <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
               {dataWarning}
