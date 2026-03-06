@@ -26,9 +26,9 @@ import {
 } from "@/utils/teachers";
 import { getProjects } from "@/utils/projects";
 import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
-import { fetchTeachers, deleteTeacher } from "@/integrations/supabase/teachers";
+import { fetchTeachersWithMeta, deleteTeacher } from "@/integrations/supabase/teachers";
 import {
-  fetchTeacherAssignments,
+  fetchTeacherAssignmentsWithMeta,
   assignTeacherToProjectRemote,
   removeTeacherFromProjectRemote,
 } from "@/integrations/supabase/teacher-assignments";
@@ -44,6 +44,7 @@ export default function AdminTeachers() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [assignments, setAssignments] = useState<Record<string, string[]>>({});
   const [searchTerm, setSearchTerm] = useState("");
+  const [dataWarning, setDataWarning] = useState<string | null>(null);
 
   const [deliverOpen, setDeliverOpen] = useState(false);
   const [deliverTeacher, setDeliverTeacher] = useState<TeacherRegistration | null>(null);
@@ -52,18 +53,26 @@ export default function AdminTeachers() {
     const run = async () => {
       migrateScopedTeachersToGlobalIfNeeded();
 
-      // Prefer Supabase as source-of-truth
-      const remoteTeachers = await fetchTeachers();
-      if (remoteTeachers.length > 0) {
-        // Cache local para telas legadas
+      // Prefer Supabase as source-of-truth, but never fall back silently.
+      const { teachers: remoteTeachers, error: teachersErr } = await fetchTeachersWithMeta();
+      if (teachersErr) {
+        console.error("[AdminTeachers] fetchTeachers error", teachersErr);
+        setDataWarning("Não foi possível carregar professores do Supabase. Mostrando cache local (pode estar desatualizado).");
+        setTeachers(readGlobalTeachers([]));
+      } else {
+        setDataWarning(null);
         localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
         setTeachers(remoteTeachers);
-      } else {
-        setTeachers(readGlobalTeachers([]));
       }
 
-      const remoteAssignments = await fetchTeacherAssignments();
-      if (remoteAssignments.length > 0) {
+      const { rows: remoteAssignments, error: assignErr } = await fetchTeacherAssignmentsWithMeta();
+      if (assignErr) {
+        console.error("[AdminTeachers] fetchTeacherAssignments error", assignErr);
+        if (!teachersErr) {
+          setDataWarning("Não foi possível carregar vínculos (professor ↔ projeto) do Supabase. Mostrando cache local.");
+        }
+        setAssignments(getTeacherAssignments());
+      } else if (remoteAssignments.length > 0) {
         const map: Record<string, string[]> = {};
         for (const a of remoteAssignments) {
           map[a.teacher_id] = map[a.teacher_id] || [];
@@ -83,16 +92,24 @@ export default function AdminTeachers() {
 
   const refresh = () => {
     const run = async () => {
-      const remoteTeachers = await fetchTeachers();
-      if (remoteTeachers.length > 0) {
+      const { teachers: remoteTeachers, error: teachersErr } = await fetchTeachersWithMeta();
+      if (teachersErr) {
+        console.error("[AdminTeachers] refresh fetchTeachers error", teachersErr);
+        showError(teachersErr?.message || "Não foi possível carregar professores do Supabase.");
+        setDataWarning("Não foi possível carregar professores do Supabase. Mostrando cache local (pode estar desatualizado).");
+        setTeachers(readGlobalTeachers([]));
+      } else {
+        setDataWarning(null);
         localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
         setTeachers(remoteTeachers);
-      } else {
-        setTeachers(readGlobalTeachers([]));
       }
 
-      const remoteAssignments = await fetchTeacherAssignments();
-      if (remoteAssignments.length > 0) {
+      const { rows: remoteAssignments, error: assignErr } = await fetchTeacherAssignmentsWithMeta();
+      if (assignErr) {
+        console.error("[AdminTeachers] refresh fetchTeacherAssignments error", assignErr);
+        showError(assignErr?.message || "Não foi possível carregar vínculos do Supabase.");
+        setAssignments(getTeacherAssignments());
+      } else if (remoteAssignments.length > 0) {
         const map: Record<string, string[]> = {};
         for (const a of remoteAssignments) {
           map[a.teacher_id] = map[a.teacher_id] || [];
@@ -296,14 +313,29 @@ export default function AdminTeachers() {
           <p className="text-slate-500 font-medium">
             Cadastre professores no sistema e aloque cada um em um projeto.
           </p>
+          {dataWarning ? (
+            <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+              {dataWarning}
+            </div>
+          ) : null}
         </div>
-        <Button
-          className="rounded-2xl gap-2 h-12 px-6 font-black shadow-lg shadow-primary/20"
-          onClick={() => navigate("/professores/novo")}
-        >
-          <Plus className="h-5 w-5" />
-          Novo Cadastro
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-2xl gap-2 h-12 px-5 font-black border-slate-200 bg-white"
+            onClick={refresh}
+          >
+            <RotateCcw className="h-4 w-4" /> Recarregar
+          </Button>
+          <Button
+            className="rounded-2xl gap-2 h-12 px-6 font-black shadow-lg shadow-primary/20"
+            onClick={() => navigate("/professores/novo")}
+          >
+            <Plus className="h-5 w-5" />
+            Novo Cadastro
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">

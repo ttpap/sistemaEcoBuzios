@@ -13,6 +13,13 @@ export async function fetchTeacherAssignments(): Promise<TeacherProjectAssignmen
   return data as TeacherProjectAssignmentRow[];
 }
 
+export async function fetchTeacherAssignmentsWithMeta(): Promise<{ rows: TeacherProjectAssignmentRow[]; error: any | null }> {
+  if (!supabase) return { rows: [], error: new Error("Supabase não está configurado.") };
+  const { data, error } = await supabase.from("teacher_project_assignments").select("*");
+  if (error || !data) return { rows: [], error: error || new Error("Sem dados") };
+  return { rows: data as TeacherProjectAssignmentRow[], error: null };
+}
+
 export async function assignTeacherToProjectRemote(teacherId: string, projectId: string) {
   if (!supabase) return;
   const { error } = await supabase

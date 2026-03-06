@@ -14,6 +14,18 @@ export async function fetchTeachers(): Promise<TeacherRegistration[]> {
   return data.map(mapTeacherRowToModel);
 }
 
+export async function fetchTeachersWithMeta(): Promise<{ teachers: TeacherRegistration[]; error: any | null }> {
+  if (!supabase) return { teachers: [], error: new Error("Supabase não está configurado.") };
+
+  const { data, error } = await supabase
+    .from("teachers")
+    .select("*")
+    .order("registration_date", { ascending: false });
+
+  if (error || !data) return { teachers: [], error: error || new Error("Sem dados") };
+  return { teachers: data.map(mapTeacherRowToModel), error: null };
+}
+
 export async function fetchTeacherById(id: string): Promise<TeacherRegistration | null> {
   if (!supabase) return null;
 
