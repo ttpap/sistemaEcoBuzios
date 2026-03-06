@@ -12,15 +12,25 @@ import { DEFAULT_TEACHER_PASSWORD } from "@/utils/teachers";
 
 function getUrl() {
   try {
-    return `${window.location.origin}/inscricao-professor`;
+    return window.location.href;
   } catch {
     return "/inscricao-professor";
+  }
+}
+
+function getToken() {
+  try {
+    const token = new URLSearchParams(window.location.search).get("token");
+    return token || "";
+  } catch {
+    return "";
   }
 }
 
 export default function PublicTeacherRegistration() {
   const navigate = useNavigate();
   const url = useMemo(() => getUrl(), []);
+  const token = useMemo(() => getToken(), []);
 
   const [done, setDone] = useState<{ login: string; password: string } | null>(null);
 
@@ -91,7 +101,17 @@ export default function PublicTeacherRegistration() {
           </Card>
 
           <div className="lg:col-span-2">
-            {done ? (
+            {!token ? (
+              <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
+                <CardContent className="p-10">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Link inválido</p>
+                  <h2 className="mt-2 text-2xl font-black text-slate-900 tracking-tight">Solicite um novo link</h2>
+                  <p className="mt-2 text-slate-600 font-medium">
+                    Este link de inscrição precisa de um token. Peça ao administrador para gerar um novo link.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : done ? (
               <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
                 <CardContent className="p-10 text-center">
                   <div className="mx-auto h-14 w-14 rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
@@ -146,10 +166,7 @@ export default function PublicTeacherRegistration() {
                 </CardContent>
               </Card>
             ) : (
-              <TeacherForm
-                redirectTo={null}
-                onCompleted={(r) => setDone(r)}
-              />
+              <TeacherForm redirectTo={null} onCompleted={setDone} publicToken={token} />
             )}
           </div>
         </div>

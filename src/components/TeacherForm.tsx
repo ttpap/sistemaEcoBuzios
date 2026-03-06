@@ -68,6 +68,7 @@ interface TeacherFormProps {
   redirectTo?: string | null;
   onAfterSave?: (teacherId: string, mode: "create" | "update") => void;
   onCompleted?: (result: { login: string; password: string }) => void;
+  publicToken?: string;
 }
 
 const TeacherForm = ({ 
@@ -76,6 +77,7 @@ const TeacherForm = ({
   redirectTo,
   onAfterSave,
   onCompleted,
+  publicToken,
 }: TeacherFormProps) => {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
@@ -177,7 +179,11 @@ const TeacherForm = ({
       const created = createGlobalTeacher(teacherData);
       try {
         if (redirectTo === null) {
-          await insertTeacherPublic(created);
+          if (!publicToken) {
+            showError("Link inválido. Solicite um novo link ao administrador.");
+            return;
+          }
+          await insertTeacherPublic(created, publicToken);
         } else {
           await upsertTeacher(created);
         }

@@ -64,9 +64,10 @@ interface CoordinatorFormProps {
   initialData?: CoordinatorRegistration | null;
   redirectTo?: string | null;
   onCompleted?: (result: { login: string; password: string }) => void;
+  publicToken?: string;
 }
 
-export default function CoordinatorForm({ initialData, redirectTo, onCompleted }: CoordinatorFormProps) {
+export default function CoordinatorForm({ initialData, redirectTo, onCompleted, publicToken }: CoordinatorFormProps) {
   const navigate = useNavigate();
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   const [isCustomBank, setIsCustomBank] = useState(false);
@@ -168,7 +169,11 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted }
       const created = createGlobalCoordinator(payload);
       try {
         if (redirectTo === null) {
-          await insertCoordinatorPublic(created);
+          if (!publicToken) {
+            showError("Link inválido. Solicite um novo link ao administrador.");
+            return;
+          }
+          await insertCoordinatorPublic(created, publicToken);
         } else {
           await upsertCoordinator(created);
         }

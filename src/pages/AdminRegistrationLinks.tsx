@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, Link2, User, Users, Users2 } from "lucide-react";
+import { Copy, Link2, User, Users, Users2, KeyRound } from "lucide-react";
 import Logo from "@/components/Logo";
 import { showError, showSuccess } from "@/utils/toast";
+import { createStaffPublicInvite } from "@/integrations/supabase/staff-invites";
 
 function makeUrl(path: string) {
   try {
@@ -16,6 +17,9 @@ function makeUrl(path: string) {
 }
 
 export default function AdminRegistrationLinks() {
+  const [staffLinks, setStaffLinks] = useState<{ teacher?: string; coordinator?: string }>({});
+  const [loading, setLoading] = useState<{ teacher?: boolean; coordinator?: boolean }>({});
+
   const links = useMemo(
     () => [
       {
@@ -28,14 +32,14 @@ export default function AdminRegistrationLinks() {
       {
         key: "professor",
         title: "Inscrição do professor",
-        subtitle: "Link público (sem login)",
+        subtitle: "Link público (com token)",
         path: "/inscricao-professor",
         icon: Users,
       },
       {
         key: "coordenador",
         title: "Inscrição do coordenador",
-        subtitle: "Link público (sem login)",
+        subtitle: "Link público (com token)",
         path: "/inscricao-coordenador",
         icon: Users2,
       },
@@ -49,6 +53,21 @@ export default function AdminRegistrationLinks() {
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");
+    }
+  };
+
+  const generateStaffLink = async (role: "teacher" | "coordinator") => {
+    setLoading((s) => ({ ...s, [role]: true }));
+    try {
+      const invite = await createStaffPublicInvite(role);
+      const path = role === "teacher" ? "/inscricao-professor" : "/inscricao-coordenador";
+      const url = makeUrl(`${path}?token=${encodeURIComponent(invite.token)}`);
+      setStaffLinks((s) => ({ ...s, [role]: url }));
+      await copy(url);
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível gerar o link.");
+    } finally {
+      setLoading((s) => ({ ...s, [role]: false }));
     }
   };
 
@@ -78,6 +97,9 @@ export default function AdminRegistrationLinks() {
               <p className="text-sm font-medium text-slate-600 mt-1">
                 Estes links são públicos. Quem tiver o link consegue acessar. Por isso eles aparecem apenas aqui no Admin.
               </p>
+              <p className="text-sm font-medium text-slate-600 mt-2">
+                Para professor/coordenador, o link é gerado com um <span className="font-black">token</span> e expira.
+              </p>
             </div>
           </div>
         </CardContent>
@@ -85,8 +107,17 @@ export default function AdminRegistrationLinks() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {links.map((l) => {
-          const url = makeUrl(l.path);
           const Icon = l.icon;
+
+          const url =
+            l.key === "professor"
+              ? staffLinks.teacher || "(gere um link)"
+              : l.key === "coordenador"
+                ? staffLinks.coordinator || "(gere um link)"
+                : makeUrl(l.path);
+
+          const canCopy = url && !url.startsWith("(");
+
           return (
             <Card
               key={l.key}
@@ -106,14 +137,50 @@ export default function AdminRegistrationLinks() {
                 <div className="mt-6 rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-500">Link</p>
                   <p className="mt-2 text-sm font-black text-slate-800 break-all">{url}</p>
-                  <Button
-                    className="mt-4 w-full rounded-2xl font-black"
-                    type="button"
-                    onClick={() => copy(url)}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar link
-                  </Button>
+
+                  {l.key === "professor" ? (
+                    <Button
+                      className="mt-4 w-full rounded-2xl font-black"
+                      type="button"
+                      onClick={() => generateStaffLink("teacher")}
+                      disabled={!!loading.teacher}
+                    >
+                      <KeyRound className="h-4 w-4 mr-2" />
+                      {loading.teacher ? "Gerando..." : "Gerar e copiar link"}
+                    </Button>
+                  ) : l.key === "coordenador" ? (
+                    <Button
+                      className="mt-4 w-full rounded-2xl font-black"
+                      type="button"
+                      onClick={() => generateStaffLink("coordinator")}
+                      disabled={!!loading.coordinator}
+                    >
+                      <KeyRound className="h-4 w-4 mr-2" />
+                      {loading.coordinator ? "Gerando..." : "Gerar e copiar link"}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="mt-4 w-full rounded-2xl font-black"
+                      type="button"
+                      onClick={() => copy(url)}
+                      disabled={!canCopy}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar link
+                    </Button>
+                  )}
+
+                  {(l.key === "professor" || l.key === "coordenador") && canCopy ? (
+                    <Button
+                      variant="outline"
+                      className="mt-3 w-full rounded-2xl font-black"
+                      type="button"
+                      onClick={() => copy(url)}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar novamente
+                    </Button>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
