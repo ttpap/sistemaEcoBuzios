@@ -149,11 +149,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Mantém a sessão viva mesmo sem interação (garante >5 min sem mexer).
+    const keepAlive = window.setInterval(() => {
+      if (!active) return;
+      if (document.visibilityState !== "visible") return;
+      refreshAuthState({ preferRefresh: true }).catch(() => {
+        // ignore
+      });
+    }, 4 * 60 * 1000);
+
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       active = false;
+      window.clearInterval(keepAlive);
       sub.subscription.unsubscribe();
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
