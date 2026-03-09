@@ -25,14 +25,30 @@ type AuthState = {
 
 const AuthContext = React.createContext<AuthState | null>(null);
 
+function withTimeout<T>(promise: Promise<T>, ms: number) {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (v) => {
+        window.clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
 
-  const loadProfile = React.useCallback(async (userId: string) => {
-    if (!supabase) return null;
+  const requestIdRef = React.useRef(0);
 
+  const loadProfile = React.useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
       .select("user_id, role, full_name, teacher_id, coordinator_id, student_id")
@@ -43,73 +59,108 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (data as Profile | null) ?? null;
   }, []);
 
-  React.useEffect(() => {
-    let active = true;
+  const refreshAuthState = React.useCallback(
+    async ({ preferRefresh }: { preferRefresh?: boolean } = {}) => {
+      const requestId = ++requestIdRef.current;
+      setLoading(true);
 
-    const run = async () => {
-      if (!supabase) {
-        if (!active) return;
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-
-      setSession(data.session);
-      if (data.session?.user?.id) {
-        try {
-          const p = await loadProfile(data.session.user.id);
-          if (!active) return;
-          setProfile(p);
-        } catch {
-          if (!active) return;
-          setProfile(null);
-        }
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-
-      const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-        if (!active) return;
-        setSession(nextSession);
-        setLoading(true);
-        if (nextSession?.user?.id) {
+      try {
+        if (preferRefresh) {
+          // Se o navegador ficou "parado" por muito tempo, o auto-refresh pode ter sido pausado.
+          // Tentamos renovar silenciosamente antes de revalidar a sessão.
           try {
-            const p = await loadProfile(nextSession.user.id);
-            if (!active) return;
+            await withTimeout(supabase.auth.refreshSession(), 8000);
+          } catch {
+            // ignore
+          }
+        }
+
+        const { data } = await withTimeout(supabase.auth.getSession(), 8000);
+        if (requestIdRef.current !== requestId) return;
+
+        setSession(data.session);
+
+        if (data.session?.user?.id) {
+          try {
+            const p = await withTimeout(loadProfile(data.session.user.id), 8000);
+            if (requestIdRef.current !== requestId) return;
             setProfile(p);
           } catch {
-            if (!active) return;
+            if (requestIdRef.current !== requestId) return;
             setProfile(null);
           }
         } else {
           setProfile(null);
         }
-        setLoading(false);
-      });
+      } catch {
+        if (requestIdRef.current !== requestId) return;
+        setSession(null);
+        setProfile(null);
+      } finally {
+        if (requestIdRef.current === requestId) setLoading(false);
+      }
+    },
+    [loadProfile],
+  );
 
-      return () => {
-        sub.subscription.unsubscribe();
-      };
+  React.useEffect(() => {
+    let active = true;
+
+    refreshAuthState().catch(() => {
+      // ignore
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!active) return;
+
+      const requestId = ++requestIdRef.current;
+      setLoading(true);
+      setSession(nextSession);
+
+      if (nextSession?.user?.id) {
+        try {
+          const p = await withTimeout(loadProfile(nextSession.user.id), 8000);
+          if (!active || requestIdRef.current !== requestId) return;
+          setProfile(p);
+        } catch {
+          if (!active || requestIdRef.current !== requestId) return;
+          setProfile(null);
+        }
+      } else {
+        setProfile(null);
+      }
+
+      if (active && requestIdRef.current === requestId) setLoading(false);
+    });
+
+    const onFocus = () => {
+      if (!active) return;
+      refreshAuthState({ preferRefresh: true }).catch(() => {
+        // ignore
+      });
     };
 
-    let cleanup: void | (() => void);
-    run().then((c) => {
-      cleanup = c;
-    });
+    const onVisibility = () => {
+      if (!active) return;
+      if (document.visibilityState === "visible") {
+        refreshAuthState({ preferRefresh: true }).catch(() => {
+          // ignore
+        });
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       active = false;
-      if (cleanup) cleanup();
+      sub.subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [loadProfile]);
+  }, [loadProfile, refreshAuthState]);
 
   const signOut = React.useCallback(async () => {
-    if (!supabase) return;
     await supabase.auth.signOut();
   }, []);
 
