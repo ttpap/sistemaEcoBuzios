@@ -39,12 +39,31 @@ export async function modeBLogin(input: {
 
   const ADMIN_LOGIN = getAdminLogin();
 
-  // 0) Admin local (definitivo): não depende de Supabase/Auth/profiles.
-  // Observação: se o mesmo email existir no Supabase sem role=admin, ele não deve "roubar" o login.
+  // 0) Admin: quando for o email do admin local, tentamos primeiro autenticar no Supabase
+  // e bootstrapar o profile role=admin automaticamente (para o RLS liberar cadastros).
+  // Se o Supabase falhar, ainda permitimos o admin local (modo offline), mas o banco pode bloquear ações.
   if (loginRaw.toLowerCase() === ADMIN_LOGIN.toLowerCase()) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginRaw,
+      password: passwordRaw,
+    });
+
+    if (!error) {
+      // Se o usuário existe no Auth mas não tem profiles.role=admin, promovemos via RPC SECURITY DEFINER.
+      try {
+        await supabase.rpc("admin_local_bootstrap_admin", { p_admin_password: passwordRaw });
+      } catch {
+        // ignore (se a RPC não existir ainda, o sistema continua e o AdminGate pode bloquear)
+      }
+
+      return { ok: true, role: "admin", redirectTo: "/" };
+    }
+
+    // Fallback local
     if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
       return { ok: true, role: "admin", redirectTo: "/projetos" };
     }
+
     return { ok: false, reason: "invalid_credentials" };
   }
 

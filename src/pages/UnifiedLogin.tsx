@@ -11,6 +11,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getAdminLogin } from "@/utils/admin-auth";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
@@ -27,26 +28,47 @@ export default function UnifiedLogin() {
   }, [location.state]);
 
   useEffect(() => {
-    if (!pendingAdminRedirect) return;
-    if (loading) return;
-    if (!session) return;
+    const run = async () => {
+      if (!pendingAdminRedirect) return;
+      if (loading) return;
+      if (!session) return;
 
-    if (profile?.role === "admin") {
+      if (profile?.role === "admin") {
+        setPendingAdminRedirect(false);
+        navigate("/projetos", { replace: true });
+        return;
+      }
+
+      // Tentativa automática de bootstrap do admin (evita ajuste manual no Supabase).
+      const adminEmail = getAdminLogin();
+      if (session.user.email && session.user.email.toLowerCase() === adminEmail.toLowerCase()) {
+        try {
+          const { data } = await supabase.rpc("admin_local_bootstrap_admin", { p_admin_password: password });
+          if (data) {
+            // Recarrega o profile no contexto via refreshSession + novo onAuthStateChange.
+            await supabase.auth.refreshSession();
+            setPendingAdminRedirect(false);
+            navigate("/projetos", { replace: true });
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setPendingAdminRedirect(false);
-      navigate("/", { replace: true });
-      return;
-    }
 
-    setPendingAdminRedirect(false);
+      // Evita ficar com uma sessão autenticada "errada".
+      void supabase.auth.signOut();
 
-    // Evita ficar com uma sessão autenticada "errada".
-    void supabase.auth.signOut();
+      showError(
+        "Sua conta autenticou, mas não possui perfil de administrador. Para liberar: aplique a migração 0019_admin_local_bootstrap_admin no Supabase (ou, manualmente, defina role=admin na tabela profiles para este user_id).",
+      );
+      navigate("/login/admin", { replace: true });
+    };
 
-    showError(
-      "Sua conta autenticou, mas não possui perfil de administrador. No Supabase: Authentication → Users (copie o user id) e depois Table Editor → profiles → altere o role para admin.",
-    );
-    navigate("/login/admin", { replace: true });
-  }, [loading, navigate, pendingAdminRedirect, profile?.role, session]);
+    void run();
+  }, [loading, navigate, pendingAdminRedirect, profile?.role, session, password]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,8 +81,7 @@ export default function UnifiedLogin() {
         showSuccess("Bem-vindo(a)! ");
 
         if (res.role === "admin") {
-          // Se o modo de admin for local, já podemos navegar direto.
-          // Se for Supabase, esperamos carregar o profile para checar role=admin.
+          // Para admin via Supabase, esperamos carregar o profile para checar role=admin.
           if (res.redirectTo !== "/") {
             navigate(res.redirectTo, { replace: true });
             return;
