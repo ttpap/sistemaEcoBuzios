@@ -20,13 +20,13 @@ const Classes = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const projectId = useMemo(() => getActiveProjectId(), [location.pathname]);
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const run = async () => {
-      const projectId = getActiveProjectId();
       if (!projectId) return;
 
       // Não dependemos de Supabase Auth aqui: as telas do Modo B usam RPCs.

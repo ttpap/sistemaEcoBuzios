@@ -1,73 +1,70 @@
-# Passo a passo (leigo) — Supabase Auth + RLS + Vercel (EcoBúzios)
+# Passo a passo (leigo) — Supabase (EcoBúzios)
 
-Você escolheu a opção **A: Supabase Auth + RLS**.
+Este sistema tem dois modos de acesso:
 
-> Tradução do que isso significa:
-> - O login passa a ser feito pelo Supabase (usuário/senha).
-> - O banco decide quem pode ver/editar (RLS = regras de segurança).
-> - A aplicação deixa de salvar no navegador (localStorage) e passa a salvar no banco.
+- **Admin (Supabase Auth + RLS)**: o banco controla permissões via `profiles.role`.
+- **Modo B (RPC)**: professor/coordenador/aluno usam login/senha cadastrados e o app usa RPCs.
 
 ---
 
-## 1) Confirmar que a Vercel está passando as variáveis para o front
+## 1) Confirmar que o app está apontando para o Supabase certo
 
-### 1.1 Pegar as chaves no Supabase
-Supabase → seu projeto → **Project Settings (engrenagem)** → **API**
-- **Project URL**
-- **anon public key**
+### Opção A — Vercel (produção)
+Vercel → Project → **Settings** → **Environment Variables**
+Crie (Production):
+- `VITE_SUPABASE_URL` = Supabase → Project Settings → API → Project URL
+- `VITE_SUPABASE_ANON_KEY` = Supabase → Project Settings → API → anon public key
 
-### 1.2 Configurar na Vercel (tem que ser com prefixo VITE_)
-Vercel → seu projeto → **Settings** → **Environment Variables**
-Crie:
-- `VITE_SUPABASE_URL` = Project URL
-- `VITE_SUPABASE_ANON_KEY` = anon public key
+Depois faça um redeploy.
 
-Marque **Production** e salve.
+### Opção B — Pelo próprio painel do sistema (recomendado para testar rápido)
+Entre como admin e abra:
+- **Admin → Supabase** (`/supabase`)
 
-### 1.3 Redeploy
-Vercel → seu projeto → **Deployments** → **Redeploy**
+Cole URL + anon key e clique em **Salvar e recarregar**.
 
-### 1.4 Teste rápido
-Abra no navegador:
-- `https://SEU-DOMINIO/db-status`
+### Teste
+Abra:
+- `.../db-status`
 
-Se aparecer **CONECTADO**, o front está falando com o Supabase.
+Ela mostra a URL usada e se veio de RUNTIME/VARS/FALLBACK.
 
 ---
 
-## 2) Criar o schema (um SQL só)
+## 2) Criar o schema + RLS (um SQL só)
 
 Supabase → **SQL Editor**
-Rode o SQL do arquivo:
+Rode:
 - `supabase/migrations/0001_init.sql`
 
 ---
 
-## 3) Criar usuários no Supabase Auth (um por pessoa)
-Supabase → **Authentication** → **Users** → **Add user**
+## 3) Habilitar o Modo B (RPCs)
 
-Crie pelo menos 1 usuário **admin** (o dono do sistema).
-
----
-
-## 4) Criar o perfil (role) do admin (muito importante)
-
-Supabase → **Table Editor** → tabela **profiles** → **Insert row**
-- `user_id`: copie o ID do usuário admin (Authentication → Users)
-- `role`: `admin`
-- `full_name`: seu nome
+Supabase → **SQL Editor**
+Rode na ordem:
+- `0007_mode_b_rpcs_all.sql`
+- `0008_mode_b_upsert_student.sql`
+- `0010_mode_b_coordinator_classes_rule.sql`
+- `0018_mode_b_list_projects.sql`
 
 ---
 
-## 5) Entender por que seus dados não aparecem no banco hoje
+## 4) Liberar Admin (sem travar no RLS)
 
-Mesmo com Supabase conectado na Vercel, o seu app só vai gravar no banco se:
-- você estiver logado, e
-- o usuário tiver um `profiles.role` correto (admin/professor/coordenador/aluno), e
-- as tabelas/policies do SQL acima tiverem sido criadas.
+### Opção manual
+Authentication → Users → crie o usuário
+Table Editor → `profiles` → crie a linha com `role='admin'`
+
+### Opção automática (recomendado)
+Rode:
+- `0019_admin_local_bootstrap_admin.sql`
+
+Depois disso, ao logar como admin, o próprio app tenta promover seu usuário para admin.
 
 ---
 
-## O que você me confirma agora (2 perguntas)
-1) No seu domínio, a página `.../db-status` aparece **CONECTADO**?
-2) Você já criou o usuário admin no Supabase Auth e inseriu o perfil `admin` na tabela `profiles`?
+## Erros comuns
+
+- **"new row violates row-level security policy"** → conectou, mas RLS bloqueou (faltou role=admin)
+- **"function does not exist" / "rpc_missing"** → faltaram migrações do Modo B
