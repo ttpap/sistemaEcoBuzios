@@ -11,5 +11,6 @@ export default function StudentGate({ children }: { children: React.ReactNode })
     return <Navigate to="/aluno/login" replace state={{ from: location.pathname }} />;
   }
 
+  // Definitivo: o Modo B do aluno usa RPCs e sessão local.
   return <>{children}</>;
 }
