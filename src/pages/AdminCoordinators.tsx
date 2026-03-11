@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
 import type { CoordinatorRegistration } from "@/types/coordinator";
 import { showError, showSuccess } from "@/utils/toast";
-import { fetchProjects } from "@/utils/projects";
+import { getProjects } from "@/utils/projects";
 import {
   addCoordinatorToProject,
   DEFAULT_COORDINATOR_PASSWORD,
@@ -72,7 +72,7 @@ export default function AdminCoordinators() {
         setAssignments(getCoordinatorAssignments());
       }
 
-      setProjects(await fetchProjects());
+      setProjects(getProjects());
     };
 
     void run();
@@ -102,7 +102,7 @@ export default function AdminCoordinators() {
         setAssignments(getCoordinatorAssignments());
       }
 
-      setProjects(await fetchProjects());
+      setProjects(getProjects());
     };
 
     void run();
@@ -268,44 +268,38 @@ export default function AdminCoordinators() {
                   </Button>
                 </div>
               </div>
-
-              <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-500">(ocultar)</p>
-                <p className="mt-1 text-sm font-black text-slate-800">{maskedPassword(deliverCoordinator?.authPassword)}</p>
-              </div>
             </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full rounded-2xl font-black"
-              onClick={() => setDeliverOpen(false)}
-            >
-              <X className="h-4 w-4 mr-2" /> Fechar
-            </Button>
+            <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
+              Link para o coordenador entrar: <span className="font-black">/login?role=coordinator</span>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
+                onClick={() => setDeliverOpen(false)}
+              >
+                Fechar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</p>
-          <h1 className="text-3xl font-black text-primary tracking-tight">Coordenadores</h1>
-          <p className="text-slate-500 font-medium">Cadastre e aloque coordenadores aos projetos.</p>
+          <h1 className="text-3xl font-black text-primary tracking-tight">Coordenadores (Admin)</h1>
+          <p className="text-slate-500 font-medium">
+            Cadastre coordenadores e aloque cada um em um ou mais projetos.
+          </p>
         </div>
-
-        <div className="flex gap-2">
-          <Button
-            className="rounded-2xl font-black gap-2"
-            onClick={() => navigate("/coordenadores/novo")}
-          >
-            <Plus className="h-4 w-4" /> Novo
-          </Button>
-
-          <Button variant="outline" className="rounded-2xl font-black gap-2" onClick={refresh}>
-            <RotateCcw className="h-4 w-4" /> Atualizar
-          </Button>
-        </div>
+        <Button
+          className="rounded-2xl gap-2 h-12 px-6 font-black shadow-lg shadow-primary/20"
+          onClick={() => navigate("/coordenadores/novo")}
+        >
+          <Plus className="h-5 w-5" /> Novo Cadastro
+        </Button>
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">

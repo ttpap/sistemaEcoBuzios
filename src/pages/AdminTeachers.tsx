@@ -9,29 +9,30 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/types/project";
-import type { TeacherRegistration } from "@/types/teacher";
+import { TeacherRegistration } from "@/types/teacher";
+import { Project } from "@/types/project";
 import { showError, showSuccess } from "@/utils/toast";
-import { fetchProjects } from "@/utils/projects";
 import {
-  addTeacherToProject,
-  DEFAULT_TEACHER_PASSWORD,
-  deleteGlobalTeacher,
+  assignTeacherToProject,
   getTeacherAssignments,
-  migrateScopedTeachersToGlobalIfNeeded,
   readGlobalTeachers,
+  deleteGlobalTeacher,
+  migrateScopedTeachersToGlobalIfNeeded,
   removeTeacherFromProject,
   resetTeacherPasswordToDefault,
+  DEFAULT_TEACHER_PASSWORD,
 } from "@/utils/teachers";
-import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, GraduationCap } from "lucide-react";
-import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
+import { getProjects } from "@/utils/projects";
+import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
 import { fetchTeachersWithMeta, deleteTeacher } from "@/integrations/supabase/teachers";
 import {
   fetchTeacherAssignmentsWithMeta,
   assignTeacherToProjectRemote,
   removeTeacherFromProjectRemote,
 } from "@/integrations/supabase/teacher-assignments";
+import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -53,6 +54,7 @@ export default function AdminTeachers() {
     const run = async () => {
       migrateScopedTeachersToGlobalIfNeeded();
 
+      // Prefer Supabase as source-of-truth, but never fall back silently.
       const { teachers: remoteTeachers, error: teachersErr } = await fetchTeachersWithMeta();
       if (teachersErr) {
         console.error("[AdminTeachers] fetchTeachers error", teachersErr);
@@ -83,7 +85,7 @@ export default function AdminTeachers() {
         setAssignments(getTeacherAssignments());
       }
 
-      setProjects(await fetchProjects());
+      setProjects(getProjects());
     };
 
     void run();
@@ -120,7 +122,7 @@ export default function AdminTeachers() {
         setAssignments(getTeacherAssignments());
       }
 
-      setProjects(await fetchProjects());
+      setProjects(getProjects());
     };
 
     void run();
@@ -159,8 +161,9 @@ export default function AdminTeachers() {
 
       try {
         await assignTeacherToProjectRemote(teacherId, projectId);
-      } catch {
-        const res = addTeacherToProject(teacherId, projectId);
+      } catch (e: any) {
+        // fallback local
+        const res = assignTeacherToProject(teacherId, projectId);
         if (!res.ok) {
           showError("Não foi possível alocar o professor.");
           return;
@@ -177,6 +180,25 @@ export default function AdminTeachers() {
     void run();
   };
 
+  const onDelete = (id: string) => {
+    const run = async () => {
+      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do professor.");
+      if (!ok) return;
+
+      try {
+        await deleteTeacher(id);
+      } catch {
+        // fallback local
+        deleteGlobalTeacher(id);
+      }
+
+      refresh();
+      showSuccess("Cadastro removido.");
+    };
+
+    void run();
+  };
+
   const onRemoveFromProject = (teacherId: string, projectId: string) => {
     const run = async () => {
       const pname = projectNameById(projectId) || "este projeto";
@@ -186,37 +208,12 @@ export default function AdminTeachers() {
       try {
         await removeTeacherFromProjectRemote(teacherId, projectId);
       } catch {
+        // fallback local
         removeTeacherFromProject(teacherId, projectId);
       }
 
       refresh();
       showSuccess("Professor removido do projeto.");
-    };
-
-    void run();
-  };
-
-  const onResetTeacherPassword = (teacherId: string) => {
-    const ok = window.confirm(`Resetar a senha do professor para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`);
-    if (!ok) return;
-    resetTeacherPasswordToDefault(teacherId);
-    refresh();
-    showSuccess("Senha do professor resetada para o padrão.");
-  };
-
-  const onDelete = (id: string) => {
-    const run = async () => {
-      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do professor.");
-      if (!ok) return;
-
-      try {
-        await deleteTeacher(id);
-      } catch {
-        deleteGlobalTeacher(id);
-      }
-
-      refresh();
-      showSuccess("Cadastro removido.");
     };
 
     void run();
@@ -229,6 +226,14 @@ export default function AdminTeachers() {
     } catch {
       showError("Não foi possível copiar.");
     }
+  };
+
+  const onResetTeacherPassword = (teacherId: string) => {
+    const ok = window.confirm(`Resetar a senha do professor para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`);
+    if (!ok) return;
+    resetTeacherPasswordToDefault(teacherId);
+    refresh();
+    showSuccess("Senha do professor resetada para o padrão.");
   };
 
   const deliveryProjectName = deliverTeacher

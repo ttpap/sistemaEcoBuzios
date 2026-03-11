@@ -69,34 +69,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Se o navegador ficou "parado" por muito tempo, o auto-refresh pode ter sido pausado.
           // Tentamos renovar silenciosamente antes de revalidar a sessão.
           try {
-            await withTimeout(supabase.auth.refreshSession(), 20000);
+            await withTimeout(supabase.auth.refreshSession(), 8000);
           } catch {
             // ignore
           }
         }
 
-        const { data } = await withTimeout(supabase.auth.getSession(), 20000);
+        const { data } = await withTimeout(supabase.auth.getSession(), 8000);
         if (requestIdRef.current !== requestId) return;
 
         setSession(data.session);
 
         if (data.session?.user?.id) {
           try {
-            const p = await withTimeout(loadProfile(data.session.user.id), 20000);
+            const p = await withTimeout(loadProfile(data.session.user.id), 8000);
             if (requestIdRef.current !== requestId) return;
             setProfile(p);
           } catch {
-            // Em redes instáveis, não derruba a sessão por falha momentânea ao carregar o profile.
             if (requestIdRef.current !== requestId) return;
-            // mantém o profile anterior (se existir)
+            setProfile(null);
           }
         } else {
           setProfile(null);
         }
       } catch {
-        // Em redes instáveis, não zera session/profile por timeout/erro transitório.
-        // Se realmente não existir sessão, o onAuthStateChange vai atualizar.
         if (requestIdRef.current !== requestId) return;
+        setSession(null);
+        setProfile(null);
       } finally {
         if (requestIdRef.current === requestId) setLoading(false);
       }
@@ -120,12 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (nextSession?.user?.id) {
         try {
-          const p = await withTimeout(loadProfile(nextSession.user.id), 20000);
+          const p = await withTimeout(loadProfile(nextSession.user.id), 8000);
           if (!active || requestIdRef.current !== requestId) return;
           setProfile(p);
         } catch {
-          // Não derruba o profile antigo em erros transitórios.
           if (!active || requestIdRef.current !== requestId) return;
+          setProfile(null);
         }
       } else {
         setProfile(null);
