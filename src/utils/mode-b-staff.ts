@@ -1,47 +1,38 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getTeacherSessionLogin } from "@/utils/teacher-auth";
-import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
+import { ensureModeBAuthUser } from "@/integrations/supabase/mode-b-auth";
 
 const DEFAULT_STAFF_PASSWORD = "EcoBuzios123";
 
-async function ensureAuthUser(email: string, password: string, fullName: string) {
+type StaffKind = "teacher" | "coordinator";
+
+async function ensureAuthUser(kind: StaffKind, login: string, password: string) {
   const existing = await supabase.auth.getSession();
   if (existing.data.session) return;
 
+  const email = `${kind}+${login}@ecobuzios.local`;
+
   // 1) Tenta entrar direto (usuário já existe)
-  const signIn1 = await supabase.auth.signInWithPassword({ email, password });
+  const signIn1 = await supabase.auth.signInWithPassword({ email, password: DEFAULT_STAFF_PASSWORD });
   if (!signIn1.error) return;
 
-  // 2) Se falhou, tenta criar (se já existir, ignora erro)
-  const signUp = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName },
-    },
-  });
+  // 2) Garante/cria o usuário via Edge Function (sem disparar email / sem rate limit)
+  await ensureModeBAuthUser({ kind, login, password });
 
-  const signUpMsg = String(signUp.error?.message || "").toLowerCase();
-  const signUpOk = !signUp.error || signUpMsg.includes("already") || signUpMsg.includes("registered");
-  if (!signUpOk) throw signUp.error;
-
-  // 3) Tenta entrar de novo
-  const signIn2 = await supabase.auth.signInWithPassword({ email, password });
+  // 3) Entra novamente
+  const signIn2 = await supabase.auth.signInWithPassword({ email, password: DEFAULT_STAFF_PASSWORD });
   if (signIn2.error) throw signIn2.error;
 }
 
-export async function ensureTeacherAuthForModeB() {
-  const login = getTeacherSessionLogin();
-  if (!login) throw new Error("Sessão do professor não encontrada");
-
-  const email = `teacher+${login}@ecobuzios.local`;
-  await ensureAuthUser(email, DEFAULT_STAFF_PASSWORD, `Professor ${login}`);
+export async function ensureTeacherAuthForModeB(input: { login: string; password: string }) {
+  const login = (input.login || "").trim();
+  const password = (input.password || "").trim();
+  if (!login || !password) throw new Error("Sessão do professor não encontrada");
+  await ensureAuthUser("teacher", login, password);
 }
 
-export async function ensureCoordinatorAuthForModeB() {
-  const login = getCoordinatorSessionLogin();
-  if (!login) throw new Error("Sessão do coordenador não encontrada");
-
-  const email = `coordinator+${login}@ecobuzios.local`;
-  await ensureAuthUser(email, DEFAULT_STAFF_PASSWORD, `Coordenador ${login}`);
+export async function ensureCoordinatorAuthForModeB(input: { login: string; password: string }) {
+  const login = (input.login || "").trim();
+  const password = (input.password || "").trim();
+  if (!login || !password) throw new Error("Sessão do coordenador não encontrada");
+  await ensureAuthUser("coordinator", login, password);
 }

@@ -17,15 +17,15 @@ export default function TeacherGate({ children }: { children: React.ReactNode })
     const run = async () => {
       if (!isTeacherLoggedIn()) return;
 
-      try {
-        await ensureTeacherAuthForModeB();
+      const login = getTeacherSessionLogin();
+      const password = getTeacherSessionPassword();
+      if (!login || !password) {
+        setFailed(true);
+        return;
+      }
 
-        const login = getTeacherSessionLogin();
-        const password = getTeacherSessionPassword();
-        if (!login || !password) {
-          setFailed(true);
-          return;
-        }
+      try {
+        await ensureTeacherAuthForModeB({ login, password });
 
         // Vincula o usuário auth (modo B) ao teacher_id via RPC segura.
         await supabase.rpc("mode_b_bind_staff_profile", {

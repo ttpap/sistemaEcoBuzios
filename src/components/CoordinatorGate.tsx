@@ -17,15 +17,15 @@ export default function CoordinatorGate({ children }: { children: React.ReactNod
     const run = async () => {
       if (!isCoordinatorLoggedIn()) return;
 
-      try {
-        await ensureCoordinatorAuthForModeB();
+      const login = getCoordinatorSessionLogin();
+      const password = getCoordinatorSessionPassword();
+      if (!login || !password) {
+        setFailed(true);
+        return;
+      }
 
-        const login = getCoordinatorSessionLogin();
-        const password = getCoordinatorSessionPassword();
-        if (!login || !password) {
-          setFailed(true);
-          return;
-        }
+      try {
+        await ensureCoordinatorAuthForModeB({ login, password });
 
         // Vincula o usuário auth (modo B) ao coordinator_id via RPC segura.
         await supabase.rpc("mode_b_bind_staff_profile", {

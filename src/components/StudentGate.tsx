@@ -17,14 +17,14 @@ export default function StudentGate({ children }: { children: React.ReactNode })
     const run = async () => {
       if (!isStudentLoggedIn()) return;
 
-      try {
-        await ensureStudentAuthForModeB();
+      const login = getStudentSessionLogin();
+      if (!login) {
+        setFailed(true);
+        return;
+      }
 
-        const login = getStudentSessionLogin();
-        if (!login) {
-          setFailed(true);
-          return;
-        }
+      try {
+        await ensureStudentAuthForModeB({ login });
 
         // Vincula o usuário auth (modo B) ao student_id via RPC segura.
         await supabase.rpc("mode_b_bind_student_profile", {
