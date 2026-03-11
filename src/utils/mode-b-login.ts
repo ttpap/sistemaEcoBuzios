@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
-import { loginAdmin } from "@/utils/admin-auth";
+import { getAdminLogin, loginAdmin } from "@/utils/admin-auth";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -37,10 +37,15 @@ export async function modeBLogin(input: {
   // Garante que não exista sessão antiga que faça gates liberarem/negarem incorretamente.
   clearModeBSessions();
 
+  const ADMIN_LOGIN = getAdminLogin();
+
   // 0) Admin local (definitivo): não depende de Supabase/Auth/profiles.
-  // Isso evita a mensagem "Sua conta autenticou, mas não possui perfil de administrador".
-  if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
-    return { ok: true, role: "admin", redirectTo: "/projetos" };
+  // Observação: se o mesmo email existir no Supabase sem role=admin, ele não deve "roubar" o login.
+  if (loginRaw.toLowerCase() === ADMIN_LOGIN.toLowerCase()) {
+    if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
+      return { ok: true, role: "admin", redirectTo: "/projetos" };
+    }
+    return { ok: false, reason: "invalid_credentials" };
   }
 
   // 1) Tenta Admin (Supabase Auth) quando parece email.
