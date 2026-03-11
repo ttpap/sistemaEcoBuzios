@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/utils/projects';
 import { requireSupabase } from '@/integrations/supabase/client';
+import { logoutAdmin } from '@/utils/admin-auth';
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
   const location = useLocation();
@@ -59,6 +60,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
 
   const onLogout = async () => {
     clearActiveProjectId();
+    logoutAdmin();
     await requireSupabase().auth.signOut();
     navigate('/login');
   };
@@ -128,18 +130,18 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                 : "text-slate-600 hover:bg-white/50 hover:text-[#008ca0] hover:shadow-sm",
             )}
           >
-            <item.icon className={cn("h-5 w-5", location.pathname === item.path ? "text-[#ffa534]" : "")} />
+            <item.icon className="w-5 h-5" />
             {item.label}
           </Link>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-200/50">
+      <div className="p-4">
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-white/50 hover:text-red-600 transition-all duration-300"
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="w-5 h-5" />
           Sair
         </button>
       </div>

@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
 import { ensureStudentAuthForModeB } from "@/utils/mode-b-student";
+import { loginAdmin } from "@/utils/admin-auth";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -18,6 +19,7 @@ function clearModeBSessions() {
   localStorage.removeItem("ecobuzios_teacher_session");
   localStorage.removeItem("ecobuzios_coordinator_session");
   localStorage.removeItem("ecobuzios_student_session");
+  localStorage.removeItem("ecobuzios_admin_session");
   sessionStorage.removeItem("ecobuzios_teacher_password");
   sessionStorage.removeItem("ecobuzios_coordinator_password");
   localStorage.removeItem("ecobuzios_teacher_password");
@@ -46,6 +48,13 @@ export async function modeBLogin(input: {
     if (!error) {
       return { ok: true, role: "admin", redirectTo: "/" };
     }
+
+    // Fallback (modo local): admin por credencial local.
+    // Útil quando ainda não existe usuário admin no Supabase.
+    if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
+      return { ok: true, role: "admin", redirectTo: "/projetos" };
+    }
+
     // Se falhar, continua tentando como credencial (pode ser um login com @ no staff, raro).
   }
 

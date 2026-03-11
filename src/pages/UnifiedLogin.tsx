@@ -9,18 +9,37 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
+import { useAuth } from "@/context/AuthContext";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { loading, session, profile } = useAuth();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingAdminRedirect, setPendingAdminRedirect] = useState(false);
 
   useEffect(() => {
     const st = location.state as any;
     if (st?.prefill?.login) setLogin(String(st.prefill.login));
   }, [location.state]);
+
+  useEffect(() => {
+    if (!pendingAdminRedirect) return;
+    if (loading) return;
+    if (!session) return;
+
+    if (profile?.role === "admin") {
+      setPendingAdminRedirect(false);
+      navigate("/", { replace: true });
+      return;
+    }
+
+    setPendingAdminRedirect(false);
+    showError("Sua conta autenticou, mas não possui perfil de administrador.");
+    navigate("/login/admin", { replace: true });
+  }, [loading, navigate, pendingAdminRedirect, profile?.role, session]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +50,12 @@ export default function UnifiedLogin() {
 
       if (res.ok) {
         showSuccess("Bem-vindo(a)! ");
+
+        if (res.role === "admin") {
+          setPendingAdminRedirect(true);
+          return;
+        }
+
         navigate(res.redirectTo, { replace: true });
         return;
       }
@@ -95,10 +120,10 @@ export default function UnifiedLogin() {
 
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || pendingAdminRedirect}
                 className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
               >
-                Entrar
+                {pendingAdminRedirect ? "Entrando..." : "Entrar"}
               </Button>
 
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">

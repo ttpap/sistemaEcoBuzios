@@ -11,6 +11,7 @@ import { Shield, Lock, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { showError } from "@/utils/toast";
+import { loginAdmin } from "@/utils/admin-auth";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -36,7 +37,17 @@ export default function AdminLogin() {
         email: email.trim(),
         password,
       });
-      if (error) throw error;
+
+      if (error) {
+        // Fallback local (útil quando o Supabase ainda não tem o usuário admin criado).
+        const ok = loginAdmin({ login: email.trim(), password });
+        if (ok) {
+          navigate("/projetos", { replace: true });
+          return;
+        }
+
+        throw error;
+      }
 
       // O redirect acontece via useEffect quando o profile carregar.
     } catch (e: any) {
