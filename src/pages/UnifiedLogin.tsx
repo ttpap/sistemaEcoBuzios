@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
@@ -37,7 +38,13 @@ export default function UnifiedLogin() {
     }
 
     setPendingAdminRedirect(false);
-    showError("Sua conta autenticou, mas não possui perfil de administrador.");
+
+    // Evita ficar com uma sessão autenticada "errada".
+    void supabase.auth.signOut();
+
+    showError(
+      "Sua conta autenticou, mas não possui perfil de administrador. No Supabase: Authentication → Users (copie o user id) e depois Table Editor → profiles → altere o role para admin.",
+    );
     navigate("/login/admin", { replace: true });
   }, [loading, navigate, pendingAdminRedirect, profile?.role, session]);
 
@@ -52,6 +59,13 @@ export default function UnifiedLogin() {
         showSuccess("Bem-vindo(a)! ");
 
         if (res.role === "admin") {
+          // Se o modo de admin for local, já podemos navegar direto.
+          // Se for Supabase, esperamos carregar o profile para checar role=admin.
+          if (res.redirectTo !== "/") {
+            navigate(res.redirectTo, { replace: true });
+            return;
+          }
+
           setPendingAdminRedirect(true);
           return;
         }
