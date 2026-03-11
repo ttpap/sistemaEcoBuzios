@@ -52,7 +52,6 @@ import {
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/integrations/supabase/classes";
 import { fetchStudentsRemote } from "@/integrations/supabase/students";
-import { ensureCoordinatorAuthForModeB, ensureTeacherAuthForModeB } from "@/utils/mode-b-staff";
 import { supabase } from "@/integrations/supabase/client";
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -193,13 +192,7 @@ export default function Dashboard() {
       let nextStudents = readGlobalStudents<StudentRegistration[]>([]);
 
       if (projectId) {
-        // Garante auth para passar no RLS quando estiver em /professor ou /coordenador
-        try {
-          if (base === "/professor") await ensureTeacherAuthForModeB();
-          if (base === "/coordenador") await ensureCoordinatorAuthForModeB();
-        } catch {
-          // ignore
-        }
+        // Não dependemos mais de Supabase Auth aqui: as telas do Modo B usam RPCs.
 
         // 1) Turmas (fonte da verdade)
         try {

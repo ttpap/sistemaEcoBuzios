@@ -1,8 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
-import { ensureStudentAuthForModeB } from "@/utils/mode-b-student";
-import { loginAdmin } from "@/utils/admin-auth";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -47,12 +45,6 @@ export async function modeBLogin(input: {
 
     if (!error) {
       return { ok: true, role: "admin", redirectTo: "/" };
-    }
-
-    // Fallback (modo local): admin por credencial local.
-    // Útil quando ainda não existe usuário admin no Supabase.
-    if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
-      return { ok: true, role: "admin", redirectTo: "/projetos" };
     }
 
     // Se falhar, continua tentando como credencial (pode ser um login com @ no staff, raro).
@@ -166,13 +158,6 @@ export async function modeBLogin(input: {
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   localStorage.setItem("ecobuzios_student_session", JSON.stringify({ studentId, projectIds, login: registrationOrLast4 }));
-
-  // Garante sessão Supabase Auth para liberar RLS de presença/justificativa.
-  try {
-    await ensureStudentAuthForModeB();
-  } catch {
-    // se falhar, o aluno ainda entra, mas pode não ver dados remotos.
-  }
 
   const preferred = getActiveProjectId();
   if (projectIds.length === 1) {

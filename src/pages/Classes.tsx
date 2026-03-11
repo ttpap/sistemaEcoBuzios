@@ -13,7 +13,6 @@ import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
 import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/integrations/supabase/classes';
-import { ensureTeacherAuthForModeB, ensureCoordinatorAuthForModeB } from "@/utils/mode-b-staff";
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
@@ -30,13 +29,7 @@ const Classes = () => {
       const projectId = getActiveProjectId();
       if (!projectId) return;
 
-      // Garante auth para passar no RLS quando estiver em /professor ou /coordenador
-      try {
-        if (base === "/professor") await ensureTeacherAuthForModeB();
-        if (base === "/coordenador") await ensureCoordinatorAuthForModeB();
-      } catch {
-        // ignore
-      }
+      // Não dependemos de Supabase Auth aqui: as telas do Modo B usam RPCs.
 
       const res = await fetchClassesRemoteWithMeta(projectId);
       if (res.classes.length) {
@@ -83,7 +76,7 @@ const Classes = () => {
     };
 
     void run();
-  }, [base]);
+  }, [projectId, base]);
 
   const handleDelete = (id: string) => {
     const run = async () => {

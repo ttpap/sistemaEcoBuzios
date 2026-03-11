@@ -2,18 +2,23 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Logo from "@/components/Logo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { GraduationCap, Layers, ArrowRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Layers, ArrowRight } from "lucide-react";
-import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
+import { getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
 import {
+  DEFAULT_STUDENT_PASSWORD,
+  getStudentSessionLogin,
   getStudentSessionProjectIds,
   getStudentSessionStudentId,
   setStudentSessionProjectId,
 } from "@/utils/student-auth";
 import { showError } from "@/utils/toast";
 import type { Project } from "@/types/project";
+import { fetchModeBStudentProjects } from "@/integrations/supabase/mode-b-projects";
 
 export default function StudentSelectProject() {
   const navigate = useNavigate();
@@ -23,7 +28,18 @@ export default function StudentSelectProject() {
 
   useEffect(() => {
     const run = async () => {
-      setProjects(await fetchProjects());
+      const login = getStudentSessionLogin();
+      if (!login) {
+        setProjects([]);
+        return;
+      }
+
+      const rows = await fetchModeBStudentProjects({
+        registrationOrLast4: login,
+        password: DEFAULT_STUDENT_PASSWORD,
+      });
+      setProjects(rows);
+      if (rows.length) saveProjects(rows);
     };
     void run();
   }, []);
@@ -63,12 +79,28 @@ export default function StudentSelectProject() {
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6">
       <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden w-full max-w-xl">
         <CardHeader className="p-8 pb-3">
-          <CardTitle className="text-xl font-black text-primary">Selecione o projeto</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl font-black text-primary">Selecione o projeto</CardTitle>
+              <p className="mt-2 text-slate-600 font-medium">
+                Você está vinculado(a) a mais de um projeto. Escolha qual deseja acompanhar agora.
+              </p>
+            </div>
+            <Badge className="rounded-full border-none bg-primary/10 text-primary font-black px-4 py-2">
+              <GraduationCap className="h-4 w-4 mr-2" /> Aluno
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="p-8 pt-4 space-y-6">
-          <p className="text-slate-600 font-medium">
-            Você está vinculado(a) a mais de um projeto. Escolha qual deseja acompanhar agora.
-          </p>
+          {allowedProjects.length === 0 ? (
+            <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-950">
+              Nenhum projeto disponível para este aluno.
+              <div className="mt-2 text-xs font-bold text-amber-900/90">
+                Verifique se o aluno está matriculado em alguma turma e se a migração
+                <span className="font-black"> 0018_mode_b_list_projects</span> foi aplicada no Supabase.
+              </div>
+            </div>
+          ) : null}
 
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Projeto</p>
@@ -87,9 +119,15 @@ export default function StudentSelectProject() {
             </Select>
           </div>
 
-          <Button className="w-full h-12 rounded-2xl font-black" onClick={onConfirm}>
-            Continuar <ArrowRight className="h-4 w-4 ml-2" />
+          <Button className="w-full h-12 rounded-2xl font-black gap-2" onClick={onConfirm} disabled={!selected}>
+            Continuar <ArrowRight className="h-4 w-4" />
           </Button>
+
+          <div className="flex items-center justify-center">
+            <div className="w-full max-w-[180px]">
+              <Logo className="w-full" />
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

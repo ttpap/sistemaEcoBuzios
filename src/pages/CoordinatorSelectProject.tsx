@@ -12,10 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchProjects, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
+import { getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
 import { BadgeCheck, Layers, ArrowRight } from "lucide-react";
 import type { Project } from "@/types/project";
-import { getCoordinatorSessionProjectIds, setCoordinatorSessionProjectId } from "@/utils/coordinator-auth";
+import {
+  getCoordinatorSessionLogin,
+  getCoordinatorSessionPassword,
+  getCoordinatorSessionProjectIds,
+  setCoordinatorSessionProjectId,
+} from "@/utils/coordinator-auth";
+import { fetchModeBStaffProjects } from "@/integrations/supabase/mode-b-projects";
 
 export default function CoordinatorSelectProject() {
   const navigate = useNavigate();
@@ -24,7 +30,16 @@ export default function CoordinatorSelectProject() {
 
   useEffect(() => {
     const run = async () => {
-      setProjects(await fetchProjects());
+      const login = getCoordinatorSessionLogin();
+      const password = getCoordinatorSessionPassword();
+      if (!login || !password) {
+        setProjects([]);
+        return;
+      }
+
+      const rows = await fetchModeBStaffProjects({ login, password });
+      setProjects(rows);
+      if (rows.length) saveProjects(rows);
     };
 
     void run();
@@ -68,6 +83,16 @@ export default function CoordinatorSelectProject() {
           </p>
         </CardHeader>
         <CardContent className="p-6 md:p-8 space-y-5">
+          {allowedProjects.length === 0 ? (
+            <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 text-sm font-bold text-amber-950">
+              Nenhum projeto disponível para este coordenador.
+              <div className="mt-2 text-xs font-bold text-amber-900/90">
+                Verifique se ele está alocado a pelo menos 1 projeto (Admin → Coordenadores) e se a migração
+                <span className="font-black"> 0018_mode_b_list_projects</span> foi aplicada no Supabase.
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Disponíveis</p>
             <div className="mt-2 flex flex-wrap gap-2">
