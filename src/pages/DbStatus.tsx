@@ -1,6 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { supabase, supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
+import {
+  supabase,
+  supabaseUsingFallbackConfig,
+  supabaseConfigSource,
+  supabaseUrl,
+} from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,7 +48,7 @@ export default function DbStatus() {
 
       // Quando RLS está ativo, chamadas sem sessão podem dar "permission denied".
       // Isso não significa que não conectou — significa que a segurança bloqueou.
-      if (looksLikeRlsOrPermissionError(msg) && hasEnvConfig) {
+      if (looksLikeRlsOrPermissionError(msg) && (hasEnvConfig || supabaseConfigSource === "runtime")) {
         setResult({
           ok: false,
           error:
@@ -81,6 +86,9 @@ export default function DbStatus() {
                 Esta página faz uma consulta simples em <span className="font-black">projects</span>
                 para confirmar que o deploy está falando com o Supabase.
               </p>
+              <p className="mt-3 text-xs font-bold text-slate-500 break-all">
+                <span className="font-black">URL:</span> {supabaseUrl}
+              </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:items-end">
@@ -102,18 +110,24 @@ export default function DbStatus() {
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Variáveis no deploy
+                Configuração
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <Badge
                   className={
                     "border-none font-black " +
-                    (hasEnvConfig
-                      ? "bg-emerald-100 text-emerald-900"
-                      : "bg-amber-100 text-amber-900")
+                    (supabaseConfigSource === "runtime"
+                      ? "bg-sky-100 text-sky-900"
+                      : supabaseConfigSource === "env"
+                        ? "bg-emerald-100 text-emerald-900"
+                        : "bg-amber-100 text-amber-900")
                   }
                 >
-                  {hasEnvConfig ? "OK" : "NÃO DEFINIDAS"}
+                  {supabaseConfigSource === "runtime"
+                    ? "RUNTIME (neste navegador)"
+                    : supabaseConfigSource === "env"
+                      ? "VARS DO DEPLOY"
+                      : "FALLBACK"}
                 </Badge>
                 <span className="text-sm font-bold text-slate-600">
                   VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
@@ -121,8 +135,8 @@ export default function DbStatus() {
               </div>
               {supabaseUsingFallbackConfig ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">
-                  O app está usando a configuração padrão embutida. Se quiser trocar de projeto, defina
-                  as variáveis na Vercel e faça redeploy.
+                  O app está usando um Supabase fallback. Configure o seu projeto em Admin → Supabase
+                  (ou defina as variáveis na Vercel) e recarregue.
                 </p>
               ) : null}
             </div>
@@ -162,7 +176,7 @@ export default function DbStatus() {
               <div className="flex items-start gap-3 text-amber-950">
                 <TriangleAlert className="mt-0.5 h-5 w-5" />
                 <div>
-                  <p className="text-sm font-black">Opcional: configurar na Vercel</p>
+                  <p className="text-sm font-black">Configurar no deploy</p>
                   <p className="mt-1 text-sm font-bold text-amber-950/90">
                     Se você quiser apontar para outro projeto Supabase, defina as variáveis abaixo na
                     Vercel e faça redeploy.

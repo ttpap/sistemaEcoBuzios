@@ -11,6 +11,7 @@ import { Shield, Lock, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { showError } from "@/utils/toast";
+import { getAdminLogin, loginAdmin } from "@/utils/admin-auth";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -30,13 +31,34 @@ export default function AdminLogin() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const emailTrim = email.trim();
+    const adminEmail = getAdminLogin();
+
     setSubmitting(true);
     try {
+      // Definitivo: se for o email do admin local, não tenta Supabase (evita conflito com profiles.role).
+      if (emailTrim.toLowerCase() === adminEmail.toLowerCase()) {
+        const ok = loginAdmin({ login: emailTrim, password });
+        if (!ok) throw new Error("Email ou senha inválidos.");
+        navigate("/projetos", { replace: true });
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: emailTrim,
         password,
       });
-      if (error) throw error;
+
+      if (error) {
+        // Fallback local (útil quando o Supabase ainda não tem o usuário admin criado).
+        const ok = loginAdmin({ login: emailTrim, password });
+        if (ok) {
+          navigate("/projetos", { replace: true });
+          return;
+        }
+
+        throw error;
+      }
 
       // O redirect acontece via useEffect quando o profile carregar.
     } catch (e: any) {

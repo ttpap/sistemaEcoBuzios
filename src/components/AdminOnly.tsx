@@ -1,8 +1,16 @@
 "use client";
 
 import React from "react";
-import AuthGateSupabase from "@/components/AuthGateSupabase";
+import { useAuth } from "@/context/AuthContext";
+import { isAdminLoggedIn } from "@/utils/admin-auth";
 
 export default function AdminOnly({ children }: { children: React.ReactNode }) {
-  return <AuthGateSupabase allow={["admin"]}>{children}</AuthGateSupabase>;
+  const { loading, session, profile } = useAuth();
+
+  if (loading) return null;
+
+  if (session && profile?.role === "admin") return <>{children}</>;
+  if (isAdminLoggedIn()) return <>{children}</>;
+
+  return null;
 }

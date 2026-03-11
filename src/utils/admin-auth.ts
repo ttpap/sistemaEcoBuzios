@@ -1,7 +1,7 @@
 const SESSION_KEY = "ecobuzios_admin_session";
 const PASSWORD_KEY = "ecobuzios_admin_password";
 
-const ADMIN_LOGIN = "Pap";
+const ADMIN_LOGIN = "antonpap@gmail.com";
 const DEFAULT_ADMIN_PASSWORD = "aNtonio4500";
 
 export function getAdminLogin() {
