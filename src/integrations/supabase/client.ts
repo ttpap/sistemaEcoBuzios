@@ -1,29 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
-import { getSupabaseRuntimeConfig } from "@/integrations/supabase/runtime-config";
 
-// Prefer deploy-time env vars. If you need to point to a different Supabase project without redeploy,
-// you can set a runtime config in localStorage.
-const fallbackUrl = "https://ixgujnhdjrgoakqzdkgx.supabase.co";
-const fallbackAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4Z3VqbmhkanJnb2FrcXpka2d4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NjAxMDUsImV4cCI6MjA4ODAzNjEwNX0.rVAo8NjqH9NF-2l_pu4DzPY-wxnXOLJh92dvXb9oBNI";
-
-const runtime = getSupabaseRuntimeConfig();
+// ETAPA 1 (ADR-001): o app deve usar UM Supabase oficial via env.
+// Não existe fallback silencioso e não existe configuração runtime.
 
 const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const envAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabaseUrl = runtime?.url ?? envUrl ?? fallbackUrl;
-export const supabaseAnonKey = runtime?.anonKey ?? envAnon ?? fallbackAnonKey;
+export const supabaseConfigured = Boolean(envUrl && envAnonKey);
 
-export const supabaseConfigSource: "runtime" | "env" | "fallback" = runtime
-  ? "runtime"
-  : envUrl && envAnon
-    ? "env"
-    : "fallback";
+// Mantemos exports para diagnóstico (ex.: /db-status)
+export const supabaseUrl = envUrl || "";
+export const supabaseAnonKey = envAnonKey || "";
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Compat com código existente que exibe avisos.
+// Nesta etapa, "fallback" significa "NÃO CONFIGURADO".
+export const supabaseUsingFallbackConfig = !supabaseConfigured;
 
-export const supabaseUsingFallbackConfig = supabaseConfigSource === "fallback";
+// Evita quebrar o app em runtime quando env não estiver definido.
+// Isso NÃO é fallback para outro projeto; é apenas um cliente inválido.
+const INVALID_URL = "https://invalid.supabase.invalid";
+const INVALID_KEY = "invalid";
+
+export const supabase = createClient(
+  supabaseConfigured ? (envUrl as string) : INVALID_URL,
+  supabaseConfigured ? (envAnonKey as string) : INVALID_KEY,
+);
 
 export function requireSupabase() {
   return supabase;

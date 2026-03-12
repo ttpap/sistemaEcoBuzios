@@ -2,14 +2,14 @@ import React from "react";
 import { Link } from "react-router-dom";
 import {
   supabase,
+  supabaseConfigured,
   supabaseUsingFallbackConfig,
-  supabaseConfigSource,
   supabaseUrl,
 } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, ExternalLink, RefreshCw, TriangleAlert } from "lucide-react";
+import { Database, RefreshCw, TriangleAlert } from "lucide-react";
 
 function looksLikeRlsOrPermissionError(message: string) {
   const m = message.toLowerCase();
@@ -29,12 +29,19 @@ export default function DbStatus() {
     | null
   >(null);
 
-  const hasEnvConfig = Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY,
-  );
-
   const run = React.useCallback(async () => {
     setLoading(true);
+
+    if (!supabaseConfigured) {
+      setResult({
+        ok: false,
+        error:
+          "Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no deploy e recarregue.",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const { count, error } = await supabase
         .from("projects")
@@ -48,7 +55,7 @@ export default function DbStatus() {
 
       // Quando RLS está ativo, chamadas sem sessão podem dar "permission denied".
       // Isso não significa que não conectou — significa que a segurança bloqueou.
-      if (looksLikeRlsOrPermissionError(msg) && (hasEnvConfig || supabaseConfigSource === "runtime")) {
+      if (looksLikeRlsOrPermissionError(msg)) {
         setResult({
           ok: false,
           error:
@@ -61,7 +68,7 @@ export default function DbStatus() {
     } finally {
       setLoading(false);
     }
-  }, [hasEnvConfig]);
+  }, []);
 
   React.useEffect(() => {
     run();
@@ -87,7 +94,8 @@ export default function DbStatus() {
                 para confirmar que o deploy está falando com o Supabase.
               </p>
               <p className="mt-3 text-xs font-bold text-slate-500 break-all">
-                <span className="font-black">URL:</span> {supabaseUrl}
+                <span className="font-black">URL:</span>{" "}
+                {supabaseConfigured ? supabaseUrl : "(VITE_SUPABASE_URL não definida)"}
               </p>
             </div>
 
@@ -116,95 +124,55 @@ export default function DbStatus() {
                 <Badge
                   className={
                     "border-none font-black " +
-                    (supabaseConfigSource === "runtime"
-                      ? "bg-sky-100 text-sky-900"
-                      : supabaseConfigSource === "env"
-                        ? "bg-emerald-100 text-emerald-900"
-                        : "bg-amber-100 text-amber-900")
+                    (supabaseConfigured
+                      ? "bg-emerald-100 text-emerald-900"
+                      : "bg-amber-100 text-amber-900")
                   }
                 >
-                  {supabaseConfigSource === "runtime"
-                    ? "RUNTIME (neste navegador)"
-                    : supabaseConfigSource === "env"
-                      ? "VARS DO DEPLOY"
-                      : "FALLBACK"}
+                  {supabaseConfigured ? "VARS DO DEPLOY (ENV)" : "NÃO CONFIGURADO"}
                 </Badge>
                 <span className="text-sm font-bold text-slate-600">
                   VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
                 </span>
               </div>
-              {supabaseUsingFallbackConfig ? (
+              {!supabaseConfigured ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">
-                  O app está usando um Supabase fallback. Configure o seu projeto em Admin → Supabase
-                  (ou defina as variáveis na Vercel) e recarregue.
+                  Defina as variáveis de ambiente do deploy e recarregue. Nesta etapa não existe
+                  configuração runtime/localStorage.
+                </p>
+              ) : supabaseUsingFallbackConfig ? (
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  O Supabase não está configurado (env ausente). Defina as variáveis no deploy.
                 </p>
               ) : null}
             </div>
 
-            <div className="rounded-2xl border border-slate-100 bg-white p-5">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                 Resultado
               </p>
               <div className="mt-3">
-                {result?.ok ? (
-                  <div className="space-y-2">
-                    <Badge className="bg-emerald-100 text-emerald-900 border-none font-black">
-                      CONECTADO
-                    </Badge>
-                    <p className="text-sm font-bold text-slate-700">
-                      Projetos no banco: <span className="font-black">{result.projectCount}</span>
-                    </p>
-                  </div>
-                ) : result && result.ok === false ? (
-                  <div className="space-y-2">
-                    <Badge className="bg-red-100 text-red-900 border-none font-black">
-                      SEM ACESSO
-                    </Badge>
-                    <p className="text-sm font-bold text-slate-700 break-words">
-                      {result.error}
-                    </p>
-                  </div>
+                {result ? (
+                  result.ok ? (
+                    <div className="text-sm font-bold text-emerald-900">
+                      Conectado. Projetos no banco: <span className="font-black">{result.projectCount}</span>
+                      <div className="mt-1 text-xs font-bold opacity-80">
+                        Se aparecer 0, pode ser que você ainda não tenha rodado as migrações no Supabase.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 text-sm font-bold text-red-900">
+                      <TriangleAlert className="h-4 w-4 mt-0.5" />
+                      <div className="break-words">{"error" in result ? result.error : "Erro ao consultar o banco."}</div>
+                    </div>
+
+                  )
                 ) : (
-                  <p className="text-sm font-bold text-slate-600">Carregando…</p>
+                  <div className="text-sm font-bold text-slate-500">Aguardando…</div>
                 )}
               </div>
             </div>
           </div>
-
-          {!hasEnvConfig ? (
-            <div className="mt-6 rounded-[2rem] border border-amber-200 bg-amber-50 p-5">
-              <div className="flex items-start gap-3 text-amber-950">
-                <TriangleAlert className="mt-0.5 h-5 w-5" />
-                <div>
-                  <p className="text-sm font-black">Configurar no deploy</p>
-                  <p className="mt-1 text-sm font-bold text-amber-950/90">
-                    Se você quiser apontar para outro projeto Supabase, defina as variáveis abaixo na
-                    Vercel e faça redeploy.
-                  </p>
-                  <ol className="mt-2 list-decimal pl-5 text-sm font-bold text-amber-950/90 space-y-1">
-                    <li>
-                      Vercel → Project → <span className="font-black">Settings</span> →
-                      <span className="font-black"> Environment Variables</span>
-                    </li>
-                    <li>
-                      Adicione <span className="font-black">VITE_SUPABASE_URL</span> (Project URL)
-                      e <span className="font-black">VITE_SUPABASE_ANON_KEY</span> (anon public key)
-                    </li>
-                    <li>Faça um redeploy</li>
-                  </ol>
-                  <a
-                    className="mt-3 inline-flex items-center gap-2 text-sm font-black underline underline-offset-4"
-                    href="https://supabase.com/docs/guides/getting-started/tutorials/with-react"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Documentação Supabase
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          ) : null}
         </CardContent>
       </Card>
     </div>

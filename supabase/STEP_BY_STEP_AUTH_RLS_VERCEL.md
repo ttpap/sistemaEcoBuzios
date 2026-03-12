@@ -1,70 +1,30 @@
 # Passo a passo (leigo) — Supabase (EcoBúzios)
 
-Este sistema tem dois modos de acesso:
+## ETAPA 1 (ADR-001): apontar para um único Supabase oficial
 
-- **Admin (Supabase Auth + RLS)**: o banco controla permissões via `profiles.role`.
-- **Modo B (RPC)**: professor/coordenador/aluno usam login/senha cadastrados e o app usa RPCs.
+### 1) Pegar as chaves no Supabase
+Supabase → seu projeto → **Project Settings (engrenagem)** → **API**
+- **Project URL**
+- **anon public key**
 
----
+### 2) Configurar no deploy (Vercel)
+Vercel → seu projeto → **Settings** → **Environment Variables**
+Crie:
+- `VITE_SUPABASE_URL` = Project URL
+- `VITE_SUPABASE_ANON_KEY` = anon public key
 
-## 1) Confirmar que o app está apontando para o Supabase certo
+Marque **Production** e salve.
 
-### Opção A — Vercel (produção)
-Vercel → Project → **Settings** → **Environment Variables**
-Crie (Production):
-- `VITE_SUPABASE_URL` = Supabase → Project Settings → API → Project URL
-- `VITE_SUPABASE_ANON_KEY` = Supabase → Project Settings → API → anon public key
+### 3) Redeploy
+Vercel → seu projeto → **Deployments** → **Redeploy**
 
-Depois faça um redeploy.
-
-### Opção B — Pelo próprio painel do sistema (recomendado para testar rápido)
-Entre como admin e abra:
-- **Admin → Supabase** (`/supabase`)
-
-Cole URL + anon key e clique em **Salvar e recarregar**.
-
-### Teste
+### 4) Diagnóstico
 Abra:
-- `.../db-status`
+- `https://SEU-DOMINIO/db-status`
 
-Ela mostra a URL usada e se veio de RUNTIME/VARS/FALLBACK.
+A página mostra:
+- a URL ativa
+- se está conectado
+- se o acesso foi bloqueado por RLS
 
----
-
-## 2) Criar o schema + RLS (um SQL só)
-
-Supabase → **SQL Editor**
-Rode:
-- `supabase/migrations/0001_init.sql`
-
----
-
-## 3) Habilitar o Modo B (RPCs)
-
-Supabase → **SQL Editor**
-Rode na ordem:
-- `0007_mode_b_rpcs_all.sql`
-- `0008_mode_b_upsert_student.sql`
-- `0010_mode_b_coordinator_classes_rule.sql`
-- `0018_mode_b_list_projects.sql`
-
----
-
-## 4) Liberar Admin (sem travar no RLS)
-
-### Opção manual
-Authentication → Users → crie o usuário
-Table Editor → `profiles` → crie a linha com `role='admin'`
-
-### Opção automática (recomendado)
-Rode:
-- `0019_admin_local_bootstrap_admin.sql`
-
-Depois disso, ao logar como admin, o próprio app tenta promover seu usuário para admin.
-
----
-
-## Erros comuns
-
-- **"new row violates row-level security policy"** → conectou, mas RLS bloqueou (faltou role=admin)
-- **"function does not exist" / "rpc_missing"** → faltaram migrações do Modo B
+> Nesta etapa não existe fallback silencioso e não existe configuração runtime.
