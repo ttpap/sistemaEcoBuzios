@@ -20,6 +20,7 @@ type AuthState = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  profileError: string | null;
   signOut: () => Promise<void>;
 };
 
@@ -41,11 +42,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number) {
   });
 }
 
+function formatSupabaseError(e: any) {
+  const code = e?.code ? ` (${String(e.code)})` : "";
+  const msg = e?.message ? String(e.message) : String(e || "erro");
+  return `${msg}${code}`;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // "loading" é apenas da inicialização. Evita travar navegação em revalidações de background.
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
 
   const requestIdRef = React.useRef(0);
   const initializedRef = React.useRef(false);
@@ -84,14 +92,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const p = await withTimeout(loadProfile(data.session.user.id), 20000);
           if (requestIdRef.current !== requestId) return;
           setProfile(p);
-        } catch {
+          setProfileError(null);
+        } catch (e: any) {
           if (requestIdRef.current !== requestId) return;
+          // Diferencia "não encontrado" de erro de permissão/rede.
+          setProfile(null);
+          setProfileError(formatSupabaseError(e));
+          console.warn("[AuthContext] loadProfile_failed", e);
         }
       } else {
         setProfile(null);
+        setProfileError(null);
       }
-    } catch {
+    } catch (e) {
       if (requestIdRef.current !== requestId) return;
+      console.warn("[AuthContext] getSession_failed", e);
     } finally {
       window.clearTimeout(safety);
       initializedRef.current = true;
@@ -131,11 +146,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const p = await withTimeout(loadProfile(nextSession.user.id), 20000);
             if (!active || requestIdRef.current !== requestId) return;
             setProfile(p);
-          } catch {
+            setProfileError(null);
+          } catch (e: any) {
             if (!active || requestIdRef.current !== requestId) return;
+            setProfile(null);
+            setProfileError(formatSupabaseError(e));
+            console.warn("[AuthContext] loadProfile_failed", e);
           }
         } else {
           setProfile(null);
+          setProfileError(null);
         }
       } finally {
         window.clearTimeout(safety);
@@ -159,6 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     user: session?.user ?? null,
     profile,
+    profileError,
     signOut,
   };
 
