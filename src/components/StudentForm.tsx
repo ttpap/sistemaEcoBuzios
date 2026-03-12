@@ -658,6 +658,13 @@ const StudentForm = ({
   return (
     <Form {...form}>
       <form
+        noValidate
+        onSubmitCapture={() => console.info("[StudentForm] form_submit_capture")}
+        onClickCapture={(e) => {
+          const t = e.target as HTMLElement | null;
+          const label = t?.tagName ? `${t.tagName.toLowerCase()}${t.getAttribute("type") ? `[type=${t.getAttribute("type")}]` : ""}` : "unknown";
+          console.info("[StudentForm] form_click_capture", label);
+        }}
         onSubmit={form.handleSubmit(
           (vals) => {
             console.info("[StudentForm] handleSubmit_valid");
@@ -1048,6 +1055,7 @@ const StudentForm = ({
 
             <Button
               type="submit"
+              onMouseDown={() => console.info("[StudentForm] submit_button_mousedown")}
               onClick={() => console.info("[StudentForm] submit_button_click")}
               className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg"
             >
