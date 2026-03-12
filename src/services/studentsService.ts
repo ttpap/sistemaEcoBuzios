@@ -8,10 +8,16 @@ export {
 } from "@/integrations/supabase/students";
 
 import { supabase } from "@/integrations/supabase/client";
+import { publicSupabase } from "@/integrations/supabase/public-client";
 
 export const studentsService = {
   async insert(row: any) {
     const { error } = await supabase.from("students").insert(row);
+    if (error) throw error;
+  },
+
+  async insertAsAnon(row: any) {
+    const { error } = await publicSupabase.from("students").insert(row);
     if (error) throw error;
   },
 

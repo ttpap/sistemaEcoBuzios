@@ -55,7 +55,16 @@ function makeId() {
 function makeUuid() {
   const c = (globalThis as any).crypto as Crypto | undefined;
   if (c?.randomUUID) return c.randomUUID();
-  if (!c?.getRandomValues) return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  // Sem crypto/getRandomValues (contexto não-seguro/ambiente limitado): gera UUID v4 válido usando Math.random.
+  // É suficiente para satisfazer o tipo uuid do Postgres (e evita inserts falharem por formato inválido).
+  if (!c?.getRandomValues) {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (ch) => {
+      const r = Math.floor(Math.random() * 16);
+      const v = ch === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  }
 
   // Fallback using getRandomValues (RFC4122 v4)
   const bytes = new Uint8Array(16);
@@ -71,6 +80,26 @@ function makeUuid() {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function isUniqueViolation(e: any) {
+  const code = String(e?.code || "");
+  const msg = String(e?.message || "").toLowerCase();
+  return code === "23505" || msg.includes("duplicate") || msg.includes("unique");
+}
+
+function makeRandomRegistration(year: string, used: Set<string>) {
+  for (let i = 0; i < 50; i++) {
+    const suffix = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+    const reg = `${year}-${suffix}`;
+    if (!used.has(reg)) {
+      used.add(reg);
+      return reg;
+    }
+  }
+  // fallback extremo: deixa repetir (a política de unique vai forçar retry no insert)
+  const suffix = String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0");
+  return `${year}-${suffix}`;
 }
 
 const SCHOOLS_BY_TYPE: Record<string, string[]> = {
@@ -239,7 +268,8 @@ const StudentForm = ({
   const navigate = useNavigate();
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
+  const isAdmin = Boolean(session && profile?.role === "admin");
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   
@@ -359,7 +389,7 @@ const StudentForm = ({
     }
   };
 
-  function onSubmit(values: z.infer<typeof schema>) {
+  async function onSubmit(values: z.infer<typeof schema>) {
     const existingStudents = readGlobalStudents<StudentRegistration[]>([]);
 
     const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
@@ -370,33 +400,30 @@ const StudentForm = ({
       schoolName: finalSchoolName || values.schoolName
     };
 
-    const persistToSupabase = async (input: {
-      id: string;
-      registration: string;
-      status?: string;
-      class?: string;
-    }) => {
+    const persistToSupabase = async (input: { id: string; registration: string; status?: string; class?: string }) => {
       const row = {
         id: input.id,
         registration: input.registration,
-        full_name: values.fullName,
+
+        full_name: values.fullName.trim(),
         social_name: values.socialName || null,
+        preferred_name: values.preferredName || null,
         email: values.email || null,
-        cpf: values.cpf || null,
+        cpf: (values.cpf || "").replace(/\D/g, "").trim() || null,
         birth_date: values.birthDate,
         age: values.age,
         cell_phone: values.cellPhone,
         gender: values.gender,
         race: values.race,
-        photo: values.photo || null,
+        photo: photoPreview || null,
 
         guardian_name: values.guardianName || null,
         guardian_kinship: values.guardianKinship || null,
         guardian_phone: values.guardianPhone || null,
         guardian_declaration_confirmed: values.guardianDeclarationConfirmed,
 
-        school_type: values.schoolType,
-        school_name: (finalSchoolName || values.schoolName) as string,
+        school_type: values.schoolType || null,
+        school_name: values.schoolName || null,
         school_other: values.schoolOther || null,
 
         cep: values.cep,
@@ -433,11 +460,12 @@ const StudentForm = ({
         class: (input.class || "A definir") as any,
       };
 
-      // 1) Usuário autenticado (Admin ou Aluno): tenta update/insert direto via RLS.
-
-      if (session) {
+      // 1) Sessão Supabase Auth: só pode ir direto para a tabela students quando for ADMIN.
+      if (isAdmin) {
         if (initialData) {
-          if (!isUuid(String(initialData.id || ""))) return;
+          if (!isUuid(String(initialData.id || ""))) {
+            throw new Error("ID do aluno inválido. Não foi possível salvar.");
+          }
           await studentsService.updateById({ id: String(initialData.id), row });
           return;
         }
@@ -446,7 +474,7 @@ const StudentForm = ({
         return;
       }
 
-      // 2) Sem sessão Supabase Auth
+      // 2) Não-admin (ou sem sessão): nunca tenta write direto via RLS admin.
       const creds = getModeBStaffCreds();
       const projectId = getActiveProjectId();
 
@@ -470,7 +498,7 @@ const StudentForm = ({
 
       // 2b) Cadastro novo:
       // - se tiver credencial Modo B, tenta RPC
-      // - se não tiver (link público /inscricao), insere direto como anon (há policy students_public_insert)
+      // - senão (link público /inscricao), insere como ANON (policy students_public_insert)
       if (creds && projectId) {
         try {
           await studentsService.modeBUpsert({
@@ -481,11 +509,11 @@ const StudentForm = ({
           });
           return;
         } catch {
-          // se a RPC falhar, cai para insert direto (anon) — evita dependência de Edge Function.
+          // se a RPC falhar, cai para insert anon
         }
       }
 
-      await studentsService.insert(row);
+      await studentsService.insertAsAnon(row);
     };
 
     const run = async () => {
@@ -517,12 +545,21 @@ const StudentForm = ({
         }
       } else {
         const tempExisting = [...existingStudents];
-        let registration = "";
-        let createdId = makeUuid();
+        const used = new Set<string>();
 
-        for (let attempt = 0; attempt < 10; attempt++) {
+        let registration: string | null = null;
+        let createdId = makeUuid();
+        let persisted = false;
+        let lastError: any = null;
+
+        const maxAttempts = existingStudents.length ? 120 : 40;
+        const year = String(new Date().getFullYear());
+
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
           try {
-            registration = allocateNewStudentRegistration(tempExisting);
+            registration = existingStudents.length
+              ? allocateNewStudentRegistration(tempExisting)
+              : makeRandomRegistration(year, used);
           } catch (e: any) {
             showError(e?.message || "Não foi possível gerar a matrícula.");
             return;
@@ -537,12 +574,13 @@ const StudentForm = ({
               status: "Ativo",
               class: "A definir",
             });
+            persisted = true;
             break;
           } catch (e: any) {
+            lastError = e;
+
             // Conflito de matrícula (unique) → tenta outra
-            const msg = String(e?.message || "");
-            const isUnique = msg.toLowerCase().includes("duplicate") || msg.includes("23505");
-            if (isUnique) {
+            if (isUniqueViolation(e)) {
               tempExisting.push({
                 id: makeUuid(),
                 registration,
@@ -581,8 +619,11 @@ const StudentForm = ({
           }
         }
 
-        if (!registration) {
-          showError("Não foi possível gerar a matrícula.");
+        if (!persisted || !registration) {
+          showError(
+            lastError?.message ||
+              "Não foi possível concluir o cadastro: a matrícula colidiu com registros existentes. Tente novamente.",
+          );
           return;
         }
 
