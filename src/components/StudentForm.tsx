@@ -286,7 +286,7 @@ const StudentForm = ({
       cellPhone: initialData?.cellPhone || "",
       gender: initialData?.gender || "",
       race: initialData?.race || "",
-      photo: initialData?.photo || null,
+      photo: initialData?.photo || "",
 
       guardianName: initialData?.guardianName || "",
       guardianKinship: initialData?.guardianKinship || "",
@@ -637,10 +637,21 @@ const StudentForm = ({
   }
 
   const onInvalid = (errors: any) => {
-    console.warn("[StudentForm] onSubmit_invalid", errors);
-    const firstKey = Object.keys(errors || {})[0];
-    const firstMsg = firstKey ? (errors as any)[firstKey]?.message : null;
-    showError(firstMsg || "Existem campos obrigatórios não preenchidos. Verifique o formulário.");
+    // Log temporário detalhado: mostra qual campo está inválido e a mensagem completa.
+    const entries = Object.entries(errors || {});
+    const first = entries[0] as any;
+    const firstField = first?.[0] ? String(first[0]) : null;
+    const firstErr = first?.[1] as any;
+    const firstMsg = firstErr?.message ? String(firstErr.message) : null;
+
+    console.warn("[StudentForm] onSubmit_invalid", {
+      firstField,
+      firstMsg,
+      errors,
+      valuesSnapshot: form.getValues(),
+    });
+
+    showError(firstMsg ? `${firstField}: ${firstMsg}` : "Existem campos obrigatórios inválidos. Verifique o formulário.");
   };
 
   const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
