@@ -42,11 +42,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // IMPORTANTE: "loading" deve refletir APENAS a inicialização.
+  // Revalidar sessão em background (focus/keep-alive/token refresh) não pode travar a navegação.
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
 
   const requestIdRef = React.useRef(0);
+  const initializedRef = React.useRef(false);
 
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -62,12 +65,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshAuthState = React.useCallback(
     async ({ preferRefresh }: { preferRefresh?: boolean } = {}) => {
       const requestId = ++requestIdRef.current;
-      setLoading(true);
+
+      // Só liga loading na inicialização.
+      if (!initializedRef.current) setLoading(true);
 
       // Safety net: em qualquer cenário em que o SDK "trave" (promise que não resolve),
       // soltamos o loading após um tempo. Isso evita ficar preso em "Verificando acesso".
       const safety = window.setTimeout(() => {
-        if (requestIdRef.current === requestId) setLoading(false);
+        if (requestIdRef.current === requestId) {
+          initializedRef.current = true;
+          setLoading(false);
+        }
       }, 25000);
 
       try {
@@ -105,7 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (requestIdRef.current !== requestId) return;
       } finally {
         window.clearTimeout(safety);
-        if (requestIdRef.current === requestId) setLoading(false);
+        initializedRef.current = true;
+        setLoading(false);
       }
     },
     [loadProfile],
@@ -118,14 +127,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ignore
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return;
 
+      // Token refresh pode acontecer com frequência e NÃO deve travar a UI.
+      // Atualizamos session/profile em background, sem togglar loading.
+      if (event === "TOKEN_REFRESHED") {
+        setSession(nextSession);
+        return;
+      }
+
       const requestId = ++requestIdRef.current;
-      setLoading(true);
+      if (!initializedRef.current) setLoading(true);
 
       const safety = window.setTimeout(() => {
-        if (active && requestIdRef.current === requestId) setLoading(false);
+        if (active && requestIdRef.current === requestId) {
+          initializedRef.current = true;
+          setLoading(false);
+        }
       }, 25000);
 
       try {
@@ -145,6 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } finally {
         window.clearTimeout(safety);
+        initializedRef.current = true;
         if (active && requestIdRef.current === requestId) setLoading(false);
       }
     });
@@ -165,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    // Mantém a sessão viva mesmo sem interação (garante >5 min sem mexer).
+    // Mantém a sessão viva mesmo sem interação (garante >5 min sem mexer), sem travar navegação.
     const keepAlive = window.setInterval(() => {
       if (!active) return;
       if (document.visibilityState !== "visible") return;
