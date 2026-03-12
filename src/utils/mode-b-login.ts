@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
-import { getAdminLogin, loginAdmin } from "@/utils/admin-auth";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -37,37 +36,7 @@ export async function modeBLogin(input: {
   // Garante que não exista sessão antiga que faça gates liberarem/negarem incorretamente.
   clearModeBSessions();
 
-  const ADMIN_LOGIN = getAdminLogin();
-
-  // 0) Admin: quando for o email do admin local, tentamos primeiro autenticar no Supabase
-  // e bootstrapar o profile role=admin automaticamente (para o RLS liberar cadastros).
-  // Se o Supabase falhar, ainda permitimos o admin local (modo offline), mas o banco pode bloquear ações.
-  if (loginRaw.toLowerCase() === ADMIN_LOGIN.toLowerCase()) {
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginRaw,
-      password: passwordRaw,
-    });
-
-    if (!error) {
-      // Se o usuário existe no Auth mas não tem profiles.role=admin, promovemos via RPC SECURITY DEFINER.
-      try {
-        await supabase.rpc("admin_local_bootstrap_admin", { p_admin_password: passwordRaw });
-      } catch {
-        // ignore (se a RPC não existir ainda, o sistema continua e o AdminGate pode bloquear)
-      }
-
-      return { ok: true, role: "admin", redirectTo: "/" };
-    }
-
-    // Fallback local
-    if (loginAdmin({ login: loginRaw, password: passwordRaw })) {
-      return { ok: true, role: "admin", redirectTo: "/projetos" };
-    }
-
-    return { ok: false, reason: "invalid_credentials" };
-  }
-
-  // 1) Tenta Admin (Supabase Auth) quando parece email.
+  // 1) Admin via Supabase Auth (email + senha). A validação de role=admin ocorre via AuthContext/AdminGate.
   if (loginRaw.includes("@")) {
     const { error } = await supabase.auth.signInWithPassword({
       email: loginRaw,

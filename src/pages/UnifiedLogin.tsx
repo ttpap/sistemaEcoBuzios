@@ -11,7 +11,6 @@ import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { getAdminLogin } from "@/utils/admin-auth";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
@@ -39,36 +38,25 @@ export default function UnifiedLogin() {
         return;
       }
 
-      // Tentativa automática de bootstrap do admin (evita ajuste manual no Supabase).
-      const adminEmail = getAdminLogin();
-      if (session.user.email && session.user.email.toLowerCase() === adminEmail.toLowerCase()) {
-        try {
-          const { data } = await supabase.rpc("admin_local_bootstrap_admin", { p_admin_password: password });
-          if (data) {
-            // Recarrega o profile no contexto via refreshSession + novo onAuthStateChange.
-            await supabase.auth.refreshSession();
-            setPendingAdminRedirect(false);
-            navigate("/projetos", { replace: true });
-            return;
-          }
-        } catch {
-          // ignore
-        }
-      }
-
       setPendingAdminRedirect(false);
 
-      // Evita ficar com uma sessão autenticada "errada".
+      // Evita ficar com uma sessão autenticada que não tem permissão admin.
       void supabase.auth.signOut();
 
-      showError(
-        "Sua conta autenticou, mas não possui perfil de administrador. Para liberar: aplique a migração 0019_admin_local_bootstrap_admin no Supabase (ou, manualmente, defina role=admin na tabela profiles para este user_id).",
-      );
+      if (!profile) {
+        showError(
+          "Sua conta autenticou no Supabase, mas não foi encontrado um perfil em public.profiles para este usuário. Sem profile, o acesso admin não pode ser validado.",
+        );
+        navigate("/login/admin", { replace: true });
+        return;
+      }
+
+      showError("Sua conta autenticou no Supabase, mas não possui perfil de administrador (profiles.role != 'admin').");
       navigate("/login/admin", { replace: true });
     };
 
     void run();
-  }, [loading, navigate, pendingAdminRedirect, profile?.role, session, password]);
+  }, [loading, navigate, pendingAdminRedirect, profile, session]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +151,8 @@ export default function UnifiedLogin() {
 
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
                 <p>
-                  <span className="font-black">Admin:</span> email + senha.
+                  <span className="font-black">Admin:</span> email + senha (Supabase Auth). O painel só libera se o seu
+                  <span className="font-black"> profiles.role</span> for <span className="font-black">admin</span>.
                 </p>
                 <p className="mt-2">
                   <span className="font-black">Professor/Coordenador:</span> login + senha gerados no cadastro.

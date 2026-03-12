@@ -40,7 +40,6 @@ import {
 import { deleteProjectRemote, fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
-import { setAdminPassword, resetAdminPasswordToDefault, getDefaultAdminPassword } from "@/utils/admin-auth";
 import { invalidateProjectTheme } from "@/utils/theme";
 import {
   FileText,
@@ -56,7 +55,6 @@ import {
   MapPin,
   PieChart as PieChartIcon,
   Settings,
-  KeyRound,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -99,8 +97,6 @@ export default function Projects() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [systemLogo, setSystemLogoState] = useState<string>(getSystemLogo() || "");
   const [systemLogoFileName, setSystemLogoFileName] = useState<string>("");
-  const [newPassword, setNewPassword] = useState<string>("");
-  const [newPassword2, setNewPassword2] = useState<string>("");
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [studentsSearch, setStudentsSearch] = useState("");
@@ -354,18 +350,6 @@ export default function Projects() {
   };
 
   const onSaveSettings = () => {
-    if (newPassword || newPassword2) {
-      if (newPassword.length < 6) {
-        showError("A senha deve ter pelo menos 6 caracteres.");
-        return;
-      }
-      if (newPassword !== newPassword2) {
-        showError("As senhas não conferem.");
-        return;
-      }
-      setAdminPassword(newPassword);
-    }
-
     // Save system logo
     if (systemLogo) {
       setSystemLogo(systemLogo);
@@ -455,111 +439,63 @@ export default function Projects() {
               <Settings className="h-5 w-5" />
               Configurações do administrador
             </DialogTitle>
-            <p className="mt-1 text-white/80 text-sm font-bold">
-              Alterar logo do sistema e senha do admin.
-            </p>
+            <p className="mt-1 text-white/80 text-sm font-bold">Alterar logo do sistema.</p>
           </DialogHeader>
 
           <div className="p-6 md:p-8 space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Logo do sistema</Label>
-                <Input
-                  type="file"
-                  accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                  onChange={(e) => onPickSystemLogo(e.target.files?.[0] || null)}
-                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
-                />
-                <div className="mt-3 flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                  <div className="h-14 w-14 rounded-[1.6rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
-                    {systemLogo ? (
-                      <img src={systemLogo} alt="Logo" className="h-full w-full object-cover" />
-                    ) : (
-                      <ImageIcon className="h-5 w-5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-800 truncate">
-                      {systemLogoFileName ? systemLogoFileName : systemLogo ? "Logo definida" : "Sem logo"}
-                    </p>
-                    <p className="text-xs font-bold text-slate-500">Aparece no topo quando não há projeto ativo.</p>
-                  </div>
-                  <div className="ml-auto">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-2xl font-black border-slate-200"
-                      onClick={() => {
-                        setSystemLogoState("");
-                        setSystemLogoFileName("");
-                      }}
-                    >
-                      Remover
-                    </Button>
-                  </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Logo do sistema</Label>
+              <Input
+                type="file"
+                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                onChange={(e) => onPickSystemLogo(e.target.files?.[0] || null)}
+                className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
+              />
+              <div className="mt-3 flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
+                <div className="h-14 w-14 rounded-[1.6rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+                  {systemLogo ? (
+                    <img src={systemLogo} alt="Logo" className="h-full w-full object-cover" />
+                  ) : (
+                    <ImageIcon className="h-5 w-5" />
+                  )}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-primary" /> Nova senha do admin
-                </Label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Digite a nova senha"
-                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                />
-                <Input
-                  type="password"
-                  value={newPassword2}
-                  onChange={(e) => setNewPassword2(e.target.value)}
-                  placeholder="Repita a nova senha"
-                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                />
-                <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                  O login continua sendo <span className="font-black">Pap</span>. Se você não preencher,
-                  a senha atual permanece.
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-800 truncate">
+                    {systemLogoFileName ? systemLogoFileName : systemLogo ? "Logo definida" : "Sem logo"}
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">Aparece no topo quando não há projeto ativo.</p>
                 </div>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2 w-full h-11 rounded-2xl font-black border-slate-200 bg-white"
-                  onClick={() => {
-                    const ok = window.confirm(
-                      `Resetar a senha do admin para a senha padrão (${getDefaultAdminPassword()})?`,
-                    );
-                    if (!ok) return;
-                    resetAdminPasswordToDefault();
-                    setNewPassword("");
-                    setNewPassword2("");
-                    showSuccess("Senha do admin resetada para o padrão.");
-                  }}
-                >
-                  Resetar senha do admin (padrão)
-                </Button>
+                <div className="ml-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-2xl font-black border-slate-200"
+                    onClick={() => {
+                      setSystemLogoState("");
+                      setSystemLogoFileName("");
+                    }}
+                  >
+                    Remover
+                  </Button>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:justify-end">
+            <div className="flex justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="h-12 rounded-2xl font-black border-slate-200"
+                className="rounded-2xl font-black border-slate-200"
                 onClick={() => setSettingsOpen(false)}
               >
-                <X className="h-4 w-4 mr-2" />
                 Cancelar
               </Button>
               <Button
                 type="button"
-                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
+                className="rounded-2xl font-black shadow-lg shadow-primary/20 gap-2"
                 onClick={onSaveSettings}
               >
-                <Save className="h-4 w-4 mr-2" />
-                Salvar
+                <Save className="h-4 w-4" /> Salvar
               </Button>
             </div>
           </div>

@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/utils/projects';
 import { requireSupabase } from '@/integrations/supabase/client';
-import { logoutAdmin } from '@/utils/admin-auth';
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
   const location = useLocation();
@@ -62,7 +61,6 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
 
   const onLogout = async () => {
     clearActiveProjectId();
-    logoutAdmin();
     await requireSupabase().auth.signOut();
     navigate('/login');
   };
@@ -119,31 +117,34 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
         )}
       </div>
 
-      <nav className="flex-1 px-4 space-y-1 mt-4">
-        {menuItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            onClick={() => onNavigate?.()}
-            className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-300",
-              location.pathname === item.path
-                ? "bg-[#008ca0] text-white shadow-xl shadow-[#008ca0]/30 scale-[1.02]"
-                : "text-slate-600 hover:bg-white/50 hover:text-[#008ca0] hover:shadow-sm",
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            {item.label}
-          </Link>
-        ))}
+      <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => onNavigate?.()}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black transition-colors",
+                isActive
+                  ? "bg-white shadow-sm border border-slate-200 text-primary"
+                  : "text-slate-700 hover:bg-white/60 hover:text-primary",
+              )}
+            >
+              <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-slate-500")} />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
-      <div className="p-4">
+      <div className="p-4 border-t border-slate-200">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-white/50 hover:text-red-600 transition-all duration-300"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-slate-700 hover:bg-white/60 hover:text-primary transition-colors"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="h-5 w-5 text-slate-500" />
           Sair
         </button>
       </div>

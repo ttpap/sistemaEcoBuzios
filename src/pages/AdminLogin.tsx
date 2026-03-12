@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,56 +11,60 @@ import { Shield, Lock, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { showError } from "@/utils/toast";
-import { getAdminLogin, loginAdmin } from "@/utils/admin-auth";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const { session, profile, loading } = useAuth();
+  const { session, profile, loading, signOut } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const handledRoleCheckRef = useRef(false);
+
   useEffect(() => {
     if (loading) return;
-    if (!session) return;
-    if (profile?.role !== "admin") return;
+    if (!session) {
+      handledRoleCheckRef.current = false;
+      return;
+    }
+
+    // Aguarda o profile do contexto para validar role.
+    if (!profile) {
+      if (handledRoleCheckRef.current) return;
+      handledRoleCheckRef.current = true;
+      showError(
+        "Você autenticou no Supabase, mas não foi encontrado um perfil em public.profiles para este usuário. Sem profile, o acesso admin não pode ser validado.",
+      );
+      void signOut();
+      return;
+    }
+
+    if (profile.role !== "admin") {
+      if (handledRoleCheckRef.current) return;
+      handledRoleCheckRef.current = true;
+      showError("Sua conta autenticou no Supabase, mas não possui perfil de administrador (profiles.role != 'admin').");
+      void signOut();
+      return;
+    }
+
     navigate("/projetos", { replace: true });
-  }, [loading, session, profile?.role, navigate]);
+  }, [loading, session, profile, navigate, signOut]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const emailTrim = email.trim();
-    const adminEmail = getAdminLogin();
 
     setSubmitting(true);
     try {
-      // Definitivo: se for o email do admin local, não tenta Supabase (evita conflito com profiles.role).
-      if (emailTrim.toLowerCase() === adminEmail.toLowerCase()) {
-        const ok = loginAdmin({ login: emailTrim, password });
-        if (!ok) throw new Error("Email ou senha inválidos.");
-        navigate("/projetos", { replace: true });
-        return;
-      }
-
       const { error } = await supabase.auth.signInWithPassword({
         email: emailTrim,
         password,
       });
 
-      if (error) {
-        // Fallback local (útil quando o Supabase ainda não tem o usuário admin criado).
-        const ok = loginAdmin({ login: emailTrim, password });
-        if (ok) {
-          navigate("/projetos", { replace: true });
-          return;
-        }
-
-        throw error;
-      }
-
-      // O redirect acontece via useEffect quando o profile carregar.
+      if (error) throw error;
+      // Redirect acontece via useEffect quando profile carregar.
     } catch (e: any) {
       showError(e?.message || "Não foi possível entrar.");
     } finally {
@@ -79,7 +83,7 @@ export default function AdminLogin() {
             <Shield className="h-5 w-5" />
             <h1 className="text-2xl font-black tracking-tight">Admin</h1>
           </div>
-          <p className="mt-2 text-slate-500 font-medium">Entre com email e senha do administrador.</p>
+          <p className="mt-2 text-slate-500 font-medium">Entre com o email e senha do seu usuário no Supabase.</p>
         </div>
 
         <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
@@ -126,8 +130,8 @@ export default function AdminLogin() {
               </Button>
 
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
-                Se você autenticou, mas não entra no painel, verifique a tabela <span className="font-black">profiles</span>
-                com <span className="font-black">role=admin</span>.
+                Depois de autenticar, o acesso admin só é liberado quando existe um profile em
+                <span className="font-black"> public.profiles</span> com <span className="font-black">role=admin</span>.
               </div>
             </form>
           </CardContent>
