@@ -48,8 +48,12 @@ function formatSupabaseError(e: any) {
   return `${msg}${code}`;
 }
 
+function isAbortError(e: any) {
+  return e?.name === "AbortError";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // "loading" é apenas da inicialização. Evita travar navegação em revalidações de background.
+  // "loading" é apenas da inicialização. Evita travar navegação em revalidações.
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
@@ -57,6 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const requestIdRef = React.useRef(0);
   const initializedRef = React.useRef(false);
+  const initialGetSessionDoneRef = React.useRef(false);
+
+  // Dedup de loadProfile: garante 1 request por userId por vez.
+  const inflightProfileRef = React.useRef<{ userId: string; promise: Promise<Profile | null> } | null>(null);
 
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -68,6 +76,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
     return (data as Profile | null) ?? null;
   }, []);
+
+  const loadProfileDedup = React.useCallback(
+    async (userId: string) => {
+      const inflight = inflightProfileRef.current;
+      if (inflight?.userId === userId) return inflight.promise;
+
+      const promise = loadProfile(userId);
+      inflightProfileRef.current = { userId, promise };
+
+      try {
+        return await promise;
+      } finally {
+        if (inflightProfileRef.current?.userId === userId) inflightProfileRef.current = null;
+      }
+    },
+    [loadProfile],
+  );
 
   const refreshAuthState = React.useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -87,15 +112,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setSession(data.session);
 
-      if (data.session?.user?.id) {
+      const userId = data.session?.user?.id;
+      if (userId) {
+        // Se já temos profile carregado para esse usuário e não há erro, evita refetch.
+        if (profile?.user_id === userId && !profileError) return;
+
         try {
-          const p = await withTimeout(loadProfile(data.session.user.id), 20000);
+          const p = await withTimeout(loadProfileDedup(userId), 20000);
           if (requestIdRef.current !== requestId) return;
+
+          // Só seta profile quando a request finaliza com sucesso.
           setProfile(p);
           setProfileError(null);
         } catch (e: any) {
           if (requestIdRef.current !== requestId) return;
-          // Diferencia "não encontrado" de erro de permissão/rede.
+
+          // AbortError (race/lock) é esperado em concorrência do SDK — não deve derrubar profile.
+          if (isAbortError(e)) {
+            console.info("[AuthContext] loadProfile_aborted_ignored");
+            return;
+          }
+
           setProfile(null);
           setProfileError(formatSupabaseError(e));
           console.warn("[AuthContext] loadProfile_failed", e);
@@ -110,9 +147,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       window.clearTimeout(safety);
       initializedRef.current = true;
+      initialGetSessionDoneRef.current = true;
       setLoading(false);
     }
-  }, [loadProfile]);
+  }, [loadProfileDedup, profile?.user_id, profileError]);
 
   React.useEffect(() => {
     let active = true;
@@ -122,7 +160,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return;
 
-      // TOKEN_REFRESHED pode acontecer com frequência — nunca deve bloquear a UI.
+      // Evita corrida entre getSession() inicial e o callback inicial do SDK.
+      if (event === "INITIAL_SESSION" && !initialGetSessionDoneRef.current) return;
+
+      // TOKEN_REFRESHED pode acontecer com frequência — não deve disparar loadProfile concorrente.
       if (event === "TOKEN_REFRESHED") {
         setSession(nextSession);
         return;
@@ -141,21 +182,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setSession(nextSession);
 
-        if (nextSession?.user?.id) {
-          try {
-            const p = await withTimeout(loadProfile(nextSession.user.id), 20000);
-            if (!active || requestIdRef.current !== requestId) return;
-            setProfile(p);
-            setProfileError(null);
-          } catch (e: any) {
-            if (!active || requestIdRef.current !== requestId) return;
-            setProfile(null);
-            setProfileError(formatSupabaseError(e));
-            console.warn("[AuthContext] loadProfile_failed", e);
-          }
-        } else {
+        const userId = nextSession?.user?.id;
+        if (!userId) {
           setProfile(null);
           setProfileError(null);
+          return;
+        }
+
+        // Se já temos profile desse user e não há erro, não refaz.
+        if (profile?.user_id === userId && !profileError) return;
+
+        try {
+          const p = await withTimeout(loadProfileDedup(userId), 20000);
+          if (!active || requestIdRef.current !== requestId) return;
+          setProfile(p);
+          setProfileError(null);
+        } catch (e: any) {
+          if (!active || requestIdRef.current !== requestId) return;
+
+          if (isAbortError(e)) {
+            console.info("[AuthContext] loadProfile_aborted_ignored");
+            return;
+          }
+
+          setProfile(null);
+          setProfileError(formatSupabaseError(e));
+          console.warn("[AuthContext] loadProfile_failed", e);
         }
       } finally {
         window.clearTimeout(safety);
@@ -168,7 +220,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, [loadProfile, refreshAuthState]);
+  }, [loadProfileDedup, profile?.user_id, profileError, refreshAuthState]);
 
   const signOut = React.useCallback(async () => {
     await supabase.auth.signOut();
