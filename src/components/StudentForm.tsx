@@ -544,27 +544,22 @@ const StudentForm = ({
           });
         }
       } else {
-        const tempExisting = [...existingStudents];
         const used = new Set<string>();
+        for (const s of existingStudents) {
+          const r = String((s as any).registration || "");
+          if (/^\d{4}-\d{4}$/.test(r)) used.add(r);
+        }
 
         let registration: string | null = null;
         let createdId = makeUuid();
         let persisted = false;
         let lastError: any = null;
 
-        const maxAttempts = existingStudents.length ? 120 : 40;
+        const maxAttempts = 200;
         const year = String(new Date().getFullYear());
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          try {
-            registration = existingStudents.length
-              ? allocateNewStudentRegistration(tempExisting)
-              : makeRandomRegistration(year, used);
-          } catch (e: any) {
-            showError(e?.message || "Não foi possível gerar a matrícula.");
-            return;
-          }
-
+          registration = makeRandomRegistration(year, used);
           createdId = makeUuid();
 
           try {
@@ -579,38 +574,8 @@ const StudentForm = ({
           } catch (e: any) {
             lastError = e;
 
-            // Conflito de matrícula (unique) → tenta outra
             if (isUniqueViolation(e)) {
-              tempExisting.push({
-                id: makeUuid(),
-                registration,
-                fullName: "",
-                birthDate: "2000-01-01",
-                age: 0,
-                cellPhone: "",
-                gender: "",
-                race: "",
-                schoolType: "",
-                schoolName: "",
-                cep: "",
-                street: "",
-                number: "",
-                neighborhood: "",
-                city: "",
-                uf: "",
-                hasAllergy: false,
-                hasSpecialNeeds: false,
-                usesMedication: false,
-                hasPhysicalRestriction: false,
-                practicedActivity: false,
-                familyHeartHistory: false,
-                healthProblems: [],
-                imageAuthorization: "authorized",
-                docsDelivered: [],
-                registrationDate: new Date().toISOString(),
-                status: "Ativo",
-                class: "A definir",
-              } as StudentRegistration);
+              // tenta outra matrícula
               continue;
             }
 

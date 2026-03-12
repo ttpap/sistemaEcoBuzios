@@ -42,8 +42,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // IMPORTANTE: "loading" deve refletir APENAS a inicialização.
-  // Revalidar sessão em background (focus/keep-alive/token refresh) não pode travar a navegação.
+  // "loading" é apenas da inicialização. Evita travar navegação em revalidações de background.
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
@@ -62,76 +61,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return (data as Profile | null) ?? null;
   }, []);
 
-  const refreshAuthState = React.useCallback(
-    async ({ preferRefresh }: { preferRefresh?: boolean } = {}) => {
-      const requestId = ++requestIdRef.current;
+  const refreshAuthState = React.useCallback(async () => {
+    const requestId = ++requestIdRef.current;
 
-      // Só liga loading na inicialização.
-      if (!initializedRef.current) setLoading(true);
+    if (!initializedRef.current) setLoading(true);
 
-      // Safety net: em qualquer cenário em que o SDK "trave" (promise que não resolve),
-      // soltamos o loading após um tempo. Isso evita ficar preso em "Verificando acesso".
-      const safety = window.setTimeout(() => {
-        if (requestIdRef.current === requestId) {
-          initializedRef.current = true;
-          setLoading(false);
-        }
-      }, 25000);
-
-      try {
-        if (preferRefresh) {
-          // Se o navegador ficou "parado" por muito tempo, o auto-refresh pode ter sido pausado.
-          // Tentamos renovar silenciosamente antes de revalidar a sessão.
-          try {
-            await withTimeout(supabase.auth.refreshSession(), 20000);
-          } catch {
-            // ignore
-          }
-        }
-
-        const { data } = await withTimeout(supabase.auth.getSession(), 20000);
-        if (requestIdRef.current !== requestId) return;
-
-        setSession(data.session);
-
-        if (data.session?.user?.id) {
-          try {
-            const p = await withTimeout(loadProfile(data.session.user.id), 20000);
-            if (requestIdRef.current !== requestId) return;
-            setProfile(p);
-          } catch {
-            // Em redes instáveis, não derruba a sessão por falha momentânea ao carregar o profile.
-            if (requestIdRef.current !== requestId) return;
-            // mantém o profile anterior (se existir)
-          }
-        } else {
-          setProfile(null);
-        }
-      } catch {
-        // Em redes instáveis, não zera session/profile por timeout/erro transitório.
-        // Se realmente não existir sessão, o onAuthStateChange vai atualizar.
-        if (requestIdRef.current !== requestId) return;
-      } finally {
-        window.clearTimeout(safety);
+    const safety = window.setTimeout(() => {
+      if (requestIdRef.current === requestId) {
         initializedRef.current = true;
         setLoading(false);
       }
-    },
-    [loadProfile],
-  );
+    }, 25000);
+
+    try {
+      const { data } = await withTimeout(supabase.auth.getSession(), 20000);
+      if (requestIdRef.current !== requestId) return;
+
+      setSession(data.session);
+
+      if (data.session?.user?.id) {
+        try {
+          const p = await withTimeout(loadProfile(data.session.user.id), 20000);
+          if (requestIdRef.current !== requestId) return;
+          setProfile(p);
+        } catch {
+          if (requestIdRef.current !== requestId) return;
+        }
+      } else {
+        setProfile(null);
+      }
+    } catch {
+      if (requestIdRef.current !== requestId) return;
+    } finally {
+      window.clearTimeout(safety);
+      initializedRef.current = true;
+      setLoading(false);
+    }
+  }, [loadProfile]);
 
   React.useEffect(() => {
     let active = true;
 
-    refreshAuthState().catch(() => {
-      // ignore
-    });
+    void refreshAuthState();
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return;
 
-      // Token refresh pode acontecer com frequência e NÃO deve travar a UI.
-      // Atualizamos session/profile em background, sem togglar loading.
+      // TOKEN_REFRESHED pode acontecer com frequência — nunca deve bloquear a UI.
       if (event === "TOKEN_REFRESHED") {
         setSession(nextSession);
         return;
@@ -156,7 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!active || requestIdRef.current !== requestId) return;
             setProfile(p);
           } catch {
-            // Não derruba o profile antigo em erros transitórios.
             if (!active || requestIdRef.current !== requestId) return;
           }
         } else {
@@ -169,40 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const onFocus = () => {
-      if (!active) return;
-      refreshAuthState({ preferRefresh: true }).catch(() => {
-        // ignore
-      });
-    };
-
-    const onVisibility = () => {
-      if (!active) return;
-      if (document.visibilityState === "visible") {
-        refreshAuthState({ preferRefresh: true }).catch(() => {
-          // ignore
-        });
-      }
-    };
-
-    // Mantém a sessão viva mesmo sem interação (garante >5 min sem mexer), sem travar navegação.
-    const keepAlive = window.setInterval(() => {
-      if (!active) return;
-      if (document.visibilityState !== "visible") return;
-      refreshAuthState({ preferRefresh: true }).catch(() => {
-        // ignore
-      });
-    }, 4 * 60 * 1000);
-
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVisibility);
-
     return () => {
       active = false;
-      window.clearInterval(keepAlive);
       sub.subscription.unsubscribe();
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [loadProfile, refreshAuthState]);
 
