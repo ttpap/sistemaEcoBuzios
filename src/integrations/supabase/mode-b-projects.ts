@@ -16,7 +16,12 @@ export async function fetchModeBStaffProjects(input: { login: string; password: 
     p_password: input.password,
   });
 
-  if (error || !data) return [] as Project[];
+  if (error) {
+    throw new Error(error.message || "Não foi possível listar projetos (staff)."
+    );
+  }
+
+  if (!data) return [] as Project[];
   return (data as any[]).map(mapRow);
 }
 
@@ -26,6 +31,11 @@ export async function fetchModeBStudentProjects(input: { registrationOrLast4: st
     p_password: input.password,
   });
 
-  if (error || !data) return [] as Project[];
+  if (error) {
+    throw new Error(error.message || "Não foi possível listar projetos (aluno)."
+    );
+  }
+
+  if (!data) return [] as Project[];
   return (data as any[]).map(mapRow);
 }

@@ -16,6 +16,7 @@ import {
   setTeacherSessionProjectId,
 } from "@/utils/teacher-auth";
 import { fetchModeBStaffProjects } from "@/services/modeBProjectsService";
+import { showError } from "@/utils/toast";
 
 export default function TeacherSelectProject() {
   const navigate = useNavigate();
@@ -31,9 +32,14 @@ export default function TeacherSelectProject() {
         return;
       }
 
-      const rows = await fetchModeBStaffProjects({ login, password });
-      setProjects(rows);
-      if (rows.length) saveProjects(rows);
+      try {
+        const rows = await fetchModeBStaffProjects({ login, password });
+        setProjects(rows);
+        if (rows.length) saveProjects(rows);
+      } catch (e: any) {
+        setProjects([]);
+        showError(e?.message || "Não foi possível carregar seus projetos.");
+      }
     };
 
     void run();

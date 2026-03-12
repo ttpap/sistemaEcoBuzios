@@ -34,12 +34,17 @@ export default function StudentSelectProject() {
         return;
       }
 
-      const rows = await fetchModeBStudentProjects({
-        registrationOrLast4: login,
-        password: DEFAULT_STUDENT_PASSWORD,
-      });
-      setProjects(rows);
-      if (rows.length) saveProjects(rows);
+      try {
+        const rows = await fetchModeBStudentProjects({
+          registrationOrLast4: login,
+          password: DEFAULT_STUDENT_PASSWORD,
+        });
+        setProjects(rows);
+        if (rows.length) saveProjects(rows);
+      } catch (e: any) {
+        setProjects([]);
+        showError(e?.message || "Não foi possível carregar seus projetos.");
+      }
     };
     void run();
   }, []);

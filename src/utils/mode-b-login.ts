@@ -63,6 +63,11 @@ export async function modeBLogin(input: {
     const personId = String(row.person_id || "");
     const projectIds = Array.from(new Set(((row.project_ids as any[]) || []).map(String))).filter(Boolean);
 
+    // Sem vínculo com projeto → bloqueia o acesso (mesma semântica do login de aluno).
+    if (!projectIds.length) {
+      return { ok: false, reason: "not_assigned" };
+    }
+
     if (role === "teacher") {
       sessionStorage.setItem("ecobuzios_teacher_password", passwordRaw);
       localStorage.setItem("ecobuzios_teacher_password", passwordRaw);
