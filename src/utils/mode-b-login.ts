@@ -17,8 +17,8 @@ function clearModeBSessions() {
   localStorage.removeItem("ecobuzios_teacher_session");
   localStorage.removeItem("ecobuzios_coordinator_session");
   localStorage.removeItem("ecobuzios_student_session");
-  localStorage.removeItem("ecobuzios_admin_session");
   sessionStorage.removeItem("ecobuzios_teacher_password");
+
   sessionStorage.removeItem("ecobuzios_coordinator_password");
   localStorage.removeItem("ecobuzios_teacher_password");
   localStorage.removeItem("ecobuzios_coordinator_password");

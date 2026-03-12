@@ -628,8 +628,9 @@ export default function Projects() {
           </TabsTrigger>
           <TabsTrigger value="sistema" className="rounded-2xl font-black">
             <Shield className="h-4 w-4 mr-2" />
-            Admin (Pap)
+            Sistema
           </TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="projetos" className="mt-6 space-y-8">
