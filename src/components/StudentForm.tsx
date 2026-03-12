@@ -406,8 +406,9 @@ const StudentForm = ({
         registration: input.registration,
 
         full_name: values.fullName.trim(),
-        social_name: values.socialName || null,
-        preferred_name: values.preferredName || null,
+        // OBS: a tabela public.students não possui coluna preferred_name.
+        // Mantemos a informação usando social_name (prioriza preferredName se preenchido).
+        social_name: values.preferredName || values.socialName || null,
         email: values.email || null,
         cpf: (values.cpf || "").replace(/\D/g, "").trim() || null,
         birth_date: values.birthDate,
@@ -423,8 +424,8 @@ const StudentForm = ({
         guardian_declaration_confirmed: values.guardianDeclarationConfirmed,
 
         school_type: values.schoolType || null,
-        school_name: values.schoolName || null,
-        school_other: values.schoolOther || null,
+        school_name: finalSchoolName || values.schoolName,
+        school_other: values.schoolName === "Outra" ? (values.schoolOther || null) : null,
 
         cep: values.cep,
         street: values.street,
@@ -460,8 +461,22 @@ const StudentForm = ({
         class: (input.class || "A definir") as any,
       };
 
+      const creds = getModeBStaffCreds();
+      const projectId = getActiveProjectId();
+
+      // Logs temporários para diagnosticar qual caminho está sendo usado em produção.
+      console.info("[StudentForm] persistToSupabase", {
+        isAdmin,
+        hasSession: Boolean(session),
+        role: profile?.role || null,
+        initialData: Boolean(initialData),
+        hasModeBCreds: Boolean(creds),
+        projectId,
+      });
+
       // 1) Sessão Supabase Auth: só pode ir direto para a tabela students quando for ADMIN.
       if (isAdmin) {
+        console.info("[StudentForm] path=admin_direct", { op: initialData ? "update" : "insert" });
         if (initialData) {
           if (!isUuid(String(initialData.id || ""))) {
             throw new Error("ID do aluno inválido. Não foi possível salvar.");
@@ -475,11 +490,10 @@ const StudentForm = ({
       }
 
       // 2) Não-admin (ou sem sessão): nunca tenta write direto via RLS admin.
-      const creds = getModeBStaffCreds();
-      const projectId = getActiveProjectId();
 
-      // 2a) Edição (Professor/Coordenador): sempre via RPC (não usa Edge Function)
+      // 2a) Edição (Professor/Coordenador): sempre via RPC
       if (initialData) {
+        console.info("[StudentForm] path=modeB_edit_rpc");
         if (!projectId) throw new Error("Nenhum projeto ativo. Selecione um projeto e tente novamente.");
         if (!creds) {
           throw new Error(
@@ -496,10 +510,9 @@ const StudentForm = ({
         return;
       }
 
-      // 2b) Cadastro novo:
-      // - se tiver credencial Modo B, tenta RPC
-      // - senão (link público /inscricao), insere como ANON (policy students_public_insert)
+      // 2b) Cadastro novo
       if (creds && projectId) {
+        console.info("[StudentForm] path=modeB_new_rpc");
         try {
           await studentsService.modeBUpsert({
             login: creds.login,
@@ -508,11 +521,13 @@ const StudentForm = ({
             row,
           });
           return;
-        } catch {
+        } catch (e) {
+          console.warn("[StudentForm] modeB_upsert_failed_fallback_to_anon", e);
           // se a RPC falhar, cai para insert anon
         }
       }
 
+      console.info("[StudentForm] path=public_anon_insert");
       await studentsService.insertAsAnon(row);
     };
 
