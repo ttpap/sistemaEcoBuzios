@@ -1,11 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import {
-  supabase,
-  supabaseConfigured,
-  supabaseUsingFallbackConfig,
-  supabaseUrl,
-} from "@/integrations/supabase/client";
+import { supabase, supabaseConfigured, supabaseUrl } from "@/integrations/supabase/client";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -137,14 +133,11 @@ export default function DbStatus() {
               </div>
               {!supabaseConfigured ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">
-                  Defina as variáveis de ambiente do deploy e recarregue. Nesta etapa não existe
-                  configuração runtime/localStorage.
-                </p>
-              ) : supabaseUsingFallbackConfig ? (
-                <p className="mt-2 text-xs font-bold text-slate-500">
-                  O Supabase não está configurado (env ausente). Defina as variáveis no deploy.
+                  Supabase não configurado (env ausente). Defina as variáveis de ambiente do deploy e recarregue. Nesta
+                  etapa não existe configuração runtime/localStorage.
                 </p>
               ) : null}
+
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">

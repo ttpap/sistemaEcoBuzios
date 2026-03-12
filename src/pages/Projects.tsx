@@ -38,7 +38,6 @@ import {
   saveProjects,
 } from "@/utils/projects";
 import { deleteProjectRemote, fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
-import { supabaseUsingFallbackConfig } from "@/integrations/supabase/client";
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
 import { setAdminPassword, resetAdminPasswordToDefault, getDefaultAdminPassword } from "@/utils/admin-auth";

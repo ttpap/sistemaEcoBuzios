@@ -12,9 +12,8 @@ export const supabaseConfigured = Boolean(envUrl && envAnonKey);
 export const supabaseUrl = envUrl || "";
 export const supabaseAnonKey = envAnonKey || "";
 
-// Compat com código existente que exibe avisos.
-// Nesta etapa, "fallback" significa "NÃO CONFIGURADO".
-export const supabaseUsingFallbackConfig = !supabaseConfigured;
+// Sinaliza ausência de ENV (não existe fallback para outro projeto)
+export const supabaseEnvMissing = !supabaseConfigured;
 
 // Evita quebrar o app em runtime quando env não estiver definido.
 // Isso NÃO é fallback para outro projeto; é apenas um cliente inválido.
