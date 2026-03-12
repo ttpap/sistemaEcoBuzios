@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
 
@@ -38,7 +39,7 @@ export async function modeBLogin(input: {
 
   // 1) Admin via Supabase Auth (email + senha). A validação de role=admin ocorre via AuthContext/AdminGate.
   if (loginRaw.includes("@")) {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabaseAuthService.signInWithPassword({
       email: loginRaw,
       password: passwordRaw,
     });

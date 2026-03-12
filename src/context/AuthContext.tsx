@@ -49,22 +49,37 @@ function formatSupabaseError(e: any) {
 }
 
 function isAbortError(e: any) {
-  return e?.name === "AbortError";
+  if (!e) return false;
+  if (e.name === "AbortError") return true;
+  const msg = String(e.message || e || "");
+  return msg.includes("AbortError") || msg.includes("Lock broken") || msg.includes("steal");
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // "loading" é apenas da inicialização. Evita travar navegação em revalidações.
+  // loading = apenas bootstrap inicial.
   const [loading, setLoading] = React.useState(true);
   const [session, setSession] = React.useState<Session | null>(null);
   const [profile, setProfile] = React.useState<Profile | null>(null);
   const [profileError, setProfileError] = React.useState<string | null>(null);
 
-  const requestIdRef = React.useRef(0);
-  const initializedRef = React.useRef(false);
-  const initialGetSessionDoneRef = React.useRef(false);
+  // Refs para evitar dependências que recriam listeners.
+  const sessionRef = React.useRef<Session | null>(null);
+  const profileRef = React.useRef<Profile | null>(null);
+  const profileErrorRef = React.useRef<string | null>(null);
 
-  // Dedup de loadProfile: garante 1 request por userId por vez.
+  React.useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  React.useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+  React.useEffect(() => {
+    profileErrorRef.current = profileError;
+  }, [profileError]);
+
+  // Dedup de loadProfile: 1 request por userId por vez.
   const inflightProfileRef = React.useRef<{ userId: string; promise: Promise<Profile | null> } | null>(null);
+  const abortRetriedForUserRef = React.useRef<Set<string>>(new Set());
 
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -78,149 +93,106 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loadProfileDedup = React.useCallback(
-    async (userId: string) => {
+    (userId: string) => {
       const inflight = inflightProfileRef.current;
       if (inflight?.userId === userId) return inflight.promise;
 
       const promise = loadProfile(userId);
       inflightProfileRef.current = { userId, promise };
 
-      try {
-        return await promise;
-      } finally {
+      promise.finally(() => {
         if (inflightProfileRef.current?.userId === userId) inflightProfileRef.current = null;
-      }
+      });
+
+      return promise;
     },
     [loadProfile],
   );
 
-  const refreshAuthState = React.useCallback(async () => {
-    const requestId = ++requestIdRef.current;
+  const ensureProfile = React.useCallback(
+    async (userId: string) => {
+      // Evita re-fetch quando já está OK.
+      if (profileRef.current?.user_id === userId && !profileErrorRef.current) return;
 
-    if (!initializedRef.current) setLoading(true);
+      try {
+        const p = await withTimeout(loadProfileDedup(userId), 20000);
 
-    const safety = window.setTimeout(() => {
-      if (requestIdRef.current === requestId) {
-        initializedRef.current = true;
-        setLoading(false);
-      }
-    }, 25000);
+        // Só seta se ainda estamos no mesmo usuário.
+        const currentUserId = sessionRef.current?.user?.id;
+        if (currentUserId !== userId) return;
 
-    try {
-      const { data } = await withTimeout(supabase.auth.getSession(), 20000);
-      if (requestIdRef.current !== requestId) return;
-
-      setSession(data.session);
-
-      const userId = data.session?.user?.id;
-      if (userId) {
-        // Se já temos profile carregado para esse usuário e não há erro, evita refetch.
-        if (profile?.user_id === userId && !profileError) return;
-
-        try {
-          const p = await withTimeout(loadProfileDedup(userId), 20000);
-          if (requestIdRef.current !== requestId) return;
-
-          // Só seta profile quando a request finaliza com sucesso.
-          setProfile(p);
-          setProfileError(null);
-        } catch (e: any) {
-          if (requestIdRef.current !== requestId) return;
-
-          // AbortError (race/lock) é esperado em concorrência do SDK — não deve derrubar profile.
-          if (isAbortError(e)) {
-            console.info("[AuthContext] loadProfile_aborted_ignored");
-            return;
-          }
-
-          setProfile(null);
-          setProfileError(formatSupabaseError(e));
-          console.warn("[AuthContext] loadProfile_failed", e);
-        }
-      } else {
-        setProfile(null);
+        setProfile(p);
         setProfileError(null);
+      } catch (e: any) {
+        if (isAbortError(e)) {
+          // AbortError é esperado em concorrência do SDK. Nunca derruba profile/profileError.
+          // Se ainda não temos profile, tenta uma única vez (controlada) depois.
+          if (!profileRef.current && !abortRetriedForUserRef.current.has(userId)) {
+            abortRetriedForUserRef.current.add(userId);
+            window.setTimeout(() => {
+              const stillUser = sessionRef.current?.user?.id;
+              if (stillUser === userId) {
+                void ensureProfile(userId);
+              }
+            }, 180);
+          }
+          return;
+        }
+
+        // Erro real.
+        setProfile(null);
+        setProfileError(formatSupabaseError(e));
+        console.warn("[AuthContext] loadProfile_failed", e);
       }
-    } catch (e) {
-      if (requestIdRef.current !== requestId) return;
-      console.warn("[AuthContext] getSession_failed", e);
-    } finally {
-      window.clearTimeout(safety);
-      initializedRef.current = true;
-      initialGetSessionDoneRef.current = true;
-      setLoading(false);
-    }
-  }, [loadProfileDedup, profile?.user_id, profileError]);
+    },
+    [loadProfileDedup],
+  );
 
   React.useEffect(() => {
     let active = true;
 
-    void refreshAuthState();
-
+    // ÚNICA assinatura global do app.
     const { data: sub } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (!active) return;
 
-      // Evita corrida entre getSession() inicial e o callback inicial do SDK.
-      if (event === "INITIAL_SESSION" && !initialGetSessionDoneRef.current) return;
+      // Mantém session em memória.
+      setSession(nextSession);
 
-      // TOKEN_REFRESHED pode acontecer com frequência — não deve disparar loadProfile concorrente.
-      if (event === "TOKEN_REFRESHED") {
-        setSession(nextSession);
+      const userId = nextSession?.user?.id || null;
+
+      if (!userId) {
+        abortRetriedForUserRef.current.clear();
+        setProfile(null);
+        setProfileError(null);
+        if (!active) return;
+        setLoading(false);
         return;
       }
 
-      const requestId = ++requestIdRef.current;
-      if (!initializedRef.current) setLoading(true);
-
-      const safety = window.setTimeout(() => {
-        if (active && requestIdRef.current === requestId) {
-          initializedRef.current = true;
-          setLoading(false);
-        }
-      }, 25000);
-
-      try {
-        setSession(nextSession);
-
-        const userId = nextSession?.user?.id;
-        if (!userId) {
-          setProfile(null);
-          setProfileError(null);
-          return;
-        }
-
-        // Se já temos profile desse user e não há erro, não refaz.
-        if (profile?.user_id === userId && !profileError) return;
-
-        try {
-          const p = await withTimeout(loadProfileDedup(userId), 20000);
-          if (!active || requestIdRef.current !== requestId) return;
-          setProfile(p);
-          setProfileError(null);
-        } catch (e: any) {
-          if (!active || requestIdRef.current !== requestId) return;
-
-          if (isAbortError(e)) {
-            console.info("[AuthContext] loadProfile_aborted_ignored");
-            return;
-          }
-
-          setProfile(null);
-          setProfileError(formatSupabaseError(e));
-          console.warn("[AuthContext] loadProfile_failed", e);
-        }
-      } finally {
-        window.clearTimeout(safety);
-        initializedRef.current = true;
-        if (active && requestIdRef.current === requestId) setLoading(false);
+      // Evita refazer profile em token refresh.
+      if (event === "TOKEN_REFRESHED") {
+        if (!active) return;
+        setLoading(false);
+        return;
       }
+
+      // Para eventos que indicam sessão válida (inclui INITIAL_SESSION, SIGNED_IN, USER_UPDATED, etc.)
+      await ensureProfile(userId);
+      if (!active) return;
+      setLoading(false);
     });
+
+    // Safety net de bootstrap: caso o INITIAL_SESSION demore/trave, libera UI.
+    const safety = window.setTimeout(() => {
+      if (active) setLoading(false);
+    }, 25000);
 
     return () => {
       active = false;
+      window.clearTimeout(safety);
       sub.subscription.unsubscribe();
     };
-  }, [loadProfileDedup, profile?.user_id, profileError, refreshAuthState]);
+  }, [ensureProfile]);
 
   const signOut = React.useCallback(async () => {
     await supabase.auth.signOut();
