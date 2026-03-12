@@ -5,7 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileDown, FileText, Loader2, Printer, Zap } from "lucide-react";
-import { fetchProjects } from "@/utils/projects";
 import type { Project } from "@/types/project";
 import { useAuth } from "@/context/AuthContext";
 import type { EnelRow } from "@/utils/enel-report-pdf";
@@ -13,6 +12,9 @@ import { generateEnelPdf } from "@/utils/enel-report-pdf";
 import { downloadEnelXls } from "@/utils/enel-report-xls";
 import { printEnelReport } from "@/utils/enel-report-print";
 import { enelReportService } from "@/services/enelReportService";
+import { projectsService } from "@/services/projectsService";
+import { getActiveProjectId } from "@/utils/projects";
+import { showError } from "@/utils/toast";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -40,18 +42,26 @@ export default function EnelReport() {
 
   useEffect(() => {
     const run = async () => {
-      const all = await fetchProjects();
-      setProjects(all);
+      try {
+        const all = await projectsService.fetchProjectsFromDb();
+        setProjects(all);
+
+        // Default: projeto ativo (se existir), senão o primeiro da lista.
+        setSelectedProjectId((prev) => {
+          if (prev) return prev;
+          const active = getActiveProjectId();
+          if (active && all.some((p) => p.id === active)) return active;
+          return all[0]?.id || "";
+        });
+      } catch (e: any) {
+        setProjects([]);
+        setSelectedProjectId("");
+        showError(e?.message || "Não foi possível carregar os projetos.");
+      }
     };
 
     void run();
   }, []);
-
-  useEffect(() => {
-    if (selectedProjectId) return;
-    if (!projects.length) return;
-    setSelectedProjectId(projects[0].id);
-  }, [projects, selectedProjectId]);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) || null,
@@ -67,18 +77,17 @@ export default function EnelReport() {
 
     setLoading(true);
     try {
-      const data = await enelReportService.fetchRowsRaw({ projectId: selectedProjectId, month });
+      const data = await enelReportService.fetchRows({ projectId: selectedProjectId, month });
 
-      const nextRows: EnelRow[] = (data || []).map((r: any) => ({
-        name: String(r.name || ""),
-        cellPhone: String(r.cell_phone || ""),
-        birthDate: r.birth_date ? String(r.birth_date) : "",
-        age: Number(r.age || 0),
-        cpf: String(r.cpf || ""),
-        enelClientNumber: includeEnelNumber ? String(r.enel_client_number || "") : "",
-      }));
+      // Se, por regra de acesso, não puder mostrar Nº ENEL, limpamos o campo antes de render/exportar.
+      const nextRows = includeEnelNumber
+        ? data
+        : data.map((r) => ({ ...r, enelClientNumber: "" }));
 
       setRows(nextRows);
+    } catch (e: any) {
+      setRows([]);
+      showError(e?.message || "Não foi possível gerar o relatório ENEL.");
     } finally {
       setLoading(false);
     }

@@ -23,19 +23,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { getActiveProject, getActiveProjectId } from "@/utils/projects";
+import { getActiveProject, getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
 
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from "@/services/classesService";
 import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
+import { projectsService } from "@/services/projectsService";
+import { monthlyReportsService } from "@/services/monthlyReportsService";
+import { coordinatorMonthlyReportsService } from "@/services/coordinatorMonthlyReportsService";
 
 import type { SchoolClass } from "@/types/class";
 import type { StudentRegistration } from "@/types/student";
 import type { MonthlyReport } from "@/types/monthly-report";
-import { getAllMonthlyReports, getMonthlyReportById, upsertMonthlyReport } from "@/utils/monthly-reports";
-import { getAllCoordinatorMonthlyReports, getCoordinatorMonthlyReportById, upsertCoordinatorMonthlyReport } from "@/utils/coordinator-monthly-reports";
+import { getAllMonthlyReports, getMonthlyReportById, upsertMonthlyReport, saveAllMonthlyReports } from "@/utils/monthly-reports";
+import { getAllCoordinatorMonthlyReports, getCoordinatorMonthlyReportById, upsertCoordinatorMonthlyReport, saveAllCoordinatorMonthlyReports } from "@/utils/coordinator-monthly-reports";
 import { readGlobalTeachers } from "@/utils/teachers";
 import { readGlobalCoordinators } from "@/utils/coordinators";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -119,7 +122,27 @@ export default function MonthlyReports() {
     [isCoordinatorArea],
   );
 
-  const activeProject = useMemo(() => getActiveProject(), [location.pathname]);
+  const [projectNonce, setProjectNonce] = useState(0);
+
+  // Em domínio novo/localStorage vazio, pode não existir projeto ativo ainda.
+  React.useEffect(() => {
+    const run = async () => {
+      if (getActiveProjectId()) return;
+      try {
+        const prjs = await projectsService.fetchProjectsFromDb();
+        if (!prjs.length) return;
+        saveProjects(prjs);
+        setActiveProjectId(prjs[0]!.id);
+        setProjectNonce((x) => x + 1);
+      } catch {
+        // Sem projeto: a UI já orienta "Selecione um projeto".
+      }
+    };
+
+    void run();
+  }, []);
+
+  const activeProject = useMemo(() => getActiveProject(), [location.pathname, projectNonce]);
   const projectId = activeProject?.id || getActiveProjectId() || null;
 
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
@@ -156,42 +179,56 @@ export default function MonthlyReports() {
   const [enrollmentIds, setEnrollmentIds] = useState<Set<string>>(new Set());
 
   // Garante que a área do professor/coordenador tenha classes + matrículas + alunos carregados do servidor.
+  // E também sincroniza os relatórios mensais do banco para o cache local.
   React.useEffect(() => {
     const run = async () => {
       if (!projectId) return;
 
-      const classRes = await fetchClassesRemoteWithMeta(projectId);
-      const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>("classes", []);
+      try {
+        const classRes = await fetchClassesRemoteWithMeta(projectId);
+        const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>("classes", []);
 
-      const enriched: SchoolClass[] = [];
-      for (const c of baseClasses) {
-        const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
-        const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
-        enriched.push({ ...c, studentIds });
-      }
+        const enriched: SchoolClass[] = [];
+        for (const c of baseClasses) {
+          const enr = await fetchEnrollmentsRemoteWithMeta(c.id);
+          const studentIds = (enr.enrollments || []).filter((e) => !e.removed_at).map((e) => e.student_id);
+          enriched.push({ ...c, studentIds });
+        }
 
-      writeScoped("classes", enriched);
-      setClasses(enriched);
+        writeScoped("classes", enriched);
+        setClasses(enriched);
 
-      // Carrega pool de alunos (por matrículas do projeto)
-      const prjEnr = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
-      const ids = new Set<string>();
-      for (const e of prjEnr.enrollments) ids.add(String(e.student_id));
-      setEnrollmentIds(ids);
+        // Carrega pool de alunos (por matrículas do projeto)
+        const prjEnr = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+        const ids = new Set<string>();
+        for (const e of prjEnr.enrollments) ids.add(String(e.student_id));
+        setEnrollmentIds(ids);
 
-      const stuRes = await fetchStudentsRemoteWithMeta(projectId);
-      if (stuRes.issue === 'rpc_missing') {
-        showError('O servidor ainda não foi atualizado com as permissões (RPC).');
-      }
-      if (stuRes.issue === 'not_allowed') {
-        showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
-      }
+        const stuRes = await fetchStudentsRemoteWithMeta(projectId);
+        if (stuRes.issue === "rpc_missing") {
+          showError("O servidor ainda não foi atualizado com as permissões (RPC).");
+        }
+        if (stuRes.issue === "not_allowed") {
+          showError("Acesso bloqueado: este usuário não está alocado neste projeto.");
+        }
 
-      if (stuRes.students.length) {
-        writeGlobalStudents(stuRes.students);
-        setStudents(stuRes.students);
-      } else {
-        setStudents(readGlobalStudents<StudentRegistration[]>([]));
+        if (stuRes.students.length) {
+          writeGlobalStudents(stuRes.students);
+          setStudents(stuRes.students);
+        } else {
+          setStudents(readGlobalStudents<StudentRegistration[]>([]));
+        }
+
+        // Sincroniza relatórios do banco → cache local
+        const [teacherRemote, coordRemote] = await Promise.all([
+          monthlyReportsService.fetchReports(projectId),
+          coordinatorMonthlyReportsService.fetchReports(projectId),
+        ]);
+
+        saveAllMonthlyReports(projectId, teacherRemote);
+        saveAllCoordinatorMonthlyReports(projectId, coordRemote);
+      } catch (e: any) {
+        showError(e?.message || "Não foi possível carregar os dados do relatório mensal.");
       }
     };
 
@@ -388,7 +425,7 @@ export default function MonthlyReports() {
     showSuccess("Rascunho salvo.");
   };
 
-  const submitReport = () => {
+  const submitReport = async () => {
     if (!projectId || !draft) return;
     if (!canEdit) return;
 
@@ -399,15 +436,21 @@ export default function MonthlyReports() {
       submittedAt: nowIso,
     };
 
-    if (draft.authorRole === "teacher") {
-      upsertMonthlyReport(projectId, next);
-    } else {
-      upsertCoordinatorMonthlyReport(projectId, next);
-    }
+    try {
+      if (draft.authorRole === "teacher") {
+        upsertMonthlyReport(projectId, next);
+        await monthlyReportsService.upsertReport(next);
+      } else {
+        upsertCoordinatorMonthlyReport(projectId, next);
+        await coordinatorMonthlyReportsService.upsertReport(next);
+      }
 
-    setDraft(next);
-    setConfirmSubmitOpen(false);
-    showSuccess("Relatório enviado/atualizado.");
+      setDraft(next);
+      setConfirmSubmitOpen(false);
+      showSuccess("Relatório enviado/atualizado.");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível enviar o relatório.");
+    }
   };
 
   if (!activeProject) {
