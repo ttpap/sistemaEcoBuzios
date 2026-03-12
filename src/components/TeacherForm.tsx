@@ -18,8 +18,8 @@ import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { createGlobalTeacher, updateGlobalTeacher } from '@/utils/teachers';
 import { lookupCep } from '@/utils/cep';
-import { upsertTeacher } from "@/integrations/supabase/teachers";
-import { insertTeacherPublic } from "@/integrations/supabase/public-staff";
+import { upsertTeacher } from "@/services/teachersService";
+import { insertTeacherPublic } from "@/services/publicStaffService";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",

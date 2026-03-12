@@ -37,7 +37,9 @@ import {
   updateProject,
   saveProjects,
 } from "@/utils/projects";
-import { deleteProjectRemote, fetchProjectsFromDb, insertProjectToDb, updateProjectInDb } from "@/integrations/supabase/projects";
+import { projectsService } from "@/services/projectsService";
+import { fetchStudents } from "@/services/studentsService";
+
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
 import { invalidateProjectTheme } from "@/utils/theme";
@@ -61,7 +63,6 @@ import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
-import { fetchStudents } from "@/integrations/supabase/students";
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   try {
@@ -107,7 +108,7 @@ export default function Projects() {
 
   const refresh = React.useCallback(async () => {
     try {
-      const dbProjects = await fetchProjectsFromDb();
+      const dbProjects = await projectsService.fetchProjectsFromDb();
       setProjects(dbProjects);
       // Mantém cache local porque outras partes do app (sidebar/tema) usam o localStorage.
       saveProjects(dbProjects);
@@ -121,6 +122,7 @@ export default function Projects() {
     // Admin: lista global de alunos vem do Supabase quando possível.
     try {
       const remoteStudents = await fetchStudents();
+
       if (remoteStudents.length > 0) {
         writeGlobalStudents(remoteStudents);
         setStudents(remoteStudents);
@@ -148,7 +150,7 @@ export default function Projects() {
     migrateLegacyStudentsToGlobalIfNeeded();
 
     try {
-      const created = await insertProjectToDb({ name: n, imageUrl });
+      const created = await projectsService.insertProjectToDb({ name: n, imageUrl });
       setActiveProjectId(created.id);
       migrateLegacyProjectDataToProjectIfNeeded(created.id);
 
@@ -269,7 +271,7 @@ export default function Projects() {
     }
 
     try {
-      await updateProjectInDb(editProjectId, {
+      await projectsService.updateProjectInDb(editProjectId, {
         name: n,
         imageUrl: editImageUrl.trim() ? editImageUrl : null,
       });
@@ -293,7 +295,7 @@ export default function Projects() {
       if (!ok) return;
 
       try {
-        await deleteProjectRemote(p.id);
+        await projectsService.deleteProjectRemote(p.id);
       } catch (e: any) {
         showError(`Não foi possível excluir no Supabase: ${e?.message || "erro"}`);
         return;

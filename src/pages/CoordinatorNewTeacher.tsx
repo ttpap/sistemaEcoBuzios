@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import TeacherForm from "@/components/TeacherForm";
 import { getActiveProjectId } from "@/utils/projects";
 import { addTeacherToProject } from "@/utils/teachers";
-import { assignTeacherToProjectRemote } from "@/integrations/supabase/teacher-assignments";
+import { assignTeacherToProjectRemote } from "@/services/teacherAssignmentsService";
 
 export default function CoordinatorNewTeacher() {
   const navigate = useNavigate();

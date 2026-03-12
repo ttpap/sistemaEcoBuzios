@@ -17,7 +17,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { readScoped, writeScoped } from '@/utils/storage';
 import { getActiveProjectId } from '@/utils/projects';
-import { upsertClassRemote } from '@/integrations/supabase/classes';
+import { upsertClassRemote } from '@/services/classesService';
+
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 import { getAreaBaseFromPathname } from '@/utils/route-base';

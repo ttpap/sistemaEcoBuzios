@@ -1,13 +1,7 @@
-import {
+export {
   fetchTeachers,
   fetchTeachersWithMeta,
   deleteTeacher,
   fetchTeacherById,
+  upsertTeacher,
 } from "@/integrations/supabase/teachers";
-
-export const teachersService = {
-  fetchTeachers,
-  fetchTeachersWithMeta,
-  deleteTeacher,
-  fetchTeacherById,
-};

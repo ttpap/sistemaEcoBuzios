@@ -28,8 +28,9 @@ import { getActiveProject, getActiveProjectId } from "@/utils/projects";
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
-import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
-import { fetchStudentsRemoteWithMeta } from "@/integrations/supabase/students";
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from "@/services/classesService";
+import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
+
 import type { SchoolClass } from "@/types/class";
 import type { StudentRegistration } from "@/types/student";
 import type { MonthlyReport } from "@/types/monthly-report";

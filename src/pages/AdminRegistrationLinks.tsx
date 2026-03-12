@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Link2, User, Users, Users2, KeyRound } from "lucide-react";
 import Logo from "@/components/Logo";
 import { showError, showSuccess } from "@/utils/toast";
-import { createStaffPublicInvite } from "@/integrations/supabase/staff-invites";
+import { createStaffPublicInvite } from "@/services/staffInvitesService";
 
 function makeUrl(path: string) {
   try {

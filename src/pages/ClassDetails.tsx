@@ -32,10 +32,11 @@ import {
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
   fetchClassesRemoteWithMeta,
-} from '@/integrations/supabase/classes';
+} from '@/services/classesService';
+
 import { readGlobalTeachers } from "@/utils/teachers";
-import { fetchTeachers } from "@/integrations/supabase/teachers";
-import { fetchStudentsRemote } from "@/integrations/supabase/students";
+import { fetchTeachers } from "@/services/teachersService";
+import { fetchStudentsRemote } from "@/services/studentsService";
 
 const ClassDetails = () => {
   const { id } = useParams();

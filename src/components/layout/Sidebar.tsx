@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/utils/projects';
-import { requireSupabase } from '@/integrations/supabase/client';
+import { supabaseAuthService } from '@/services/supabaseAuthService';
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
   const location = useLocation();
@@ -61,7 +61,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
 
   const onLogout = async () => {
     clearActiveProjectId();
-    await requireSupabase().auth.signOut();
+    await supabaseAuthService.signOut();
     navigate('/login');
   };
 

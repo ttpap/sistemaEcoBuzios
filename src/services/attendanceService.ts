@@ -1,5 +1,5 @@
-import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
-
-export const attendanceService = {
+export {
   fetchAttendanceSessionsRemote,
-};
+  upsertAttendanceSessionRemote,
+  deleteAttendanceSessionRemote,
+} from "@/integrations/supabase/attendance";

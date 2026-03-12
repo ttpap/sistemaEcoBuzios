@@ -25,11 +25,12 @@ import {
   fetchAttendanceSessionsRemote,
   upsertAttendanceSessionRemote,
   deleteAttendanceSessionRemote,
-} from "@/integrations/supabase/attendance";
+} from "@/services/attendanceService";
+
 import {
   fetchStudentJustificationsRemote,
   type StudentJustification,
-} from "@/integrations/supabase/student-justifications";
+} from "@/services/studentJustificationsService";
 
 import { StudentRegistration } from "@/types/student";
 import { showSuccess, showError } from "@/utils/toast";

@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import TeacherForm from "@/components/TeacherForm";
 import type { TeacherRegistration } from "@/types/teacher";
 import { readGlobalTeachers } from "@/utils/teachers";
-import { fetchTeacherById } from "@/integrations/supabase/teachers";
+import { fetchTeacherById } from "@/services/teachersService";
 
 export default function CoordinatorEditTeacher() {
   const { id } = useParams();

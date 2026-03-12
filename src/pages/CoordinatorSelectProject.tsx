@@ -21,7 +21,7 @@ import {
   getCoordinatorSessionProjectIds,
   setCoordinatorSessionProjectId,
 } from "@/utils/coordinator-auth";
-import { fetchModeBStaffProjects } from "@/integrations/supabase/mode-b-projects";
+import { fetchModeBStaffProjects } from "@/services/modeBProjectsService";
 
 export default function CoordinatorSelectProject() {
   const navigate = useNavigate();

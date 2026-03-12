@@ -29,12 +29,13 @@ import {
   DEFAULT_TEACHER_PASSWORD,
 } from "@/utils/teachers";
 import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
-import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchTeachers } from "@/services/teachersService";
+
 import {
   fetchTeacherAssignments,
   assignTeacherToProjectRemote,
   removeTeacherFromProjectRemote,
-} from "@/integrations/supabase/teacher-assignments";
+} from "@/services/teacherAssignmentsService";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";

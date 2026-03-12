@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Database, RefreshCw } from "lucide-react";
-import { supabaseConfigured, supabaseUrl as currentUrl } from "@/integrations/supabase/client";
+import { supabaseConfigService } from "@/services/supabaseConfigService";
 import { projectsService } from "@/services/projectsService";
 
 export default function SupabaseSettings() {
@@ -20,7 +20,7 @@ export default function SupabaseSettings() {
     setTesting(true);
     setTestResult(null);
 
-    if (!supabaseConfigured) {
+    if (!supabaseConfigService.supabaseConfigured) {
       setTestResult({
         ok: false,
         error: "Supabase não configurado. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no deploy.",
@@ -63,13 +63,15 @@ export default function SupabaseSettings() {
             <Badge
               className={
                 "border-none font-black " +
-                (supabaseConfigured ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900")
+                (supabaseConfigService.supabaseConfigured
+                  ? "bg-emerald-100 text-emerald-900"
+                  : "bg-amber-100 text-amber-900")
               }
             >
-              {supabaseConfigured ? "CONFIGURADO (ENV)" : "NÃO CONFIGURADO"}
+              {supabaseConfigService.supabaseConfigured ? "CONFIGURADO (ENV)" : "NÃO CONFIGURADO"}
             </Badge>
             <span className="text-sm font-bold text-slate-600 break-all">
-              {currentUrl || "(VITE_SUPABASE_URL não definida)"}
+              {supabaseConfigService.supabaseUrl || "(VITE_SUPABASE_URL não definida)"}
             </span>
           </div>
 

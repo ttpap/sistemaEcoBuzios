@@ -15,7 +15,7 @@ import {
   getTeacherSessionProjectIds,
   setTeacherSessionProjectId,
 } from "@/utils/teacher-auth";
-import { fetchModeBStaffProjects } from "@/integrations/supabase/mode-b-projects";
+import { fetchModeBStaffProjects } from "@/services/modeBProjectsService";
 
 export default function TeacherSelectProject() {
   const navigate = useNavigate();

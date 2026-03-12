@@ -25,12 +25,13 @@ import {
   resetCoordinatorPasswordToDefault,
 } from "@/utils/coordinators";
 import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, Users2 } from "lucide-react";
-import { fetchCoordinators, deleteCoordinator } from "@/integrations/supabase/coordinators";
+import { fetchCoordinators, deleteCoordinator } from "@/services/coordinatorsService";
+
 import {
   fetchCoordinatorAssignments,
   assignCoordinatorToProjectRemote,
   removeCoordinatorFromProjectRemote,
-} from "@/integrations/supabase/coordinator-assignments";
+} from "@/services/coordinatorAssignmentsService";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";

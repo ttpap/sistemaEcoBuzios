@@ -18,7 +18,7 @@ import {
 } from "@/utils/student-auth";
 import { showError } from "@/utils/toast";
 import type { Project } from "@/types/project";
-import { fetchModeBStudentProjects } from "@/integrations/supabase/mode-b-projects";
+import { fetchModeBStudentProjects } from "@/services/modeBProjectsService";
 
 export default function StudentSelectProject() {
   const navigate = useNavigate();

@@ -22,7 +22,7 @@ import {
 } from "@/utils/student-auth";
 import { getActiveProject, getActiveProjectId } from "@/utils/projects";
 import { showError, showSuccess } from "@/utils/toast";
-import { fetchModeBStudentMonthSchedule, setModeBStudentJustification } from "@/integrations/supabase/mode-b";
+import { fetchModeBStudentMonthSchedule, setModeBStudentJustification } from "@/services/modeBService";
 
 function toYMD(d: Date) {
   const y = d.getFullYear();

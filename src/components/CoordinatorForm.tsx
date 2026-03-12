@@ -16,8 +16,8 @@ import { useNavigate } from "react-router-dom";
 import type { CoordinatorRegistration } from "@/types/coordinator";
 import { createGlobalCoordinator, updateGlobalCoordinator } from "@/utils/coordinators";
 import { lookupCep } from "@/utils/cep";
-import { upsertCoordinator } from "@/integrations/supabase/coordinators";
-import { insertCoordinatorPublic } from "@/integrations/supabase/public-staff";
+import { upsertCoordinator } from "@/services/coordinatorsService";
+import { insertCoordinatorPublic } from "@/services/publicStaffService";
 
 const BRAZILIAN_BANKS = [
   "001 - Banco do Brasil",

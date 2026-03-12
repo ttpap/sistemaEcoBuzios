@@ -48,10 +48,12 @@ import { getActiveProjectId } from "@/utils/projects";
 import {
   fetchStudentJustificationsRemote,
   type StudentJustification,
-} from "@/integrations/supabase/student-justifications";
+} from "@/services/studentJustificationsService";
+
 import { getAreaBaseFromPathname } from "@/utils/route-base";
-import { fetchClassesRemoteWithMeta } from "@/integrations/supabase/classes";
-import { fetchStudentsRemote } from "@/integrations/supabase/students";
+import { fetchClassesRemoteWithMeta } from "@/services/classesService";
+import { fetchStudentsRemote } from "@/services/studentsService";
+
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 import { enrollmentsService, type EnrollmentRow } from "@/services/enrollmentsService";

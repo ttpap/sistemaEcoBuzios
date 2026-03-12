@@ -24,9 +24,11 @@ import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
-import { fetchStudentsRemoteWithMeta, deleteStudent, fetchStudents } from "@/integrations/supabase/students";
+import { fetchStudentsRemoteWithMeta, deleteStudent, fetchStudents } from "@/services/studentsService";
+
 import { getActiveProjectId } from '@/utils/projects';
-import { fetchClassesRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from '@/integrations/supabase/classes';
+import { fetchClassesRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from '@/services/classesService';
+
 import { useAuth } from '@/context/AuthContext';
 
 const Students = () => {

@@ -18,15 +18,17 @@ import { SchoolClass } from "@/types/class";
 import { StudentRegistration } from "@/types/student";
 import { AttendanceStatus } from "@/types/attendance";
 import type { AttendanceSession } from "@/types/attendance";
-import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
+import { fetchAttendanceSessionsRemote } from "@/services/attendanceService";
+
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
 import { downloadAttendanceXls } from "@/utils/attendance-xls";
 import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { getActiveProject } from "@/utils/projects";
-import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
-import { fetchStudentsRemoteWithMeta } from "@/integrations/supabase/students";
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from "@/services/classesService";
+import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
+
 import { getSystemLogo } from "@/utils/system-settings";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { useAuth } from "@/context/AuthContext";

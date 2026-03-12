@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { getActiveProjectId } from '@/utils/projects';
-import { fetchClassesRemoteWithMeta } from '@/integrations/supabase/classes';
+import { fetchClassesRemoteWithMeta } from '@/services/classesService';
+
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 
 const EditClass = () => {

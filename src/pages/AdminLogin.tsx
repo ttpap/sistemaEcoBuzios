@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Logo from "@/components/Logo";
 import { Shield, Lock, Mail } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { showError } from "@/utils/toast";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -58,7 +58,7 @@ export default function AdminLogin() {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabaseAuthService.signInWithPassword({
         email: emailTrim,
         password,
       });

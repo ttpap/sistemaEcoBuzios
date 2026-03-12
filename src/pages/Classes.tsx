@@ -12,7 +12,8 @@ import { showError, showSuccess } from '@/utils/toast';
 import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
-import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/integrations/supabase/classes';
+import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/services/classesService';
+
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 

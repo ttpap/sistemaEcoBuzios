@@ -1,5 +1,1 @@
-import { createStaffPublicInvite } from "@/integrations/supabase/staff-invites";
-
-export const staffInvitesService = {
-  createStaffPublicInvite,
-};
+export { createStaffPublicInvite } from "@/integrations/supabase/staff-invites";

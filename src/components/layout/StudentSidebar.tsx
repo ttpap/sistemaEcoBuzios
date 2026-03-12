@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CalendarDays, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
-import { requireSupabase } from "@/integrations/supabase/client";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { logoutStudent } from "@/utils/student-auth";
 
 export default function StudentSidebar({
@@ -18,13 +18,11 @@ export default function StudentSidebar({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const items = [
-    { icon: CalendarDays, label: "Calendário", path: "/aluno" },
-  ];
+  const items = [{ icon: CalendarDays, label: "Calendário", path: "/aluno" }];
 
   const onLogout = async () => {
     logoutStudent();
-    await requireSupabase().auth.signOut();
+    await supabaseAuthService.signOut();
     navigate("/login");
   };
 
@@ -58,16 +56,16 @@ export default function StudentSidebar({
                 : "text-slate-600 hover:bg-white/50 hover:text-[#008ca0] hover:shadow-sm",
             )}
           >
-            <item.icon className={cn("h-5 w-5", location.pathname === item.path ? "text-[#ffa534]" : "")} />
+            <item.icon className="h-5 w-5" />
             {item.label}
           </Link>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-200/50">
+      <div className="p-4 border-t border-slate-200">
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-white/50 hover:text-[#008ca0] transition-colors"
         >
           <LogOut className="h-5 w-5" />
           Sair

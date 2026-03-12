@@ -25,14 +25,15 @@ import {
   resetTeacherPasswordToDefault,
 } from "@/utils/teachers";
 import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, GraduationCap } from "lucide-react";
-import { supabaseEnvMissing } from "@/integrations/supabase/client";
+import { supabaseConfigService } from "@/services/supabaseConfigService";
 
-import { fetchTeachersWithMeta, deleteTeacher } from "@/integrations/supabase/teachers";
+import { fetchTeachersWithMeta, deleteTeacher } from "@/services/teachersService";
+
 import {
   fetchTeacherAssignmentsWithMeta,
   assignTeacherToProjectRemote,
   removeTeacherFromProjectRemote,
-} from "@/integrations/supabase/teacher-assignments";
+} from "@/services/teacherAssignmentsService";
 
 function maskedPassword(pw?: string) {
   if (!pw) return "";
@@ -311,7 +312,8 @@ export default function AdminTeachers() {
             Cadastre professores no sistema e aloque cada um em um projeto.
           </p>
 
-          {supabaseEnvMissing ? (
+          {supabaseConfigService.supabaseEnvMissing ? (
+
             <div className="mt-3 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
               Supabase não configurado (env ausente). Defina <span className="font-black">VITE_SUPABASE_URL</span> e
               <span className="font-black"> VITE_SUPABASE_ANON_KEY</span> no deploy para este app apontar para o seu

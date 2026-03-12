@@ -1,11 +1,12 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { supabase, supabaseConfigured, supabaseUrl } from "@/integrations/supabase/client";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Database, RefreshCw, TriangleAlert } from "lucide-react";
+import { projectsService } from "@/services/projectsService";
+import { supabaseConfigService } from "@/services/supabaseConfigService";
 
 function looksLikeRlsOrPermissionError(message: string) {
   const m = message.toLowerCase();
@@ -28,7 +29,7 @@ export default function DbStatus() {
   const run = React.useCallback(async () => {
     setLoading(true);
 
-    if (!supabaseConfigured) {
+    if (!supabaseConfigService.supabaseConfigured) {
       setResult({
         ok: false,
         error:
@@ -39,13 +40,8 @@ export default function DbStatus() {
     }
 
     try {
-      const { count, error } = await supabase
-        .from("projects")
-        .select("id", { count: "exact", head: true });
-
-      if (error) throw error;
-
-      setResult({ ok: true, projectCount: count ?? 0 });
+      const projectCount = await projectsService.countProjects();
+      setResult({ ok: true, projectCount });
     } catch (e: any) {
       const msg = String(e?.message || "Erro ao consultar o banco");
 
@@ -91,7 +87,9 @@ export default function DbStatus() {
               </p>
               <p className="mt-3 text-xs font-bold text-slate-500 break-all">
                 <span className="font-black">URL:</span>{" "}
-                {supabaseConfigured ? supabaseUrl : "(VITE_SUPABASE_URL não definida)"}
+                {supabaseConfigService.supabaseConfigured
+                  ? supabaseConfigService.supabaseUrl
+                  : "(VITE_SUPABASE_URL não definida)"}
               </p>
             </div>
 
@@ -120,24 +118,23 @@ export default function DbStatus() {
                 <Badge
                   className={
                     "border-none font-black " +
-                    (supabaseConfigured
+                    (supabaseConfigService.supabaseConfigured
                       ? "bg-emerald-100 text-emerald-900"
                       : "bg-amber-100 text-amber-900")
                   }
                 >
-                  {supabaseConfigured ? "VARS DO DEPLOY (ENV)" : "NÃO CONFIGURADO"}
+                  {supabaseConfigService.supabaseConfigured ? "VARS DO DEPLOY (ENV)" : "NÃO CONFIGURADO"}
                 </Badge>
                 <span className="text-sm font-bold text-slate-600">
                   VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
                 </span>
               </div>
-              {!supabaseConfigured ? (
+              {!supabaseConfigService.supabaseConfigured ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">
                   Supabase não configurado (env ausente). Defina as variáveis de ambiente do deploy e recarregue. Nesta
                   etapa não existe configuração runtime/localStorage.
                 </p>
               ) : null}
-
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
@@ -158,7 +155,6 @@ export default function DbStatus() {
                       <TriangleAlert className="h-4 w-4 mt-0.5" />
                       <div className="break-words">{"error" in result ? result.error : "Erro ao consultar o banco."}</div>
                     </div>
-
                   )
                 ) : (
                   <div className="text-sm font-bold text-slate-500">Aguardando…</div>

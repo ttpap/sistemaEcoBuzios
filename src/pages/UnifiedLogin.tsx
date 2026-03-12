@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
@@ -41,7 +41,7 @@ export default function UnifiedLogin() {
       setPendingAdminRedirect(false);
 
       // Evita ficar com uma sessão autenticada que não tem permissão admin.
-      void supabase.auth.signOut();
+      void supabaseAuthService.signOut();
 
       if (!profile) {
         showError(
