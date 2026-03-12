@@ -64,6 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const requestId = ++requestIdRef.current;
       setLoading(true);
 
+      // Safety net: em qualquer cenário em que o SDK "trave" (promise que não resolve),
+      // soltamos o loading após um tempo. Isso evita ficar preso em "Verificando acesso".
+      const safety = window.setTimeout(() => {
+        if (requestIdRef.current === requestId) setLoading(false);
+      }, 25000);
+
       try {
         if (preferRefresh) {
           // Se o navegador ficou "parado" por muito tempo, o auto-refresh pode ter sido pausado.
@@ -98,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Se realmente não existir sessão, o onAuthStateChange vai atualizar.
         if (requestIdRef.current !== requestId) return;
       } finally {
+        window.clearTimeout(safety);
         if (requestIdRef.current === requestId) setLoading(false);
       }
     },
@@ -116,22 +123,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const requestId = ++requestIdRef.current;
       setLoading(true);
-      setSession(nextSession);
 
-      if (nextSession?.user?.id) {
-        try {
-          const p = await withTimeout(loadProfile(nextSession.user.id), 20000);
-          if (!active || requestIdRef.current !== requestId) return;
-          setProfile(p);
-        } catch {
-          // Não derruba o profile antigo em erros transitórios.
-          if (!active || requestIdRef.current !== requestId) return;
+      const safety = window.setTimeout(() => {
+        if (active && requestIdRef.current === requestId) setLoading(false);
+      }, 25000);
+
+      try {
+        setSession(nextSession);
+
+        if (nextSession?.user?.id) {
+          try {
+            const p = await withTimeout(loadProfile(nextSession.user.id), 20000);
+            if (!active || requestIdRef.current !== requestId) return;
+            setProfile(p);
+          } catch {
+            // Não derruba o profile antigo em erros transitórios.
+            if (!active || requestIdRef.current !== requestId) return;
+          }
+        } else {
+          setProfile(null);
         }
-      } else {
-        setProfile(null);
+      } finally {
+        window.clearTimeout(safety);
+        if (active && requestIdRef.current === requestId) setLoading(false);
       }
-
-      if (active && requestIdRef.current === requestId) setLoading(false);
     });
 
     const onFocus = () => {
