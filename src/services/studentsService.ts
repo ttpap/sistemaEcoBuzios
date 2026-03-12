@@ -1,6 +1,17 @@
+import {
+  fetchStudents,
+  fetchStudentsRemote,
+  fetchStudentsRemoteWithMeta,
+  deleteStudent,
+} from "@/integrations/supabase/students";
 import { supabase } from "@/integrations/supabase/client";
 
 export const studentsService = {
+  fetchStudents,
+  fetchStudentsRemote,
+  fetchStudentsRemoteWithMeta,
+  deleteStudent,
+
   async insert(row: any) {
     const { error } = await supabase.from("students").insert(row);
     if (error) throw error;

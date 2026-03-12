@@ -1,3 +1,9 @@
+import {
+  deleteProjectRemote,
+  fetchProjectsFromDb,
+  insertProjectToDb,
+  updateProjectInDb,
+} from "@/integrations/supabase/projects";
 import { supabase } from "@/integrations/supabase/client";
 
 export const projectsService = {
@@ -6,4 +12,9 @@ export const projectsService = {
     if (error) throw error;
     return count ?? 0;
   },
+
+  fetchProjectsFromDb,
+  insertProjectToDb,
+  updateProjectInDb,
+  deleteProjectRemote,
 };
