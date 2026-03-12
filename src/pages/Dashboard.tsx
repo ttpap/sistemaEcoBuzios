@@ -52,9 +52,9 @@ import {
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/integrations/supabase/classes";
 import { fetchStudentsRemote } from "@/integrations/supabase/students";
-import { supabase } from "@/integrations/supabase/client";
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+import { enrollmentsService, type EnrollmentRow } from "@/services/enrollmentsService";
 
 type KPI = {
   label: string;
@@ -96,35 +96,8 @@ function getModeBStaffCreds(): { login: string; password: string } | null {
   return null;
 }
 
-type EnrollmentRow = { class_id: string; student_id: string };
-
 async function fetchActiveEnrollmentsByProject(projectId: string): Promise<EnrollmentRow[]> {
-  if (!supabase) return [];
-
-  // 1) Tentativa normal (quando o RLS permitir)
-  const { data, error } = await supabase
-    .from("class_student_enrollments")
-    .select("class_id,student_id,classes!inner(project_id)")
-    .eq("classes.project_id", projectId)
-    .is("removed_at", null);
-
-  if (!error && data) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id }));
-  }
-
-  // 2) Fallback (modo B) por RPC
-  const creds = getModeBStaffCreds();
-  if (!creds) return [];
-
-  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_project_enrollments", {
-    p_login: creds.login,
-    p_password: creds.password,
-    p_project_id: projectId,
-  });
-
-  if (rpcErr || !rpcData) return [];
-  return rpcData as EnrollmentRow[];
+  return enrollmentsService.listActiveByProject({ projectId, modeBCreds: getModeBStaffCreds() });
 }
 
 export default function Dashboard() {
@@ -260,11 +233,58 @@ export default function Dashboard() {
     return map;
   }, [classes]);
 
-  const studentsById = useMemo(() => {
-    const map = new Map<string, StudentRegistration>();
-    for (const s of students) map.set(s.id, s);
-    return map;
-  }, [students]);
+  const selectedStudentClassName = useMemo(() => {
+    if (!selectedStudent?.id) return "";
+    for (const c of classes) {
+      if ((c.studentIds || []).includes(selectedStudent.id)) return c.name;
+    }
+    return "";
+  }, [classes, selectedStudent?.id]);
+
+  const kpis = useMemo(() => {
+    const active = classes.filter((c) => c.status === "Ativo");
+    const closed = classes.filter((c) => c.status !== "Ativo");
+
+    const allAttendance = getAllAttendance();
+    const sessionsThisMonth = allAttendance.filter((s) => String(s.date || "").startsWith(thisMonth));
+
+    const uniquePresentStudentIds = new Set<string>();
+    for (const s of sessionsThisMonth) {
+      for (const pid of ((s as any).presentStudentIds || []) as string[]) uniquePresentStudentIds.add(pid);
+    }
+
+    const totalStudents = students.length;
+    const activeStudents = uniquePresentStudentIds.size;
+
+    const list: KPI[] = [
+      {
+        label: "Turmas ativas",
+        value: active.length,
+        icon: <BookOpen className="h-5 w-5" />,
+        tone: "primary",
+      },
+      {
+        label: "Turmas encerradas",
+        value: closed.length,
+        icon: <FileCheck2 className="h-5 w-5" />,
+        tone: "secondary",
+      },
+      {
+        label: "Alunos cadastrados",
+        value: totalStudents,
+        icon: <GraduationCap className="h-5 w-5" />,
+        tone: "sky",
+      },
+      {
+        label: "Alunos ativos (mês)",
+        value: activeStudents,
+        icon: <ClipboardCheck className="h-5 w-5" />,
+        tone: "amber",
+      },
+    ];
+
+    return list;
+  }, [classes, students.length, thisMonth]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -325,41 +345,6 @@ export default function Dashboard() {
   const birthdaysTodayCount = useMemo(
     () => birthdaysThisMonth.filter((b) => b.day === today.getDate()).length,
     [birthdaysThisMonth, today],
-  );
-
-  const kpis: KPI[] = useMemo(
-    () => [
-      {
-        label: "Alunos ativos nas turmas",
-        value: activeStudentsInClasses.length,
-        icon: <GraduationCap className="h-6 w-6" />,
-        tone: "primary",
-      },
-      {
-        label: "Turmas ativas",
-        value: activeClasses.length,
-        icon: <BookOpen className="h-6 w-6" />,
-        tone: "secondary",
-      },
-      {
-        label: "Professores ativos",
-        value: activeTeachers.length,
-        icon: <Users className="h-6 w-6" />,
-        tone: "sky",
-      },
-      {
-        label: "Chamadas no mês",
-        value: attendanceThisMonth.length,
-        icon: <ClipboardCheck className="h-6 w-6" />,
-        tone: "amber",
-      },
-    ],
-    [
-      activeStudentsInClasses.length,
-      activeClasses.length,
-      activeTeachers.length,
-      attendanceThisMonth.length,
-    ],
   );
 
   const schoolTypeCounts = useMemo(() => {

@@ -12,7 +12,7 @@ import type { EnelRow } from "@/utils/enel-report-pdf";
 import { generateEnelPdf } from "@/utils/enel-report-pdf";
 import { downloadEnelXls } from "@/utils/enel-report-xls";
 import { printEnelReport } from "@/utils/enel-report-print";
-import { supabase } from "@/integrations/supabase/client";
+import { enelReportService } from "@/services/enelReportService";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -67,11 +67,7 @@ export default function EnelReport() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc("enel_report_rows", {
-        p_project_id: selectedProjectId,
-        p_month: month,
-      });
-      if (error) throw error;
+      const data = await enelReportService.fetchRowsRaw({ projectId: selectedProjectId, month });
 
       const nextRows: EnelRow[] = (data || []).map((r: any) => ({
         name: String(r.name || ""),
@@ -220,65 +216,11 @@ export default function EnelReport() {
                   month,
                   rows,
                 });
+
               }}
             >
               <FileDown className="h-4 w-4 mr-2" /> XLS
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
-        <CardContent className="p-0">
-          <div className="overflow-auto">
-            <table className="min-w-[720px] w-full">
-              <thead className="bg-slate-50/70 border-b border-slate-100">
-                <tr>
-                  <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    Nome
-                  </th>
-                  <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    Telefone
-                  </th>
-                  <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    Nascimento
-                  </th>
-                  <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    Idade
-                  </th>
-                  <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    CPF
-                  </th>
-                  {includeEnelNumber ? (
-                    <th className="text-left px-6 py-4 text-[11px] font-black uppercase tracking-widest text-slate-500">
-                      Nº Cliente ENEL
-                    </th>
-                  ) : null}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length ? (
-                  rows.map((r, idx) => (
-                    <tr key={`${r.name}-${idx}`} className="border-b border-slate-100 last:border-0">
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.name}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.cellPhone}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.birthDate}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.age}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.cpf}</td>
-                      {includeEnelNumber ? (
-                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{r.enelClientNumber}</td>
-                      ) : null}
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td className="px-6 py-10 text-sm font-bold text-slate-500" colSpan={includeEnelNumber ? 6 : 5}>
-                      Nenhum dado. Selecione o projeto e o mês e clique em "Gerar relatório".
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
           </div>
         </CardContent>
       </Card>

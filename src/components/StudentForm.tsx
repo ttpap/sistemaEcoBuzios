@@ -28,7 +28,8 @@ import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/utils/student-auth';
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
-import { supabase } from "@/integrations/supabase/client";
+import { studentsService } from "@/services/studentsService";
+
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 import { getActiveProjectId } from "@/utils/projects";
@@ -432,19 +433,16 @@ const StudentForm = ({
         class: (input.class || "A definir") as any,
       };
 
-      if (!supabase) return;
-
       // 1) Usuário autenticado (Admin ou Aluno): tenta update/insert direto via RLS.
+
       if (session) {
         if (initialData) {
           if (!isUuid(String(initialData.id || ""))) return;
-          const { error } = await supabase.from("students").update(row).eq("id", initialData.id);
-          if (error) throw error;
+          await studentsService.updateById({ id: String(initialData.id), row });
           return;
         }
 
-        const { error } = await supabase.from("students").insert(row);
-        if (error) throw error;
+        await studentsService.insert(row);
         return;
       }
 
@@ -461,14 +459,12 @@ const StudentForm = ({
           );
         }
 
-        const { error: rpcErr } = await supabase.rpc("mode_b_upsert_student", {
-          p_login: creds.login,
-          p_password: creds.password,
-          p_project_id: projectId,
-          p_row: row as any,
+        await studentsService.modeBUpsert({
+          login: creds.login,
+          password: creds.password,
+          projectId,
+          row,
         });
-
-        if (rpcErr) throw rpcErr;
         return;
       }
 
@@ -476,19 +472,20 @@ const StudentForm = ({
       // - se tiver credencial Modo B, tenta RPC
       // - se não tiver (link público /inscricao), insere direto como anon (há policy students_public_insert)
       if (creds && projectId) {
-        const { error: rpcErr } = await supabase.rpc("mode_b_upsert_student", {
-          p_login: creds.login,
-          p_password: creds.password,
-          p_project_id: projectId,
-          p_row: row as any,
-        });
-
-        if (!rpcErr) return;
-        // se a RPC falhar, cai para insert direto (anon) — evita dependência de Edge Function.
+        try {
+          await studentsService.modeBUpsert({
+            login: creds.login,
+            password: creds.password,
+            projectId,
+            row,
+          });
+          return;
+        } catch {
+          // se a RPC falhar, cai para insert direto (anon) — evita dependência de Edge Function.
+        }
       }
 
-      const { error } = await supabase.from("students").insert(row);
-      if (error) throw error;
+      await studentsService.insert(row);
     };
 
     const run = async () => {

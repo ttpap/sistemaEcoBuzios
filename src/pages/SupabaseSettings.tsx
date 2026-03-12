@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Database, RefreshCw } from "lucide-react";
-import { supabase, supabaseConfigured, supabaseUrl as currentUrl } from "@/integrations/supabase/client";
+import { supabaseConfigured, supabaseUrl as currentUrl } from "@/integrations/supabase/client";
+import { projectsService } from "@/services/projectsService";
 
 export default function SupabaseSettings() {
   const [testing, setTesting] = React.useState(false);
@@ -29,9 +30,8 @@ export default function SupabaseSettings() {
     }
 
     try {
-      const { count, error } = await supabase.from("projects").select("id", { count: "exact", head: true });
-      if (error) throw error;
-      setTestResult({ ok: true, projectCount: count ?? 0 });
+      const projectCount = await projectsService.countProjects();
+      setTestResult({ ok: true, projectCount });
     } catch (e: any) {
       setTestResult({ ok: false, error: String(e?.message || "Erro ao consultar o banco") });
     } finally {
