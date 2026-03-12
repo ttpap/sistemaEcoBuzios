@@ -390,6 +390,12 @@ const StudentForm = ({
   };
 
   async function onSubmit(values: z.infer<typeof schema>) {
+    console.info("[StudentForm] onSubmit_enter", {
+      initialData: Boolean(initialData),
+      hasSession: Boolean(session),
+      role: profile?.role || null,
+    });
+
     const existingStudents = readGlobalStudents<StudentRegistration[]>([]);
 
     const finalSchoolName = values.schoolName === "Outra" ? values.schoolOther : values.schoolName;
@@ -397,10 +403,12 @@ const StudentForm = ({
     const studentData = {
       ...values,
       enelClientNumber: (values.enelClientNumber || "").replace(/\D/g, "").trim() || undefined,
-      schoolName: finalSchoolName || values.schoolName
+      schoolName: finalSchoolName || values.schoolName,
     };
 
     const persistToSupabase = async (input: { id: string; registration: string; status?: string; class?: string }) => {
+      console.info("[StudentForm] persistToSupabase_enter", { initialData: Boolean(initialData) });
+
       const row = {
         id: input.id,
         registration: input.registration,
@@ -464,8 +472,7 @@ const StudentForm = ({
       const creds = getModeBStaffCreds();
       const projectId = getActiveProjectId();
 
-      // Logs temporários para diagnosticar qual caminho está sendo usado em produção.
-      console.info("[StudentForm] persistToSupabase", {
+      console.info("[StudentForm] persistToSupabase_path", {
         isAdmin,
         hasSession: Boolean(session),
         role: profile?.role || null,
@@ -489,9 +496,7 @@ const StudentForm = ({
         return;
       }
 
-      // 2) Não-admin (ou sem sessão): nunca tenta write direto via RLS admin.
-
-      // 2a) Edição (Professor/Coordenador): sempre via RPC
+      // 2) Não-admin (ou sem sessão)
       if (initialData) {
         console.info("[StudentForm] path=modeB_edit_rpc");
         if (!projectId) throw new Error("Nenhum projeto ativo. Selecione um projeto e tente novamente.");
@@ -510,7 +515,6 @@ const StudentForm = ({
         return;
       }
 
-      // 2b) Cadastro novo
       if (creds && projectId) {
         console.info("[StudentForm] path=modeB_new_rpc");
         try {
@@ -523,7 +527,6 @@ const StudentForm = ({
           return;
         } catch (e) {
           console.warn("[StudentForm] modeB_upsert_failed_fallback_to_anon", e);
-          // se a RPC falhar, cai para insert anon
         }
       }
 
@@ -633,6 +636,13 @@ const StudentForm = ({
     void run();
   }
 
+  const onInvalid = (errors: any) => {
+    console.warn("[StudentForm] onSubmit_invalid", errors);
+    const firstKey = Object.keys(errors || {})[0];
+    const firstMsg = firstKey ? (errors as any)[firstKey]?.message : null;
+    showError(firstMsg || "Existem campos obrigatórios não preenchidos. Verifique o formulário.");
+  };
+
   const SectionHeader = ({ icon: Icon, title, subtitle }: { icon: any, title: string, subtitle: string }) => (
     <div className="flex items-center gap-4 mb-8 border-b border-slate-100 pb-6">
       <div className="bg-primary/10 p-3 rounded-2xl">
@@ -647,7 +657,16 @@ const StudentForm = ({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 max-w-5xl mx-auto pb-24">
+      <form
+        onSubmit={form.handleSubmit(
+          (vals) => {
+            console.info("[StudentForm] handleSubmit_valid");
+            return onSubmit(vals);
+          },
+          onInvalid,
+        )}
+        className="space-y-10 max-w-5xl mx-auto pb-24"
+      >
         
         <div className="flex flex-col items-center justify-center mb-12">
           <div className="relative group">
@@ -836,9 +855,31 @@ const StudentForm = ({
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Complemento</FormLabel><FormControl><Input placeholder="Apto, Bloco, Casa..." {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                <FormItem><FormLabel className="font-bold">Cidade</FormLabel><Input value={form.watch('city')} disabled className="h-12 rounded-xl bg-slate-100" /></FormItem>
-                <FormItem><FormLabel className="font-bold">UF</FormLabel><Input value={form.watch('uf')} disabled className="h-12 rounded-xl bg-slate-100" /></FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">Cidade</FormLabel>
+                  <Input value={form.watch('city')} disabled className="h-12 rounded-xl bg-slate-100" />
+                </FormItem>
+                <FormItem>
+                  <FormLabel className="font-bold">UF</FormLabel>
+                  <Input value={form.watch('uf')} disabled className="h-12 rounded-xl bg-slate-100" />
+                </FormItem>
               </div>
+
+              {/* Campos hidden para garantir que city/uf existam no submit (Zod exige) */}
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <input type="hidden" {...field} value={form.watch("city") || ""} />
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="uf"
+                render={({ field }) => (
+                  <input type="hidden" {...field} value={form.watch("uf") || ""} />
+                )}
+              />
             </div>
           </CardContent>
         </Card>
@@ -1005,7 +1046,11 @@ const StudentForm = ({
               </Button>
             )}
 
-            <Button type="submit" className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg">
+            <Button
+              type="submit"
+              onClick={() => console.info("[StudentForm] submit_button_click")}
+              className="rounded-2xl px-16 h-14 font-black gap-3 shadow-2xl shadow-primary/30 text-lg"
+            >
               <Save className="h-6 w-6" />
               {submitLabel || (initialData ? 'Salvar Alterações' : 'Finalizar Inscrição')}
             </Button>
