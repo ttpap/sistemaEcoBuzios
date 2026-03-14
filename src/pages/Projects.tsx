@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -725,92 +725,86 @@ export default function Projects() {
                   <p className="text-sm font-bold text-slate-500">Nenhum projeto criado ainda.</p>
                 </div>
               ) : (
-                <ScrollArea className="max-h-[360px] pr-3">
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {projects.map((p) => {
-                      const isActive = p.id === activeId;
-                      const isPdf = isPdfDataUrl(p.imageUrl);
+                <div className="grid gap-3 md:grid-cols-2">
+                  {projects.map((p) => {
+                    const isActive = p.id === activeId;
+                    const isPdf = isPdfDataUrl(p.imageUrl);
 
-                      return (
-                        <div
-                          key={p.id}
-                          className={cn(
-                            "w-full rounded-[2rem] border transition-colors",
-                            isActive ? "border-primary/25 bg-primary/5" : "border-slate-100 bg-white",
-                          )}
-                        >
-                          <div className="flex items-stretch">
-                            <button
-                              type="button"
-                              onClick={() => onSelect(p)}
-                              className="flex-1 text-left p-4 rounded-[2rem] hover:bg-slate-50/70 transition-colors"
-                              title="Selecionar projeto"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
-                                    {p.imageUrl && !isPdf ? (
-                                      <img
-                                        src={p.imageUrl}
-                                        alt={p.name}
-                                        className="h-full w-full object-cover"
-                                      />
-                                    ) : p.imageUrl && isPdf ? (
-                                      <FileText className="h-5 w-5 text-primary" />
-                                    ) : (
-                                      <span className="text-primary font-black">{p.name.charAt(0)}</span>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="text-sm font-black text-slate-900 truncate">{p.name}</p>
-                                    <p className="text-xs font-bold text-slate-500 truncate">
-                                      Criado em {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                                    </p>
-                                  </div>
+                    return (
+                      <div
+                        key={p.id}
+                        className={cn(
+                          "w-full rounded-[2rem] border transition-colors",
+                          isActive ? "border-primary/25 bg-primary/5" : "border-slate-100 bg-white",
+                        )}
+                      >
+                        <div className="flex items-stretch">
+                          <button
+                            type="button"
+                            onClick={() => onSelect(p)}
+                            className="flex-1 text-left p-4 rounded-[2rem] hover:bg-slate-50/70 transition-colors"
+                            title="Selecionar projeto"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
+                                  {p.imageUrl && !isPdf ? (
+                                    <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                                  ) : p.imageUrl && isPdf ? (
+                                    <FileText className="h-5 w-5 text-primary" />
+                                  ) : (
+                                    <span className="text-primary font-black">{p.name.charAt(0)}</span>
+                                  )}
                                 </div>
-
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {p.imageUrl && isPdf && (
-                                    <Badge className="rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-black">
-                                      PDF
-                                    </Badge>
-                                  )}
-                                  {isActive && (
-                                    <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
-                                      Ativo
-                                    </Badge>
-                                  )}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-black text-slate-900 truncate">{p.name}</p>
+                                  <p className="text-xs font-bold text-slate-500 truncate">
+                                    Criado em {new Date(p.createdAt).toLocaleDateString("pt-BR")}
+                                  </p>
                                 </div>
                               </div>
-                            </button>
 
-                            <div className="p-4 pr-4 flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="h-11 w-11 rounded-2xl p-0 border-slate-200 bg-white hover:bg-slate-50"
-                                onClick={() => openEdit(p)}
-                                title="Editar projeto"
-                              >
-                                <Pencil className="h-4 w-4 text-primary" />
-                              </Button>
-
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="h-11 w-11 rounded-2xl p-0 border-rose-200 bg-white hover:bg-rose-50"
-                                onClick={() => onDeleteProject(p)}
-                                title="Excluir projeto"
-                              >
-                                <Trash2 className="h-4 w-4 text-rose-600" />
-                              </Button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {p.imageUrl && isPdf && (
+                                  <Badge className="rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-black">
+                                    PDF
+                                  </Badge>
+                                )}
+                                {isActive && (
+                                  <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
+                                    Ativo
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
+                          </button>
+
+                          <div className="p-4 pr-4 flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-11 w-11 rounded-2xl p-0 border-slate-200 bg-white hover:bg-slate-50"
+                              onClick={() => openEdit(p)}
+                              title="Editar projeto"
+                            >
+                              <Pencil className="h-4 w-4 text-primary" />
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-11 w-11 rounded-2xl p-0 border-rose-200 bg-white hover:bg-rose-50"
+                              onClick={() => onDeleteProject(p)}
+                              title="Excluir projeto"
+                            >
+                              <Trash2 className="h-4 w-4 text-rose-600" />
+                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>

@@ -6,9 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
 import type { CoordinatorRegistration } from "@/types/coordinator";
@@ -331,133 +331,137 @@ export default function AdminCoordinators() {
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[520px]">
-            <div className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
-                <div className="p-10 text-center text-sm font-bold text-slate-500">Nenhum coordenador encontrado.</div>
-              ) : (
-                filtered.map((c) => {
-                  const assignedProjectIds = assignments[c.id] || [];
-                  const assignedNames = coordinatorProjectNames(c.id);
+          <div className="divide-y divide-slate-100">
+            {filtered.length === 0 ? (
+              <div className="p-10 text-center text-sm font-bold text-slate-500">Nenhum coordenador encontrado.</div>
+            ) : (
+              filtered.map((c) => {
+                const assignedProjectIds = assignments[c.id] || [];
+                const assignedNames = coordinatorProjectNames(c.id);
 
-                  return (
-                    <div key={c.id} className="p-5 md:p-6">
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="min-w-0">
-                          <button
-                            className="text-left"
-                            onClick={() => navigate(`/coordenadores/editar/${c.id}`)}
-                            title="Editar cadastro"
-                          >
-                            <p className="text-sm font-black text-slate-800 truncate hover:underline">
-                              {c.fullName}
-                            </p>
-                          </button>
-                          <p className="text-xs font-bold text-slate-500 truncate">{c.email}</p>
+                return (
+                  <div key={c.id} className="p-5 md:p-6">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="min-w-0">
+                        <button
+                          className="text-left"
+                          onClick={() => navigate(`/coordenadores/editar/${c.id}`)}
+                          title="Editar cadastro"
+                        >
+                          <p className="text-sm font-black text-slate-800 truncate hover:underline">
+                            {c.fullName}
+                          </p>
+                        </button>
+                        <p className="text-xs font-bold text-slate-500 truncate">{c.email}</p>
 
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
-                              {c.authLogin}
-                            </Badge>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
+                            {c.authLogin}
+                          </Badge>
 
-                            {assignedProjectIds.length > 0 ? (
-                              assignedProjectIds.map((pid) => {
-                                const name = projectNameById(pid) || pid;
-                                return (
-                                  <span
-                                    key={pid}
-                                    className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-black"
+                          {assignedProjectIds.length > 0 ? (
+                            assignedProjectIds.map((pid) => {
+                              const name = projectNameById(pid) || pid;
+                              return (
+                                <span
+                                  key={pid}
+                                  className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 text-xs font-black"
+                                >
+                                  Projeto: {name}
+                                  <button
+                                    type="button"
+                                    className="ml-1 h-5 w-5 rounded-full bg-white/60 hover:bg-white border border-emerald-200 flex items-center justify-center"
+                                    title="Remover do projeto"
+                                    onClick={() => onRemoveFromProject(c.id, pid)}
                                   >
-                                    Projeto: {name}
-                                    <button
-                                      type="button"
-                                      className="ml-1 h-5 w-5 rounded-full bg-white/60 hover:bg-white border border-emerald-200 flex items-center justify-center"
-                                      title="Remover do projeto"
-                                      onClick={() => onRemoveFromProject(c.id, pid)}
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </button>
-                                  </span>
-                                );
-                              })
-                            ) : (
-                              <Badge className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 font-black">
-                                Sem projeto
-                              </Badge>
-                            )}
-                          </div>
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </span>
+                              );
+                            })
+                          ) : (
+                            <Badge className="rounded-full bg-slate-50 text-slate-600 border border-slate-200 font-black">
+                              Sem projeto
+                            </Badge>
+                          )}
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                          <Select onValueChange={(v) => onAssign(c.id, v)}>
-                            <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-black">
-                              <SelectValue placeholder="Adicionar em projeto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {projects
-                                .filter((p) => !assignedProjectIds.includes(p.id))
-                                .map((p) => (
-                                  <SelectItem key={p.id} value={p.id} className="font-bold">
-                                    {p.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "h-12 rounded-2xl font-black border-slate-200 bg-white",
-                              assignedNames.length ? "" : "opacity-60 cursor-not-allowed",
-                            )}
-                            disabled={!assignedNames.length}
-                            onClick={() => {
-                              setDeliverCoordinator(c);
-                              setDeliverOpen(true);
-                            }}
-                            title={assignedNames.length ? "Ver credenciais" : "Adicione em um projeto para liberar"}
-                          >
-                            <Copy className="h-4 w-4 mr-2" /> Credenciais
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-12 rounded-2xl font-black border-slate-200 bg-white"
-                            onClick={() => onResetCoordinatorPassword(c.id)}
-                            title="Resetar senha para o padrão"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" /> Resetar senha
-                          </Button>
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-12 rounded-2xl font-black border-red-200 bg-white text-red-600 hover:bg-red-50"
-                            onClick={() => onDelete(c.id)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                          </Button>
-                        </div>
+                        {assignedNames.length > 2 ? (
+                          <p className="mt-2 text-xs font-bold text-slate-500">
+                            +{assignedNames.length - 2} outro(s)
+                          </p>
+                        ) : null}
                       </div>
 
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
-                          <p className="mt-1 text-sm font-black text-slate-700">{maskedPassword(c.authPassword)}</p>
-                        </div>
-                        <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</p>
-                          <p className="mt-1 text-sm font-black text-slate-700">{c.status}</p>
-                        </div>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                        <Select onValueChange={(v) => onAssign(c.id, v)}>
+                          <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white font-black">
+                            <SelectValue placeholder="Adicionar em projeto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {projects
+                              .filter((p) => !assignedProjectIds.includes(p.id))
+                              .map((p) => (
+                                <SelectItem key={p.id} value={p.id} className="font-bold">
+                                  {p.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className={cn(
+                            "h-12 rounded-2xl font-black border-slate-200 bg-white",
+                            assignedNames.length ? "" : "opacity-60 cursor-not-allowed",
+                          )}
+                          disabled={!assignedNames.length}
+                          onClick={() => {
+                            setDeliverCoordinator(c);
+                            setDeliverOpen(true);
+                          }}
+                          title={assignedNames.length ? "Ver credenciais" : "Adicione em um projeto para liberar"}
+                        >
+                          <Copy className="h-4 w-4 mr-2" /> Credenciais
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-12 rounded-2xl font-black border-slate-200 bg-white"
+                          onClick={() => onResetCoordinatorPassword(c.id)}
+                          title="Resetar senha para o padrão"
+                        >
+                          <RotateCcw className="h-4 w-4 mr-2" /> Resetar senha
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-12 rounded-2xl font-black border-red-200 bg-white text-red-600 hover:bg-red-50"
+                          onClick={() => onDelete(c.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                        </Button>
                       </div>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </ScrollArea>
+
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
+                        <p className="mt-1 text-sm font-black text-slate-700">{maskedPassword(c.authPassword)}</p>
+                      </div>
+                      <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</p>
+                        <p className="mt-1 text-sm font-black text-slate-700">{c.status}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
