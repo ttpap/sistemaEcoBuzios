@@ -300,71 +300,71 @@ export default function CoordinatorTeachers() {
                 </p>
               </div>
             ) : (
-              <ScrollArea className="h-[440px] pr-2">
-                <div className="space-y-3">
-                  {projectTeachers.map((t) => (
-                    <div
-                      key={t.id}
-                      className="rounded-[2rem] border border-slate-100 bg-white p-5 flex items-center justify-between gap-4"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-black text-slate-800 truncate">{t.fullName}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700 font-black">
-                            {t.authLogin}
-                          </Badge>
-                          <Badge className={cn(
+              <div className="space-y-3">
+                {projectTeachers.map((t) => (
+                  <div
+                    key={t.id}
+                    className="rounded-[2rem] border border-slate-100 bg-white p-5 flex items-center justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-800 truncate">{t.fullName}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700 font-black">
+                          {t.authLogin}
+                        </Badge>
+                        <Badge
+                          className={cn(
                             "rounded-full border-none font-black",
                             t.status === "Ativo" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
-                          )}>
-                            {t.status || "Ativo"}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          variant="outline"
-                          className="rounded-2xl font-black h-11"
-                          onClick={() => {
-                            setDeliverTeacher(t);
-                            setDeliverOpen(true);
-                          }}
+                          )}
                         >
-                          Credenciais
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-2xl hover:bg-emerald-50 hover:text-emerald-700"
-                          onClick={() => navigate(`/coordenador/professores/editar/${t.id}`)}
-                          title="Editar"
-                        >
-                          <UserCog className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-2xl hover:bg-slate-100"
-                          onClick={() => onResetPassword(t.id)}
-                          title="Resetar senha"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-700"
-                          onClick={() => onRemoveFromProject(t.id)}
-                          title="Remover do projeto"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          {t.status || "Ativo"}
+                        </Badge>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        className="rounded-2xl font-black h-11"
+                        onClick={() => {
+                          setDeliverTeacher(t);
+                          setDeliverOpen(true);
+                        }}
+                      >
+                        Credenciais
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-2xl hover:bg-emerald-50 hover:text-emerald-700"
+                        onClick={() => navigate(`/coordenador/professores/editar/${t.id}`)}
+                        title="Editar"
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-2xl hover:bg-slate-100"
+                        onClick={() => onResetPassword(t.id)}
+                        title="Resetar senha"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => onRemoveFromProject(t.id)}
+                        title="Remover do projeto"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>

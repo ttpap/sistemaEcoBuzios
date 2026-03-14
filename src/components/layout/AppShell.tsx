@@ -19,7 +19,7 @@ export default function AppShell({ sidebar, title, children }: Props) {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <div className="min-h-[100dvh] bg-[#f8fafc] flex flex-col">
+    <div className="min-h-[100dvh] bg-[#f8fafc]">
       {/* Mobile header */}
       <div className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-3 px-4 py-3">
@@ -55,10 +55,13 @@ export default function AppShell({ sidebar, title, children }: Props) {
         </div>
       </div>
 
-      {/* Desktop + content */}
-      <div className="flex flex-1 min-h-0">
+      {/* Desktop + content
+          Importante: a rolagem principal é do BODY (não de um container interno).
+          Isso evita travamentos de scroll em iOS/Android quando existe header sticky + overflow interno.
+       */}
+      <div className="md:flex">
         <div className="hidden md:block shrink-0">{sidebar({ mode: "desktop" })}</div>
-        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8">{children}</main>
+        <main className="md:flex-1 px-4 py-6 sm:px-6 md:px-8 md:py-8">{children}</main>
       </div>
     </div>
   );
