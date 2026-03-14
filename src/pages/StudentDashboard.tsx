@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { IdCard, GraduationCap, CalendarDays, FileCheck2 } from "lucide-react";
 
+import type { AttendanceStatus } from "@/types/attendance";
 import type { StudentRegistration } from "@/types/student";
 
 import { readGlobalStudents } from "@/utils/storage";
@@ -46,7 +47,69 @@ type LessonRow = {
   className: string;
   startTime: string;
   endTime: string;
+  finalizedAt: string | null;
+  status: AttendanceStatus | null;
 };
+
+function statusMeta(status: AttendanceStatus): { label: string; accentClass: string; badgeClass: string } {
+  if (status === "presente") {
+    return {
+      label: "Presente",
+      accentClass: "border-emerald-200 bg-emerald-50/60",
+      badgeClass: "bg-emerald-600 text-white",
+    };
+  }
+
+  if (status === "falta") {
+    return {
+      label: "Falta",
+      accentClass: "border-rose-200 bg-rose-50/60",
+      badgeClass: "bg-rose-600 text-white",
+    };
+  }
+
+  if (status === "atrasado") {
+    return {
+      label: "Atraso",
+      accentClass: "border-amber-200 bg-amber-50/60",
+      badgeClass: "bg-amber-500 text-white",
+    };
+  }
+
+  return {
+    label: "Justificada",
+    accentClass: "border-violet-200 bg-violet-50/60",
+    badgeClass: "bg-violet-600 text-white",
+  };
+}
+
+function LessonCard({ row, onClick }: { row: LessonRow; onClick: () => void }) {
+  const canColorize = Boolean(row.finalizedAt) && Boolean(row.status);
+  const meta = row.status ? statusMeta(row.status) : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-[2rem] border p-5 transition hover:bg-slate-50 ${
+        canColorize && meta ? meta.accentClass : "border-slate-100 bg-white"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-black text-slate-900 truncate">{row.className}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            {formatDatePt(row.ymd)} • {row.startTime}–{row.endTime}
+          </p>
+        </div>
+
+        {canColorize && meta ? (
+          <Badge className={`rounded-full border-none font-black ${meta.badgeClass}`}>{meta.label}</Badge>
+        ) : null}
+      </div>
+    </button>
+  );
+}
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
@@ -102,6 +165,8 @@ export default function StudentDashboard() {
             className: r.class_name,
             startTime: r.start_time,
             endTime: r.end_time,
+            finalizedAt: r.finalized_at,
+            status: (r.status as AttendanceStatus | null) || null,
           })),
         );
       } finally {
@@ -144,6 +209,8 @@ export default function StudentDashboard() {
     );
   }
 
+  const detailStatus = detailTarget?.status && detailTarget?.finalizedAt ? statusMeta(detailTarget.status) : null;
+
   return (
     <div className="space-y-6 max-w-6xl">
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
@@ -154,11 +221,17 @@ export default function StudentDashboard() {
 
           {!detailTarget ? null : (
             <div className="space-y-4">
-              <div>
-                <p className="text-sm font-black text-slate-900">{detailTarget.className}</p>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  {formatDatePt(detailTarget.ymd)} • {detailTarget.startTime}–{detailTarget.endTime}
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-slate-900 truncate">{detailTarget.className}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {formatDatePt(detailTarget.ymd)} • {detailTarget.startTime}–{detailTarget.endTime}
+                  </p>
+                </div>
+
+                {detailStatus ? (
+                  <Badge className={`rounded-full border-none font-black ${detailStatus.badgeClass}`}>{detailStatus.label}</Badge>
+                ) : null}
               </div>
 
               <Separator />
@@ -271,17 +344,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="space-y-3">
                   {futureLessons.map((r) => (
-                    <button
-                      key={`${r.classId}:${r.ymd}:${r.startTime}`}
-                      type="button"
-                      onClick={() => openDetails(r)}
-                      className="w-full text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:bg-slate-50 transition"
-                    >
-                      <p className="text-sm font-black text-slate-900">{r.className}</p>
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        {formatDatePt(r.ymd)} • {r.startTime}–{r.endTime}
-                      </p>
-                    </button>
+                    <LessonCard key={`${r.classId}:${r.ymd}:${r.startTime}`} row={r} onClick={() => openDetails(r)} />
                   ))}
                 </div>
               )}
@@ -305,17 +368,7 @@ export default function StudentDashboard() {
               ) : (
                 <div className="space-y-3">
                   {pastLessons.map((r) => (
-                    <button
-                      key={`${r.classId}:${r.ymd}:${r.startTime}`}
-                      type="button"
-                      onClick={() => openDetails(r)}
-                      className="w-full text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:bg-slate-50 transition"
-                    >
-                      <p className="text-sm font-black text-slate-900">{r.className}</p>
-                      <p className="mt-1 text-xs font-bold text-slate-500">
-                        {formatDatePt(r.ymd)} • {r.startTime}–{r.endTime}
-                      </p>
-                    </button>
+                    <LessonCard key={`${r.classId}:${r.ymd}:${r.startTime}`} row={r} onClick={() => openDetails(r)} />
                   ))}
                 </div>
               )}
