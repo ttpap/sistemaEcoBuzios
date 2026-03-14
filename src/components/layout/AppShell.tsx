@@ -19,7 +19,7 @@ export default function AppShell({ sidebar, title, children }: Props) {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-[100dvh] bg-[#f8fafc] flex flex-col">
       {/* Mobile header */}
       <div className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/75 backdrop-blur-xl md:hidden">
         <div className="flex items-center gap-3 px-4 py-3">
@@ -56,9 +56,9 @@ export default function AppShell({ sidebar, title, children }: Props) {
       </div>
 
       {/* Desktop + content */}
-      <div className="flex min-h-screen">
-        <div className="hidden md:block">{sidebar({ mode: "desktop" })}</div>
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8">{children}</main>
+      <div className="flex flex-1 min-h-0">
+        <div className="hidden md:block shrink-0">{sidebar({ mode: "desktop" })}</div>
+        <main className="flex-1 min-h-0 overflow-y-auto px-4 py-6 sm:px-6 md:px-8 md:py-8">{children}</main>
       </div>
     </div>
   );
