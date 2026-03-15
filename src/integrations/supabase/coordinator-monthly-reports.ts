@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { CoordinatorMonthlyReport } from "@/types/coordinator-monthly-report";
+import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
 function mapRow(row: any): CoordinatorMonthlyReport {
   return {
@@ -16,19 +18,81 @@ function mapRow(row: any): CoordinatorMonthlyReport {
   };
 }
 
+function getModeBStaffCreds(): { login: string; password: string } | null {
+  const cLogin = getCoordinatorSessionLogin();
+  const cPw = getCoordinatorSessionPassword();
+  if (cLogin && cPw) return { login: cLogin, password: cPw };
+
+  // professor pode visualizar (lista) relatórios do coordenador no admin/coordenador? mantemos suporte para listagem.
+  const tLogin = getTeacherSessionLogin();
+  const tPw = getTeacherSessionPassword();
+  if (tLogin && tPw) return { login: tLogin, password: tPw };
+
+  return null;
+}
+
+function isRpcMissingErrorMessage(msgLower: string) {
+  return (
+    msgLower.includes("does not exist") ||
+    (msgLower.includes("function") && msgLower.includes("mode_b_")) ||
+    msgLower.includes("mode_b_list_coordinator_monthly_reports") ||
+    msgLower.includes("mode_b_upsert_coordinator_monthly_report")
+  );
+}
+
 export async function fetchCoordinatorMonthlyReportsRemote(projectId: string) {
   if (!supabase) return [] as CoordinatorMonthlyReport[];
+
   const { data, error } = await supabase
     .from("coordinator_monthly_reports")
     .select("*")
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false });
-  if (error || !data) return [];
-  return data.map(mapRow);
+
+  if (!error && Array.isArray(data)) {
+    return data.map(mapRow);
+  }
+
+  const creds = getModeBStaffCreds();
+  if (!creds) {
+    if (error) throw error;
+    return [];
+  }
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_coordinator_monthly_reports", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_project_id: projectId,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) {
+      throw new Error(
+        "Servidor não atualizado: RPC mode_b_list_coordinator_monthly_reports ausente. Aplique a migração 0020_mode_b_monthly_reports.sql no Supabase.",
+      );
+    }
+    throw rpcErr;
+  }
+
+  return ((rpcData as any[]) || []).map((r) =>
+    mapRow({
+      ...r,
+      project_id: r.project_id,
+      coordinator_id: r.coordinator_id,
+      strategy_html: r.strategy_html,
+      adaptation_html: r.adaptation_html,
+      observation_html: r.observation_html,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      submitted_at: r.submitted_at,
+    }),
+  );
 }
 
 export async function upsertCoordinatorMonthlyReportRemote(report: CoordinatorMonthlyReport) {
   if (!supabase) return;
+
   const row = {
     id: report.id,
     project_id: report.projectId,
@@ -43,5 +107,33 @@ export async function upsertCoordinatorMonthlyReportRemote(report: CoordinatorMo
   };
 
   const { error } = await supabase.from("coordinator_monthly_reports").upsert(row);
-  if (error) throw error;
+  if (!error) return;
+
+  const creds = getModeBStaffCreds();
+  if (!creds) throw error;
+
+  const { error: rpcErr } = await supabase.rpc("mode_b_upsert_coordinator_monthly_report", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_id: report.id,
+    p_project_id: report.projectId,
+    p_coordinator_id: report.coordinatorId,
+    p_month: report.month,
+    p_strategy_html: report.strategyHtml,
+    p_adaptation_html: report.adaptationHtml,
+    p_observation_html: report.observationHtml,
+    p_created_at: report.createdAt,
+    p_updated_at: report.updatedAt,
+    p_submitted_at: report.submittedAt ?? null,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) {
+      throw new Error(
+        "Servidor não atualizado: RPC mode_b_upsert_coordinator_monthly_report ausente. Aplique a migração 0020_mode_b_monthly_reports.sql no Supabase.",
+      );
+    }
+    throw rpcErr;
+  }
 }

@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { MonthlyReport } from "@/types/monthly-report";
+import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
 function mapRow(row: any): MonthlyReport {
   return {
@@ -18,19 +20,84 @@ function mapRow(row: any): MonthlyReport {
   };
 }
 
+function getModeBStaffCreds(): { login: string; password: string } | null {
+  const tLogin = getTeacherSessionLogin();
+  const tPw = getTeacherSessionPassword();
+  if (tLogin && tPw) return { login: tLogin, password: tPw };
+
+  const cLogin = getCoordinatorSessionLogin();
+  const cPw = getCoordinatorSessionPassword();
+  if (cLogin && cPw) return { login: cLogin, password: cPw };
+
+  return null;
+}
+
+function isRpcMissingErrorMessage(msgLower: string) {
+  return (
+    msgLower.includes("does not exist") ||
+    (msgLower.includes("function") && msgLower.includes("mode_b_")) ||
+    msgLower.includes("mode_b_list_monthly_reports") ||
+    msgLower.includes("mode_b_upsert_monthly_report")
+  );
+}
+
 export async function fetchMonthlyReportsRemote(projectId: string) {
   if (!supabase) return [] as MonthlyReport[];
+
   const { data, error } = await supabase
     .from("monthly_reports")
     .select("*")
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false });
-  if (error || !data) return [];
-  return data.map(mapRow);
+
+  if (!error && Array.isArray(data)) {
+    return data.map(mapRow);
+  }
+
+  // Fallback (Modo B): SELECT pode falhar por RLS (sem auth.uid). Usa RPC SECURITY DEFINER.
+  const creds = getModeBStaffCreds();
+  if (!creds) {
+    if (error) throw error;
+    return [];
+  }
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_monthly_reports", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_project_id: projectId,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) {
+      throw new Error(
+        "Servidor não atualizado: RPC mode_b_list_monthly_reports ausente. Aplique a migração 0020_mode_b_monthly_reports.sql no Supabase.",
+      );
+    }
+    throw rpcErr;
+  }
+
+  return ((rpcData as any[]) || []).map((r) =>
+    mapRow({
+      ...r,
+      // RPC retorna snake_case já, mas garantimos compatibilidade.
+      project_id: r.project_id,
+      teacher_id: r.teacher_id,
+      strategy_html: r.strategy_html,
+      adaptation_html: r.adaptation_html,
+      observation_html: r.observation_html,
+      reflexive_student_id: r.reflexive_student_id,
+      positive_student_id: r.positive_student_id,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      submitted_at: r.submitted_at,
+    }),
+  );
 }
 
 export async function upsertMonthlyReportRemote(report: MonthlyReport) {
   if (!supabase) return;
+
   const row = {
     id: report.id,
     project_id: report.projectId,
@@ -47,5 +114,36 @@ export async function upsertMonthlyReportRemote(report: MonthlyReport) {
   };
 
   const { error } = await supabase.from("monthly_reports").upsert(row);
-  if (error) throw error;
+  if (!error) return;
+
+  // Fallback (Modo B)
+  const creds = getModeBStaffCreds();
+  if (!creds) throw error;
+
+  const { error: rpcErr } = await supabase.rpc("mode_b_upsert_monthly_report", {
+    p_login: creds.login,
+    p_password: creds.password,
+    p_id: report.id,
+    p_project_id: report.projectId,
+    p_teacher_id: report.teacherId,
+    p_month: report.month,
+    p_strategy_html: report.strategyHtml,
+    p_adaptation_html: report.adaptationHtml,
+    p_observation_html: report.observationHtml,
+    p_reflexive_student_id: report.reflexiveStudentId ?? null,
+    p_positive_student_id: report.positiveStudentId ?? null,
+    p_created_at: report.createdAt,
+    p_updated_at: report.updatedAt,
+    p_submitted_at: report.submittedAt ?? null,
+  });
+
+  if (rpcErr) {
+    const msg = String(rpcErr.message || "").toLowerCase();
+    if (isRpcMissingErrorMessage(msg)) {
+      throw new Error(
+        "Servidor não atualizado: RPC mode_b_upsert_monthly_report ausente. Aplique a migração 0020_mode_b_monthly_reports.sql no Supabase.",
+      );
+    }
+    throw rpcErr;
+  }
 }

@@ -123,6 +123,7 @@ export default function MonthlyReports() {
   );
 
   const [projectNonce, setProjectNonce] = useState(0);
+  const [reportsNonce, setReportsNonce] = useState(0);
 
   // Em domínio novo/localStorage vazio, pode não existir projeto ativo ainda.
   React.useEffect(() => {
@@ -225,8 +226,11 @@ export default function MonthlyReports() {
           coordinatorMonthlyReportsService.fetchReports(projectId),
         ]);
 
-        saveAllMonthlyReports(projectId, teacherRemote);
-        saveAllCoordinatorMonthlyReports(projectId, coordRemote);
+        // Evita sobrescrever cache local com vazio (ex.: RLS/RPC ausente). Só atualiza quando vier conteúdo.
+        if (teacherRemote.length) saveAllMonthlyReports(projectId, teacherRemote);
+        if (coordRemote.length) saveAllCoordinatorMonthlyReports(projectId, coordRemote);
+
+        setReportsNonce((x) => x + 1);
       } catch (e: any) {
         showError(e?.message || "Não foi possível carregar os dados do relatório mensal.");
       }
@@ -239,13 +243,15 @@ export default function MonthlyReports() {
 
   const teacherReportsAll = useMemo(() => {
     if (!projectId) return [];
+    void reportsNonce;
     return getAllMonthlyReports(projectId);
-  }, [projectId]);
+  }, [projectId, reportsNonce]);
 
   const coordinatorReportsAll = useMemo(() => {
     if (!projectId) return [];
+    void reportsNonce;
     return getAllCoordinatorMonthlyReports(projectId);
-  }, [projectId]);
+  }, [projectId, reportsNonce]);
 
   const reports = useMemo(() => {
     if (isTeacherArea) {
@@ -289,7 +295,7 @@ export default function MonthlyReports() {
 
     // Admin/Coordinator area: try teacher report first, then coordinator report
     return getMonthlyReportById(projectId, reportId) || getCoordinatorMonthlyReportById(projectId, reportId);
-  }, [projectId, reportId, reports.length, isTeacherArea, isCoordinatorArea]);
+  }, [projectId, reportId, reports.length, isTeacherArea, isCoordinatorArea, reportsNonce]);
 
   const [draft, setDraft] = useState<(MonthlyReport & { authorRole?: "teacher" | "coordinator" }) | null>(null);
 
@@ -377,6 +383,7 @@ export default function MonthlyReports() {
       };
 
       upsertMonthlyReport(projectId, next);
+      setReportsNonce((x) => x + 1);
       showSuccess("Relatório criado. Preencha e clique em Enviar.");
       navigate(`${basePath}/${next.id}`);
       return;
@@ -405,24 +412,34 @@ export default function MonthlyReports() {
       };
 
       upsertCoordinatorMonthlyReport(projectId, next);
+      setReportsNonce((x) => x + 1);
       showSuccess("Relatório do coordenador criado. Preencha e clique em Enviar.");
       navigate(`${basePath}/${next.id}`);
       return;
     }
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!projectId || !draft) return;
     if (!canEdit) return;
 
     const next = { ...(draft as any), updatedAt: new Date().toISOString() };
-    if (draft.authorRole === "teacher") {
-      upsertMonthlyReport(projectId, next);
-    } else {
-      upsertCoordinatorMonthlyReport(projectId, next);
+
+    try {
+      if (draft.authorRole === "teacher") {
+        upsertMonthlyReport(projectId, next);
+        await monthlyReportsService.upsertReport(next);
+      } else {
+        upsertCoordinatorMonthlyReport(projectId, next);
+        await coordinatorMonthlyReportsService.upsertReport(next);
+      }
+
+      setDraft(next);
+      setReportsNonce((x) => x + 1);
+      showSuccess("Rascunho salvo.");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível salvar o rascunho.");
     }
-    setDraft(next);
-    showSuccess("Rascunho salvo.");
   };
 
   const submitReport = async () => {
@@ -446,6 +463,7 @@ export default function MonthlyReports() {
       }
 
       setDraft(next);
+      setReportsNonce((x) => x + 1);
       setConfirmSubmitOpen(false);
       showSuccess("Relatório enviado/atualizado.");
     } catch (e: any) {
