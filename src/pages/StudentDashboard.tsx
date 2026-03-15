@@ -5,8 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { IdCard, GraduationCap, CalendarDays, FileCheck2 } from "lucide-react";
 
 import type { AttendanceStatus } from "@/types/attendance";
@@ -19,7 +21,8 @@ import {
   getStudentSessionStudentId,
 } from "@/utils/student-auth";
 import { getActiveProject, getActiveProjectId } from "@/utils/projects";
-import { fetchModeBStudentMonthSchedule } from "@/services/modeBService";
+import { fetchModeBStudentMonthSchedule, setModeBStudentJustification } from "@/services/modeBService";
+import { showError, showSuccess } from "@/utils/toast";
 
 function toYMD(d: Date) {
   const y = d.getFullYear();
@@ -49,6 +52,7 @@ type LessonRow = {
   endTime: string;
   finalizedAt: string | null;
   status: AttendanceStatus | null;
+  justificationMessage: string | null;
 };
 
 function statusMeta(status: AttendanceStatus): { label: string; accentClass: string; badgeClass: string } {
@@ -135,6 +139,9 @@ export default function StudentDashboard() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<LessonRow | null>(null);
 
+  const [justifyText, setJustifyText] = useState("");
+  const [justifySaving, setJustifySaving] = useState(false);
+
   const todayYmd = useMemo(() => toYMD(new Date()), []);
 
   useEffect(() => {
@@ -167,6 +174,7 @@ export default function StudentDashboard() {
             endTime: r.end_time,
             finalizedAt: r.finalized_at,
             status: (r.status as AttendanceStatus | null) || null,
+            justificationMessage: r.justification_message,
           })),
         );
       } finally {
@@ -193,7 +201,49 @@ export default function StudentDashboard() {
 
   const openDetails = (r: LessonRow) => {
     setDetailTarget(r);
+    setJustifyText(r.justificationMessage || "");
     setDetailOpen(true);
+  };
+
+  const saveJustification = async () => {
+    if (!projectId || !studentId || !detailTarget) return;
+
+    // Regra: só pode justificar enquanto a chamada NÃO estiver fechada.
+    if (detailTarget.finalizedAt) {
+      showError("A chamada já foi fechada. Não é mais possível enviar justificativa.");
+      return;
+    }
+
+    const message = justifyText.trim();
+    if (!message) {
+      showError("Escreva uma justificativa antes de enviar.");
+      return;
+    }
+
+    setJustifySaving(true);
+    try {
+      await setModeBStudentJustification({
+        projectId,
+        classId: detailTarget.classId,
+        studentId,
+        ymd: detailTarget.ymd,
+        message,
+      });
+
+      setRows((prev) =>
+        prev.map((x) =>
+          x.classId === detailTarget.classId && x.ymd === detailTarget.ymd
+            ? { ...x, justificationMessage: message }
+            : x,
+        ),
+      );
+      setDetailTarget((prev) => (prev ? { ...prev, justificationMessage: message } : prev));
+      showSuccess("Justificativa enviada.");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível salvar a justificativa.");
+    } finally {
+      setJustifySaving(false);
+    }
   };
 
   if (!student) {
@@ -210,6 +260,7 @@ export default function StudentDashboard() {
   }
 
   const detailStatus = detailTarget?.status && detailTarget?.finalizedAt ? statusMeta(detailTarget.status) : null;
+  const canJustify = Boolean(detailTarget) && !detailTarget?.finalizedAt;
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -256,6 +307,56 @@ export default function StudentDashboard() {
                   <span className="text-slate-900 font-black text-right">Não informado</span>
                 </div>
               </div>
+
+              <Separator />
+
+              {canJustify ? (
+                <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Justificar falta</p>
+                  <Textarea
+                    className="mt-3 min-h-[120px] rounded-2xl border-slate-200 font-bold bg-white"
+                    value={justifyText}
+                    onChange={(e) => setJustifyText(e.target.value)}
+                    placeholder="Escreva sua justificativa..."
+                    disabled={justifySaving}
+                  />
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      type="button"
+                      className="h-11 rounded-2xl font-black"
+                      onClick={saveJustification}
+                      disabled={justifySaving}
+                    >
+                      {justifySaving ? "Enviando…" : "Enviar justificativa"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 rounded-2xl font-black border-slate-200"
+                      onClick={() => setDetailOpen(false)}
+                      disabled={justifySaving}
+                    >
+                      Fechar
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-sm font-black text-slate-800">Justificativa</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    A chamada já foi fechada. Não é possível enviar/editar justificativa.
+                  </p>
+
+                  {detailTarget.justificationMessage ? (
+                    <div className="mt-3 rounded-2xl border border-slate-100 bg-white p-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Enviada</p>
+                      <p className="mt-2 text-sm font-bold text-slate-700 whitespace-pre-wrap">
+                        {detailTarget.justificationMessage}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
