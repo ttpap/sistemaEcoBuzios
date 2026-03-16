@@ -28,7 +28,7 @@ import {
 } from "@/services/attendanceService";
 
 import {
-  fetchStudentJustificationsRemote,
+  fetchStudentJustificationsForClassMonthRemote,
   type StudentJustification,
 } from "@/services/studentJustificationsService";
 
@@ -172,17 +172,12 @@ export default function ClassAttendance({
       if (!activeProjectId) {
         setSessions([]);
         setSelectedId(null);
-        setJustifications([]);
         return;
       }
 
-      const [sess, just] = await Promise.all([
-        fetchAttendanceSessionsRemote(activeProjectId, classId),
-        fetchStudentJustificationsRemote(activeProjectId),
-      ]);
+      const sess = await fetchAttendanceSessionsRemote(activeProjectId, classId);
 
       setSessions(sess);
-      setJustifications(just.filter((j) => j.classId === classId));
       setSelectedId((prev) => {
         if (prev && sess.some((s) => s.id === prev)) return prev;
         const today = sess.find((s) => s.date === todayYmd);
@@ -192,6 +187,41 @@ export default function ClassAttendance({
 
     void run();
   }, [activeProjectId, classId, todayYmd]);
+
+  const monthKeysStr = useMemo(() => {
+    const keys = new Set<string>();
+    for (const s of sessions) keys.add(monthKeyFromYmd(s.date));
+    return Array.from(keys).sort().join(",");
+  }, [sessions]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!activeProjectId) {
+        setJustifications([]);
+        return;
+      }
+
+      const monthKeys = monthKeysStr ? monthKeysStr.split(",") : [];
+      if (!monthKeys.length) {
+        setJustifications([]);
+        return;
+      }
+
+      const parts = await Promise.all(
+        monthKeys.map((month) =>
+          fetchStudentJustificationsForClassMonthRemote({
+            projectId: activeProjectId,
+            classId,
+            month,
+          }),
+        ),
+      );
+
+      setJustifications(parts.flat());
+    };
+
+    void run();
+  }, [activeProjectId, classId, monthKeysStr]);
 
   const selectedSession = useMemo(
     () => sessions.find((s) => s.id === selectedId) || null,
