@@ -58,6 +58,7 @@ import StudentLogin from "./pages/StudentLogin";
 import CoordinatorLogin from "@/pages/CoordinatorLogin";
 import EnelReport from "@/pages/EnelReport";
 import SupabaseSettings from "@/pages/SupabaseSettings";
+import StudentEnrollmentLink from "@/pages/StudentEnrollmentLink";
 
 const queryClient = new QueryClient();
 
@@ -125,6 +126,14 @@ const App = () => (
                     <Routes>
                       <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
                       <Route path="conta" element={<TeacherAccount />} />
+                      <Route
+                        path="links-inscricao"
+                        element={
+                          <TeacherActiveProjectGate>
+                            <StudentEnrollmentLink />
+                          </TeacherActiveProjectGate>
+                        }
+                      />
                       <Route
                         index
                         element={
@@ -369,6 +378,14 @@ const App = () => (
                     <Routes>
                       <Route path="selecionar-projeto" element={<CoordinatorSelectProject />} />
                       <Route path="conta" element={<CoordinatorAccount />} />
+                      <Route
+                        path="links-inscricao"
+                        element={
+                          <CoordinatorActiveProjectGate>
+                            <StudentEnrollmentLink />
+                          </CoordinatorActiveProjectGate>
+                        }
+                      />
                       <Route
                         index
                         element={
