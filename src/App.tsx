@@ -59,6 +59,7 @@ import StudentLogin from "./pages/StudentLogin";
 import CoordinatorLogin from "@/pages/CoordinatorLogin";
 import EnelReport from "@/pages/EnelReport";
 import SupabaseSettings from "@/pages/SupabaseSettings";
+import AdminAccount from "@/pages/AdminAccount";
 import StudentEnrollmentLink from "@/pages/StudentEnrollmentLink";
 
 const queryClient = new QueryClient();
@@ -259,6 +260,7 @@ const App = () => (
                     <Routes>
                       <Route path="/projetos" element={<Projects />} />
                       <Route path="/supabase" element={<SupabaseSettings />} />
+                      <Route path="/conta" element={<AdminAccount />} />
 
                       <Route path="/links-inscricao" element={<AdminRegistrationLinks />} />
 

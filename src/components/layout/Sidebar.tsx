@@ -16,6 +16,7 @@ import {
   NotebookPen,
   Link2,
   Database,
+  UserCog,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -37,6 +38,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
       { icon: Link2, label: 'Links de inscrição', path: '/links-inscricao' },
       { icon: Database, label: 'Supabase', path: '/supabase' },
+      { icon: UserCog, label: 'Minha conta', path: '/conta' },
     ];
 
     // Mostra Alunos/Turmas assim que existe um projeto ativo (id no storage),
