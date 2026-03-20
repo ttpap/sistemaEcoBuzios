@@ -49,6 +49,8 @@ import {
   fetchStudentJustificationsRemote,
   type StudentJustification,
 } from "@/services/studentJustificationsService";
+import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
+import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
@@ -104,15 +106,61 @@ async function fetchActiveEnrollmentsByProject(projectId: string): Promise<Enrol
   return enrollmentsService.listActiveByProject({ projectId, modeBCreds: getModeBStaffCreds() });
 }
 
-export default function Dashboard() {
+// ── Feriados ──────────────────────────────────────────────────────────────
+type HolidayEntry = { date: string; name: string; type: "nacional" | "rj" };
+
+function computeEaster(year: number): Date {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+function getYearHolidays(year: number): HolidayEntry[] {
+  const easter = computeEaster(year);
+  const shift = (n: number) => { const d = new Date(easter); d.setDate(d.getDate() + n); return d; };
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return [
+    { date: `${year}-01-01`, name: "Confraternização Universal", type: "nacional" },
+    { date: `${year}-01-20`, name: "São Sebastião", type: "rj" },
+    { date: fmt(shift(-48)), name: "Carnaval (2ª feira)", type: "nacional" },
+    { date: fmt(shift(-47)), name: "Carnaval (3ª feira)", type: "nacional" },
+    { date: fmt(shift(-2)), name: "Paixão de Cristo", type: "nacional" },
+    { date: `${year}-04-21`, name: "Tiradentes", type: "nacional" },
+    { date: `${year}-04-23`, name: "São Jorge", type: "rj" },
+    { date: `${year}-05-01`, name: "Dia do Trabalho", type: "nacional" },
+    { date: fmt(shift(60)), name: "Corpus Christi", type: "nacional" },
+    { date: `${year}-09-07`, name: "Independência do Brasil", type: "nacional" },
+    { date: `${year}-10-12`, name: "Nossa Sra. Aparecida", type: "nacional" },
+    { date: `${year}-11-02`, name: "Finados", type: "nacional" },
+    { date: `${year}-11-15`, name: "Proclamação da República", type: "nacional" },
+    { date: `${year}-11-20`, name: "Consciência Negra", type: "nacional" },
+    { date: `${year}-12-25`, name: "Natal", type: "nacional" },
+  ].sort((a, b) => a.date.localeCompare(b.date));
+}
+// ──────────────────────────────────────────────────────────────────────────
+
+export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "professor" | "coordenador" } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
-  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const base = useMemo(
+    () => embeddedForRole
+      ? (`/${embeddedForRole}` as AreaBase)
+      : getAreaBaseFromPathname(location.pathname),
+    [location.pathname, embeddedForRole],
+  );
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
+  const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -237,8 +285,15 @@ export default function Dashboard() {
 
       if (projectId) {
         setJustifications(await fetchStudentJustificationsRemote(projectId));
+        try {
+          const sessions = await fetchAttendanceSessionsRemote(projectId);
+          setAttendanceSessions(sessions);
+        } catch {
+          // ignore
+        }
       } else {
         setJustifications([]);
+        setAttendanceSessions([]);
       }
     };
 
@@ -421,6 +476,54 @@ export default function Dashboard() {
     [thisMonth],
   );
 
+  const holidays = useMemo(() => getYearHolidays(today.getFullYear()), []);
+
+  const holidayDatesThisMonth = useMemo(
+    () => holidays
+      .filter((h) => h.date.startsWith(thisMonth))
+      .map((h) => { const [y, m, d] = h.date.split("-").map(Number); return new Date(y, m - 1, d); }),
+    [holidays, thisMonth],
+  );
+
+  const attendanceStats = useMemo(() => {
+    const finalized = attendanceSessions.filter((s) => s.finalizedAt);
+
+    // Mês atual
+    const monthSessions = finalized.filter((s) => s.date.startsWith(thisMonth));
+    const mc = { presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+    let monthTotal = 0;
+    for (const s of monthSessions) {
+      for (const st of Object.values(s.records || {})) {
+        if (st in mc) { (mc as any)[st]++; monthTotal++; }
+      }
+    }
+
+    // Por mês no ano corrente
+    const year = new Date().getFullYear();
+    const perMonth = Array.from({ length: 12 }, (_, i) => {
+      const mk = `${year}-${String(i + 1).padStart(2, "0")}`;
+      const mSess = finalized.filter((s) => s.date.startsWith(mk));
+      const c = { presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+      for (const s of mSess) {
+        for (const st of Object.values(s.records || {})) {
+          if (st in c) (c as any)[st]++;
+        }
+      }
+      return { monthKey: mk, ...c };
+    });
+
+    const activeMonths = perMonth.filter((m) => m.presente + m.falta + m.atrasado + m.justificada > 0);
+    const n = activeMonths.length || 1;
+    const annualAvg = {
+      presente: Math.round(activeMonths.reduce((a, m) => a + m.presente, 0) / n),
+      falta: Math.round(activeMonths.reduce((a, m) => a + m.falta, 0) / n),
+      atrasado: Math.round(activeMonths.reduce((a, m) => a + m.atrasado, 0) / n),
+      justificada: Math.round(activeMonths.reduce((a, m) => a + m.justificada, 0) / n),
+    };
+
+    return { mc, monthTotal, perMonth, annualAvg, hasData: finalized.length > 0, activeMonths: activeMonths.length };
+  }, [attendanceSessions, thisMonth]);
+
   const openStudent = (s: StudentRegistration) => {
     setSelectedStudent(s);
     setIsStudentDialogOpen(true);
@@ -428,7 +531,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {justificationCount > 0 && (
+      {justificationCount > 0 && !embeddedForRole && (
         <>
           <Alert
             variant="destructive"
@@ -716,41 +819,62 @@ export default function Dashboard() {
       </Card>
 
       {/* Insights */}
-      <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+      <div className={base === "" ? "grid gap-6 lg:grid-cols-[420px_1fr]" : ""}>
         {/* Calendar */}
         <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
           <CardHeader className="p-6 md:p-8 pb-4">
             <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
               <CalendarDays className="h-5 w-5" /> Calendário do mês
             </CardTitle>
-            <p className="text-slate-500 font-medium mt-1">Dias com chamada ficam marcados.</p>
+            <p className="text-slate-500 font-medium mt-1">Chamadas marcadas · feriados destacados.</p>
           </CardHeader>
-          <CardContent className="p-6 md:p-8 pt-2">
+          <CardContent className="p-6 md:p-8 pt-2 space-y-4">
             <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-3">
               <Calendar
                 mode="single"
                 month={today}
                 selected={undefined}
                 onSelect={() => {}}
-                modifiers={{ attendance: attendanceDatesThisMonth }}
+                modifiers={{ attendance: attendanceDatesThisMonth, holiday: holidayDatesThisMonth }}
                 modifiersClassNames={{
                   attendance:
                     "relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary",
+                  holiday: "!bg-orange-100 !text-orange-800 !rounded-full font-black",
                 }}
                 className="rounded-2xl"
               />
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white border border-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                {attendanceDatesThisMonth.length} dia(s) com chamada
-              </span>
+            {/* Feriados do mês vigente */}
+            {holidayDatesThisMonth.length > 0 && (
+            <div className="rounded-[2rem] border border-orange-100 bg-orange-50/50 p-5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-orange-400 mb-3">
+                Feriados de {new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(today)}
+              </p>
+              <div className="space-y-1.5">
+                {holidays.filter((h) => h.date.startsWith(thisMonth)).map((h) => {
+                  const [y, m, d] = h.date.split("-").map(Number);
+                  const dt = new Date(y, m - 1, d);
+                  return (
+                    <div key={h.date} className="flex items-center gap-2 text-xs font-bold">
+                      <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${h.type === "rj" ? "bg-orange-400" : "bg-primary"}`} />
+                      <span className="text-slate-500 shrink-0 w-12">
+                        {dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                      </span>
+                      <span className="text-slate-700">{h.name}</span>
+                      {h.type === "rj" && (
+                        <span className="ml-auto text-[9px] font-black text-orange-600 bg-orange-100 border border-orange-200 rounded-full px-1.5 py-0.5">RJ</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* School / institutions */}
-        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+        {/* School / institutions — apenas admin */}
+        {base === "" && <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
           <CardHeader className="p-6 md:p-8 pb-2">
             <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
               <School className="h-5 w-5" /> Escolaridade / Instituições
@@ -893,11 +1017,11 @@ export default function Dashboard() {
               </div>
             </button>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
-      {/* Neighborhoods */}
-      <button
+      {/* Neighborhoods — apenas admin */}
+      {base === "" && <button
         type="button"
         className="w-full text-left"
         onClick={() =>
@@ -968,7 +1092,97 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      </button>
+      </button>}
+
+      {/* FREQUÊNCIA — gráfico de roda (pizza) */}
+      {attendanceStats.hasData && (
+        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="p-6 md:p-8 pb-4">
+            <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5" /> Frequência do Projeto
+            </CardTitle>
+            <p className="text-slate-500 font-medium mt-1">Distribuição de presenças, faltas, atrasos e justificativas.</p>
+          </CardHeader>
+          <CardContent className="p-6 md:p-8 pt-0">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Gráfico mês atual */}
+              {attendanceStats.monthTotal > 0 && (() => {
+                const chartData = [
+                  { name: "Presenças", value: attendanceStats.mc.presente, color: "#10b981" },
+                  { name: "Faltas", value: attendanceStats.mc.falta, color: "#ef4444" },
+                  { name: "Atrasos", value: attendanceStats.mc.atrasado, color: "#f59e0b" },
+                  { name: "Justificativas", value: attendanceStats.mc.justificada, color: "#8b5cf6" },
+                ].filter((d) => d.value > 0);
+                return (
+                  <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Este mês</p>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={chartData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                            {chartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [`${v} (${Math.round((v / attendanceStats.monthTotal) * 100)}%)`, n]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 space-y-1.5">
+                      {chartData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />{d.name}</div>
+                          <span className="font-black text-slate-800">{d.value} · {Math.round((d.value / attendanceStats.monthTotal) * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Gráfico média anual */}
+              {attendanceStats.activeMonths > 0 && (() => {
+                const annual = { presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+                let annualTotal = 0;
+                for (const m of attendanceStats.perMonth) {
+                  annual.presente += m.presente; annual.falta += m.falta;
+                  annual.atrasado += m.atrasado; annual.justificada += m.justificada;
+                  annualTotal += m.presente + m.falta + m.atrasado + m.justificada;
+                }
+                const chartData = [
+                  { name: "Presenças", value: annual.presente, color: "#10b981" },
+                  { name: "Faltas", value: annual.falta, color: "#ef4444" },
+                  { name: "Atrasos", value: annual.atrasado, color: "#f59e0b" },
+                  { name: "Justificativas", value: annual.justificada, color: "#8b5cf6" },
+                ].filter((d) => d.value > 0);
+                return (
+                  <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Acumulado {new Date().getFullYear()} ({attendanceStats.activeMonths} mes{attendanceStats.activeMonths !== 1 ? "es" : ""})
+                    </p>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={chartData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                            {chartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [`${v} (${annualTotal > 0 ? Math.round((v / annualTotal) * 100) : 0}%)`, n]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 space-y-1.5">
+                      {chartData.map((d) => (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />{d.name}</div>
+                          <span className="font-black text-slate-800">{d.value} · {annualTotal > 0 ? Math.round((d.value / annualTotal) * 100) : 0}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
+import Dashboard from '@/pages/Dashboard';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
@@ -52,6 +53,7 @@ const ClassDetails = () => {
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
+  const [dashboardRole, setDashboardRole] = useState<"professor" | "coordenador">("professor");
 
   useEffect(() => {
     const run = async () => {
@@ -353,6 +355,11 @@ const ClassDetails = () => {
           <TabsTrigger value="chamada" className="rounded-xl font-black">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Chamada
           </TabsTrigger>
+          {base === "" && (
+            <TabsTrigger value="dashboard" className="rounded-xl font-black">
+              <Eye className="h-4 w-4 mr-2" /> Dashboard
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="geral" className="mt-8">
@@ -561,6 +568,38 @@ const ClassDetails = () => {
         <TabsContent value="chamada" className="mt-8">
           <ClassAttendance classId={schoolClass.id} students={classStudents} />
         </TabsContent>
+
+        {base === "" && (
+          <TabsContent value="dashboard" className="mt-6">
+            {/* Seletor de papel */}
+            <div className="flex items-center gap-2 mb-6">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mr-2">Ver como:</p>
+              <button
+                type="button"
+                onClick={() => setDashboardRole("professor")}
+                className={`rounded-2xl px-4 py-2 text-sm font-black border transition-colors ${
+                  dashboardRole === "professor"
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Professor
+              </button>
+              <button
+                type="button"
+                onClick={() => setDashboardRole("coordenador")}
+                className={`rounded-2xl px-4 py-2 text-sm font-black border transition-colors ${
+                  dashboardRole === "coordenador"
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Coordenador
+              </button>
+            </div>
+            <Dashboard embeddedForRole={dashboardRole} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <StudentDetailsDialog

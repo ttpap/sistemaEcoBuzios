@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import {
@@ -26,7 +26,23 @@ import {
   Clock,
   Edit2,
   KeyRound,
+  BarChart2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { fetchModeBStudentMonthSchedule } from "@/services/modeBService";
+import type { ModeBStudentMonthRow } from "@/integrations/supabase/mode-b";
+import { getActiveProjectId } from "@/utils/projects";
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
 import { readScoped } from "@/utils/storage";
@@ -118,6 +134,118 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     };
   }, [student, isOpen]);
 
+  // ── Frequência tab state ─────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("pessoais");
+  const [freqMonth, setFreqMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [freqRows, setFreqRows] = useState<ModeBStudentMonthRow[]>([]);
+  const [freqYearRows, setFreqYearRows] = useState<ModeBStudentMonthRow[]>([]);
+  const [freqLoading, setFreqLoading] = useState(false);
+
+  // Reset when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab("pessoais");
+      setFreqRows([]);
+      setFreqYearRows([]);
+    }
+  }, [isOpen]);
+
+  // Load month data
+  useEffect(() => {
+    if (activeTab !== "frequencia" || !student || !isOpen) return;
+    const projectId = getActiveProjectId();
+    if (!projectId) return;
+    let cancelled = false;
+    setFreqLoading(true);
+    fetchModeBStudentMonthSchedule({ projectId, studentId: student.id, month: freqMonth })
+      .then((data) => { if (!cancelled) setFreqRows(data || []); })
+      .catch(() => { if (!cancelled) setFreqRows([]); })
+      .finally(() => { if (!cancelled) setFreqLoading(false); });
+    return () => { cancelled = true; };
+  }, [activeTab, student?.id, freqMonth, isOpen]);
+
+  // Load year data (once per dialog open + tab activation)
+  useEffect(() => {
+    if (activeTab !== "frequencia" || !student || !isOpen) return;
+    const projectId = getActiveProjectId();
+    if (!projectId) return;
+    let cancelled = false;
+    const year = new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+    void Promise.all(months.map((m) => fetchModeBStudentMonthSchedule({ projectId, studentId: student.id, month: m })))
+      .then((results) => { if (!cancelled) setFreqYearRows(results.flat()); })
+      .catch(() => { if (!cancelled) setFreqYearRows([]); });
+    return () => { cancelled = true; };
+  }, [activeTab, student?.id, isOpen]);
+
+  const freqCalendarModifiers = useMemo(() => {
+    const presente: Date[] = [], falta: Date[] = [], atrasado: Date[] = [];
+    const justificada: Date[] = [], agendada: Date[] = [];
+    for (const r of freqRows) {
+      const d = new Date(`${r.ymd}T00:00:00`);
+      if (r.finalized_at && r.status) {
+        if (r.status === "presente") presente.push(d);
+        else if (r.status === "falta") falta.push(d);
+        else if (r.status === "atrasado") atrasado.push(d);
+        else if (r.status === "justificada") justificada.push(d);
+      } else { agendada.push(d); }
+    }
+    return { "cal-presente": presente, "cal-falta": falta, "cal-atrasado": atrasado, "cal-justificada": justificada, "cal-agendada": agendada };
+  }, [freqRows]);
+
+  const freqMonthTotals = useMemo(() => {
+    const fin = freqRows.filter((r) => r.finalized_at);
+    return {
+      presente: fin.filter((r) => r.status === "presente").length,
+      falta: fin.filter((r) => r.status === "falta").length,
+      atrasado: fin.filter((r) => r.status === "atrasado").length,
+      justificada: fin.filter((r) => r.status === "justificada").length,
+      total: fin.length,
+    };
+  }, [freqRows]);
+
+  const freqAnnualTotals = useMemo(() => {
+    const fin = freqYearRows.filter((r) => r.finalized_at);
+    return {
+      presente: fin.filter((r) => r.status === "presente").length,
+      falta: fin.filter((r) => r.status === "falta").length,
+      atrasado: fin.filter((r) => r.status === "atrasado").length,
+      justificada: fin.filter((r) => r.status === "justificada").length,
+      total: fin.length,
+    };
+  }, [freqYearRows]);
+
+  const freqYearChartData = useMemo(() => {
+    const year = new Date().getFullYear();
+    const labels = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    return Array.from({ length: 12 }, (_, i) => {
+      const mk = `${year}-${String(i + 1).padStart(2, "0")}`;
+      const mRows = freqYearRows.filter((r) => r.ymd.startsWith(mk) && r.finalized_at);
+      return {
+        mes: labels[i],
+        Presente: mRows.filter((r) => r.status === "presente").length,
+        Atraso: mRows.filter((r) => r.status === "atrasado").length,
+        Justificada: mRows.filter((r) => r.status === "justificada").length,
+        Falta: mRows.filter((r) => r.status === "falta").length,
+      };
+    });
+  }, [freqYearRows]);
+
+  const freqMonthDate = useMemo(() => new Date(`${freqMonth}-01T00:00:00`), [freqMonth]);
+  const freqMonthLabel = useMemo(
+    () => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(freqMonthDate),
+    [freqMonthDate],
+  );
+  const navFreqMonth = (dir: 1 | -1) => {
+    const d = new Date(`${freqMonth}-01T00:00:00`);
+    d.setMonth(d.getMonth() + dir);
+    setFreqMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (!student) return null;
 
   const onEdit = () => {
@@ -207,7 +335,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
           <div className="min-w-[720px] md:min-w-0 p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
-            <Tabs defaultValue="pessoais" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">
                   <User className="h-4 w-4 mr-2" />
@@ -240,6 +368,10 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 <TabsTrigger value="sistema" className="rounded-xl font-black">
                   <Info className="h-4 w-4 mr-2" />
                   Sistema
+                </TabsTrigger>
+                <TabsTrigger value="frequencia" className="rounded-xl font-black">
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  Frequência
                 </TabsTrigger>
               </TabsList>
 
@@ -485,6 +617,141 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   />
                   <Row label="ID interno" value={student.id} />
                 </div>
+              </TabsContent>
+
+              <TabsContent value="frequencia" className="mt-6 space-y-6">
+                {/* Navegação de mês */}
+                <div className="flex items-center justify-between gap-3 rounded-[2rem] border border-slate-100 bg-slate-50 px-5 py-3">
+                  <button
+                    type="button"
+                    onClick={() => navFreqMonth(-1)}
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-slate-600" />
+                  </button>
+                  <p className="font-black text-primary capitalize">{freqMonthLabel}</p>
+                  <button
+                    type="button"
+                    onClick={() => navFreqMonth(1)}
+                    className="h-9 w-9 rounded-xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50"
+                  >
+                    <ChevronRight className="h-4 w-4 text-slate-600" />
+                  </button>
+                </div>
+
+                {/* Calendário */}
+                <div className="rounded-[2rem] border border-slate-100 bg-white p-4">
+                  {freqLoading ? (
+                    <p className="py-10 text-center text-sm font-bold text-slate-400">Carregando...</p>
+                  ) : (
+                    <>
+                      <Calendar
+                        mode="single"
+                        month={freqMonthDate}
+                        onMonthChange={(d) => setFreqMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)}
+                        selected={undefined}
+                        onSelect={() => {}}
+                        modifiers={freqCalendarModifiers}
+                        modifiersClassNames={{
+                          "cal-presente": "!bg-emerald-500 !text-white !rounded-full font-black",
+                          "cal-falta": "!bg-rose-500 !text-white !rounded-full font-black",
+                          "cal-atrasado": "!bg-amber-400 !text-white !rounded-full font-black",
+                          "cal-justificada": "!bg-violet-500 !text-white !rounded-full font-black",
+                          "cal-agendada": "!bg-sky-400 !text-white !rounded-full font-black",
+                        }}
+                        className="rounded-2xl"
+                      />
+                      {/* Legenda */}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {[
+                          { color: "bg-sky-400", label: "Agendada" },
+                          { color: "bg-emerald-500", label: "Presente" },
+                          { color: "bg-amber-400", label: "Atraso" },
+                          { color: "bg-rose-500", label: "Falta" },
+                          { color: "bg-violet-500", label: "Justificada" },
+                        ].map((item) => (
+                          <span key={item.label} className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 border border-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                            <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+                            {item.label}
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Totais do mês */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Totais do mês</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Presenças", value: freqMonthTotals.presente, cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
+                      { label: "Faltas", value: freqMonthTotals.falta, cls: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
+                      { label: "Atrasos", value: freqMonthTotals.atrasado, cls: "bg-amber-500/10 text-amber-700 border-amber-500/20" },
+                      { label: "Justificativas", value: freqMonthTotals.justificada, cls: "bg-violet-500/10 text-violet-700 border-violet-500/20" },
+                    ].map((item) => (
+                      <div key={item.label} className={`rounded-2xl border p-4 ${item.cls}`}>
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">{item.label}</p>
+                        <p className="text-3xl font-black tracking-tight">{item.value}</p>
+                        {freqMonthTotals.total > 0 && (
+                          <p className="text-xs font-bold opacity-70 mt-1">
+                            {Math.round((item.value / freqMonthTotals.total) * 100)}%
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Totais anuais */}
+                {freqAnnualTotals.total > 0 && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Totais anuais — {new Date().getFullYear()}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: "Presenças", value: freqAnnualTotals.presente, cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+                        { label: "Faltas", value: freqAnnualTotals.falta, cls: "bg-rose-50 text-rose-700 border-rose-100" },
+                        { label: "Atrasos", value: freqAnnualTotals.atrasado, cls: "bg-amber-50 text-amber-700 border-amber-100" },
+                        { label: "Justificativas", value: freqAnnualTotals.justificada, cls: "bg-violet-50 text-violet-700 border-violet-100" },
+                      ].map((item) => (
+                        <div key={item.label} className={`rounded-2xl border p-4 ${item.cls}`}>
+                          <p className="text-[10px] font-black uppercase tracking-widest mb-1">{item.label}</p>
+                          <p className="text-3xl font-black tracking-tight">{item.value}</p>
+                          {freqAnnualTotals.total > 0 && (
+                            <p className="text-xs font-bold opacity-70 mt-1">
+                              {Math.round((item.value / freqAnnualTotals.total) * 100)}%
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Gráfico anual */}
+                {freqYearRows.length > 0 && (
+                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
+                      Gráfico anual — {new Date().getFullYear()}
+                    </p>
+                    <div className="h-[260px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={freqYearChartData} margin={{ left: 0, right: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                          <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} />
+                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} />
+                          <Bar dataKey="Presente" fill="#10b981" radius={[6, 6, 0, 0]} stackId="a" />
+                          <Bar dataKey="Atraso" fill="#f59e0b" radius={[0, 0, 0, 0]} stackId="a" />
+                          <Bar dataKey="Justificada" fill="#8b5cf6" radius={[0, 0, 0, 0]} stackId="a" />
+                          <Bar dataKey="Falta" fill="#ef4444" radius={[6, 6, 0, 0]} stackId="a" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
