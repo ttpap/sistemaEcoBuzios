@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileDown, FileText, Loader2, Printer, Zap } from "lucide-react";
 import type { Project } from "@/types/project";
+import type { SchoolClass } from "@/types/class";
 import { useAuth } from "@/context/AuthContext";
 import type { EnelRow } from "@/utils/enel-report-pdf";
 import { generateEnelPdf } from "@/utils/enel-report-pdf";
@@ -13,9 +14,11 @@ import { downloadEnelXls } from "@/utils/enel-report-xls";
 import { printEnelReport } from "@/utils/enel-report-print";
 import { enelReportService } from "@/services/enelReportService";
 import { projectsService } from "@/services/projectsService";
+import { fetchClassesRemoteWithMeta } from "@/services/classesService";
 import { getActiveProjectId } from "@/utils/projects";
 import { showError } from "@/utils/toast";
 import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
+import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -24,21 +27,33 @@ function monthOptions() {
   });
 }
 
+const ALL_CLASSES = "__all__";
+
 export default function EnelReport() {
   const { profile } = useAuth();
 
+  const isTeacher = Boolean(getTeacherSessionTeacherId());
   const canAccess =
     profile?.role === "admin" ||
     profile?.role === "coordinator" ||
+    profile?.role === "teacher" ||
+    Boolean(getCoordinatorSessionLogin()) ||
+    isTeacher;
+
+  // Nº ENEL visível somente para admin/coordenador (não professor)
+  const includeEnelNumber =
+    profile?.role === "admin" ||
+    profile?.role === "coordinator" ||
     Boolean(getCoordinatorSessionLogin());
-  const includeEnelNumber = canAccess; // regra: somente admin/coordenador
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [classes, setClasses] = useState<SchoolClass[]>([]);
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedClassId, setSelectedClassId] = useState<string>(ALL_CLASSES);
   const [month, setMonth] = useState<string>(defaultMonth);
 
   const [loading, setLoading] = useState(false);
@@ -50,7 +65,6 @@ export default function EnelReport() {
         const all = await projectsService.fetchProjectsFromDb();
         setProjects(all);
 
-        // Default: projeto ativo (se existir), senão o primeiro da lista.
         setSelectedProjectId((prev) => {
           if (prev) return prev;
           const active = getActiveProjectId();
@@ -59,13 +73,25 @@ export default function EnelReport() {
         });
       } catch (e: any) {
         setProjects([]);
-        setSelectedProjectId("");
         showError(e?.message || "Não foi possível carregar os projetos.");
       }
     };
-
     void run();
   }, []);
+
+  // Carrega turmas quando o projeto muda
+  useEffect(() => {
+    if (!selectedProjectId) { setClasses([]); return; }
+    const run = async () => {
+      try {
+        const res = await fetchClassesRemoteWithMeta(selectedProjectId);
+        setClasses(res.classes || []);
+      } catch {
+        setClasses([]);
+      }
+    };
+    void run();
+  }, [selectedProjectId]);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) || null,
@@ -81,9 +107,9 @@ export default function EnelReport() {
 
     setLoading(true);
     try {
-      const data = await enelReportService.fetchRows({ projectId: selectedProjectId, month });
+      const classId = selectedClassId !== ALL_CLASSES ? selectedClassId : null;
+      const data = await enelReportService.fetchRows({ projectId: selectedProjectId, month, classId });
 
-      // Se, por regra de acesso, não puder mostrar Nº ENEL, limpamos o campo antes de render/exportar.
       const nextRows = includeEnelNumber
         ? data
         : data.map((r) => ({ ...r, enelClientNumber: "" }));
@@ -105,7 +131,7 @@ export default function EnelReport() {
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">403</p>
             <h1 className="mt-2 text-2xl font-black text-slate-900">Não autorizado</h1>
             <p className="mt-2 text-sm font-medium text-slate-600">
-              O Relatório ENEL está disponível apenas para Administrador e Coordenador.
+              O Relatório ENEL está disponível apenas para Administrador, Coordenador e Professor.
             </p>
           </CardContent>
         </Card>
@@ -122,25 +148,38 @@ export default function EnelReport() {
             <Zap className="h-6 w-6" /> Relatório ENEL
           </h1>
           <p className="text-slate-500 font-medium">
-            Alunos matriculados nas turmas do projeto (1 linha por aluno), filtrado por mês.
+            Alunos matriculados nas turmas do projeto, filtrado por mês e turma.
           </p>
         </div>
       </div>
 
       <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
         <CardContent className="p-8">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Projeto</p>
-              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+              <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); setSelectedClassId(ALL_CLASSES); setRows([]); }}>
                 <SelectTrigger className="rounded-2xl h-12 bg-slate-50/60 border-slate-100">
                   <SelectValue placeholder="Selecione o projeto" />
                 </SelectTrigger>
                 <SelectContent>
                   {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Turma</p>
+              <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setRows([]); }}>
+                <SelectTrigger className="rounded-2xl h-12 bg-slate-50/60 border-slate-100">
+                  <SelectValue placeholder="Todas as turmas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_CLASSES}>Todas as turmas</SelectItem>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -154,9 +193,7 @@ export default function EnelReport() {
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions().map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -170,9 +207,7 @@ export default function EnelReport() {
                 </SelectTrigger>
                 <SelectContent>
                   {Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - i)).map((y) => (
-                    <SelectItem key={y} value={y}>
-                      {y}
-                    </SelectItem>
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -191,12 +226,7 @@ export default function EnelReport() {
               disabled={!rows.length}
               onClick={() => {
                 if (!selectedProject) return;
-                printEnelReport({
-                  month,
-                  projectName: selectedProject.name,
-                  rows,
-                  includeEnelNumber,
-                });
+                printEnelReport({ month, projectName: selectedProject.name, rows, includeEnelNumber });
               }}
             >
               <Printer className="h-4 w-4 mr-2" /> Imprimir
@@ -208,12 +238,7 @@ export default function EnelReport() {
               disabled={!rows.length}
               onClick={() => {
                 if (!selectedProject) return;
-                generateEnelPdf({
-                  month,
-                  projectName: selectedProject.name,
-                  rows,
-                  includeEnelNumber,
-                });
+                generateEnelPdf({ month, projectName: selectedProject.name, rows, includeEnelNumber });
               }}
             >
               <FileText className="h-4 w-4 mr-2" /> PDF
@@ -225,11 +250,7 @@ export default function EnelReport() {
               disabled={!rows.length}
               onClick={() => {
                 if (!selectedProject) return;
-                downloadEnelXls({
-                  month,
-                  rows,
-                });
-
+                downloadEnelXls({ month, rows });
               }}
             >
               <FileDown className="h-4 w-4 mr-2" /> XLS
@@ -240,6 +261,9 @@ export default function EnelReport() {
             <div className="mt-8">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                 Pré-visualização — {rows.length} aluno(s)
+                {selectedClassId !== ALL_CLASSES && classes.find(c => c.id === selectedClassId)
+                  ? ` · ${classes.find(c => c.id === selectedClassId)!.name}`
+                  : " · Todas as turmas"}
               </p>
               <div className="overflow-x-auto rounded-2xl border border-slate-100">
                 <table className="min-w-full text-xs">
@@ -247,6 +271,7 @@ export default function EnelReport() {
                     <tr className="bg-slate-50 border-b border-slate-100">
                       <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">#</th>
                       <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Nome</th>
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Turma</th>
                       <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">CPF</th>
                       {includeEnelNumber && (
                         <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Nº ENEL</th>
@@ -261,6 +286,7 @@ export default function EnelReport() {
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3 font-bold text-slate-400">{idx + 1}</td>
                         <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{row.name}</td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{row.className || "—"}</td>
                         <td className="px-4 py-3 font-mono text-slate-600">{row.cpf || "—"}</td>
                         {includeEnelNumber && (
                           <td className="px-4 py-3 font-mono text-slate-600">{row.enelClientNumber || "—"}</td>

@@ -12,6 +12,7 @@ export type EnelRow = {
   age: number;
   cpf: string;
   enelClientNumber: string;
+  className?: string;
 };
 
 function monthLabel(month: string) {
