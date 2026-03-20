@@ -17,6 +17,7 @@ import {
   Link2,
   Database,
   UserCog,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -142,7 +143,16 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-200">
+      <div className="p-4 border-t border-slate-200 space-y-1">
+        <a
+          href="https://www.ecobuziosfinanceiro.com.br"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors"
+        >
+          <DollarSign className="h-5 w-5 text-emerald-600" />
+          Financeiro
+        </a>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-slate-700 hover:bg-white/60 hover:text-primary transition-colors"
