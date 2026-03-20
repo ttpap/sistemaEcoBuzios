@@ -33,6 +33,7 @@ import { projectsService } from "@/services/projectsService";
 import { getSystemLogo } from "@/utils/system-settings";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { useAuth } from "@/context/AuthContext";
+import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
 import { Zap } from "lucide-react";
 
 import {
@@ -261,7 +262,10 @@ export default function Reports() {
   const isTeacherArea = useMemo(() => location.pathname.startsWith("/professor"), [location.pathname]);
 
   const { profile } = useAuth();
-  const canSeeEnel = profile?.role === "admin" || profile?.role === "coordinator";
+  const canSeeEnel =
+    profile?.role === "admin" ||
+    profile?.role === "coordinator" ||
+    Boolean(getCoordinatorSessionLogin());
 
   const [report, setReport] = useState<"home" | "attendance">("home");
   const [classes, setClasses] = useState<SchoolClass[]>([]);
@@ -756,20 +760,20 @@ export default function Reports() {
                   <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : (
-                <div className="p-6 md:p-8">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="p-6 md:p-8 space-y-6">
+                  <div className="grid gap-4 md:grid-cols-3">
                     <Card className="border border-slate-100 rounded-[2rem] shadow-sm">
                       <div className="p-5">
                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo</p>
-                        <p className="text-xl font-black text-primary mt-1">Todas as turmas</p>
+                        <p className="text-xl font-black text-primary mt-1">{matrix.className}</p>
                         <div className="mt-4 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-600">Turmas cadastradas</span>
-                            <span className="text-sm font-black text-slate-900">{classes.length}</span>
+                            <span className="text-sm font-bold text-slate-600">Alunos no mês</span>
+                            <span className="text-sm font-black text-slate-900">{matrix.students.length}</span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-600">Alunos (únicos) nas turmas</span>
-                            <span className="text-sm font-black text-slate-900">{totalStudentsInClasses}</span>
+                            <span className="text-sm font-bold text-slate-600">Dias com chamada</span>
+                            <span className="text-sm font-black text-slate-900">{matrix.dates.length}</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-bold text-slate-600">Mês</span>
@@ -779,56 +783,59 @@ export default function Reports() {
                       </div>
                     </Card>
 
-                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2 lg:col-span-2">
+                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2">
                       <div className="p-5 flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</p>
-                          <p className="text-xl font-black text-primary mt-1">Escolha uma turma</p>
-                          <p className="text-sm font-bold text-slate-500 mt-1">Clique em qualquer turma abaixo para ver o relatório detalhado.</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Legenda</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {statusPill("presente")} <span className="text-xs font-bold self-center">Presente</span>
+                            {statusPill("atrasado")} <span className="text-xs font-bold self-center">Atrasado</span>
+                            {statusPill("falta")} <span className="text-xs font-bold self-center">Falta</span>
+                            {statusPill("justificada")} <span className="text-xs font-bold self-center">Justificada</span>
+                            <span className="text-xs font-bold text-slate-400 self-center">— = não estava na turma</span>
+                          </div>
                         </div>
-                        <div className="h-12 w-12 rounded-2xl bg-secondary/10 text-primary flex items-center justify-center border border-secondary/20">
-                          <Layers className="h-6 w-6" />
-                        </div>
+                        <NotebookPen className="h-6 w-6 text-slate-300 shrink-0" />
                       </div>
                     </Card>
                   </div>
 
-                  <div className="mt-6">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Turmas</p>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {classesWithCounts.map(({ cls, studentsCount, callDaysCount }) => (
-                        <button
-                          key={cls.id}
-                          onClick={() => setClassId(cls.id)}
-                          className="text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:border-primary/25 hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-base font-black text-primary truncate">{cls.name}</p>
-                              <p className="text-xs font-bold text-slate-500 mt-1">
-                                {cls.period} • {cls.startTime}–{cls.endTime}
-                              </p>
-                            </div>
-                            <Badge
-                              className={cn(
-                                "rounded-full border-none font-black",
-                                cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700",
-                              )}
-                            >
-                              {cls.status}
-                            </Badge>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
-                              <Users className="h-3.5 w-3.5 mr-1" /> {studentsCount} aluno(s)
-                            </Badge>
-                            <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
-                              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> {callDaysCount} dia(s) com chamada
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Pré-visualização</p>
+                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap sticky left-0 bg-slate-50">Aluno</th>
+                            {matrix.dates.map((d) => (
+                              <th key={d} className="text-center px-3 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                                {formatDateCol(d)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {matrix.students.map((st) => (
+                            <tr key={st.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="px-4 py-3 sticky left-0 bg-white hover:bg-slate-50/60">
+                                <p className="font-bold text-slate-800 whitespace-nowrap">{st.socialName || st.preferredName || st.fullName}</p>
+                                {(st.socialName || st.preferredName) && (
+                                  <p className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{st.fullName}</p>
+                                )}
+                              </td>
+                              {matrix.dates.map((d) => {
+                                const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
+                                if (!isMember) return <td key={d} className="text-center px-3 py-3 text-slate-300 font-bold">—</td>;
+                                return (
+                                  <td key={d} className="text-center px-3 py-2">
+                                    {statusPill(matrix.statusByStudentByDate[st.id]?.[d])}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>

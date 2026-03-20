@@ -6,6 +6,7 @@ import Logo from "@/components/Logo";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { showError, showSuccess } from "@/utils/toast";
+import { copyToClipboard } from "@/utils/clipboard";
 import { CheckCircle2, Copy, Link2, Shield, ArrowLeft, Users } from "lucide-react";
 import TeacherForm from "@/components/TeacherForm";
 import { DEFAULT_TEACHER_PASSWORD } from "@/utils/teachers";
@@ -36,7 +37,7 @@ export default function PublicTeacherRegistration() {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");

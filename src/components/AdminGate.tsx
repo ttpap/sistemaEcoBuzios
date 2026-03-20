@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { copyToClipboard } from "@/utils/clipboard";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
               <Button
                 className="rounded-2xl font-black"
                 onClick={() => {
-                  if (uid) void navigator.clipboard.writeText(uid);
+                  if (uid) void copyToClipboard(uid);
                 }}
               >
                 Copiar user_id

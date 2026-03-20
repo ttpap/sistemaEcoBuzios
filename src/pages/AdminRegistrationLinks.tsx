@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Link2, User, Users, Users2, KeyRound } from "lucide-react";
 import Logo from "@/components/Logo";
 import { showError, showSuccess } from "@/utils/toast";
+import { copyToClipboard } from "@/utils/clipboard";
 import { createStaffPublicInvite } from "@/services/staffInvitesService";
 
 function makeUrl(path: string) {
@@ -49,7 +50,7 @@ export default function AdminRegistrationLinks() {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");

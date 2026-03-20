@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { showError, showSuccess } from "@/utils/toast";
+import { copyToClipboard } from "@/utils/clipboard";
 import { CheckCircle2, Copy, Link2, Shield, ArrowLeft, FileText } from "lucide-react";
 import { DEFAULT_STUDENT_PASSWORD } from "@/utils/student-auth";
 
@@ -27,7 +28,7 @@ export default function PublicStudentRegistration() {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");

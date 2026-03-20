@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy, ExternalLink, Link2, User } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
+import { copyToClipboard } from "@/utils/clipboard";
 
 const STUDENT_ENROLLMENT_URL = "https://www.ecobuziossistema.com.br/inscricao";
 
 export default function StudentEnrollmentLink() {
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(STUDENT_ENROLLMENT_URL);
+      await copyToClipboard(STUDENT_ENROLLMENT_URL);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");

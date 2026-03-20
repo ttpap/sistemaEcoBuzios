@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
 import type { TeacherRegistration } from "@/types/teacher";
 import { showError, showSuccess } from "@/utils/toast";
+import { copyToClipboard } from "@/utils/clipboard";
 import { fetchProjects } from "@/utils/projects";
 import {
   addTeacherToProject,
@@ -226,7 +227,7 @@ export default function AdminTeachers() {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");

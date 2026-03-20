@@ -15,6 +15,7 @@ import { enelReportService } from "@/services/enelReportService";
 import { projectsService } from "@/services/projectsService";
 import { getActiveProjectId } from "@/utils/projects";
 import { showError } from "@/utils/toast";
+import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -26,7 +27,10 @@ function monthOptions() {
 export default function EnelReport() {
   const { profile } = useAuth();
 
-  const canAccess = profile?.role === "admin" || profile?.role === "coordinator";
+  const canAccess =
+    profile?.role === "admin" ||
+    profile?.role === "coordinator" ||
+    Boolean(getCoordinatorSessionLogin());
   const includeEnelNumber = canAccess; // regra: somente admin/coordenador
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -231,6 +235,46 @@ export default function EnelReport() {
               <FileDown className="h-4 w-4 mr-2" /> XLS
             </Button>
           </div>
+
+          {rows.length > 0 && (
+            <div className="mt-8">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
+                Pré-visualização — {rows.length} aluno(s)
+              </p>
+              <div className="overflow-x-auto rounded-2xl border border-slate-100">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100">
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">#</th>
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Nome</th>
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">CPF</th>
+                      {includeEnelNumber && (
+                        <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Nº ENEL</th>
+                      )}
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Telefone</th>
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Nasc.</th>
+                      <th className="text-left px-4 py-3 font-black text-slate-500 uppercase tracking-wider whitespace-nowrap">Idade</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {rows.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-4 py-3 font-bold text-slate-400">{idx + 1}</td>
+                        <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{row.name}</td>
+                        <td className="px-4 py-3 font-mono text-slate-600">{row.cpf || "—"}</td>
+                        {includeEnelNumber && (
+                          <td className="px-4 py-3 font-mono text-slate-600">{row.enelClientNumber || "—"}</td>
+                        )}
+                        <td className="px-4 py-3 text-slate-600">{row.cellPhone || "—"}</td>
+                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{row.birthDate || "—"}</td>
+                        <td className="px-4 py-3 text-slate-600">{row.age || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

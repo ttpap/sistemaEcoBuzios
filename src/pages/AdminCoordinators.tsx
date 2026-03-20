@@ -25,6 +25,7 @@ import {
   resetCoordinatorPasswordToDefault,
 } from "@/utils/coordinators";
 import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, Users2 } from "lucide-react";
+import { copyToClipboard } from "@/utils/clipboard";
 import { fetchCoordinators, deleteCoordinator } from "@/services/coordinatorsService";
 
 import {
@@ -209,7 +210,7 @@ export default function AdminCoordinators() {
 
   const copy = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       showSuccess("Copiado!");
     } catch {
       showError("Não foi possível copiar.");
