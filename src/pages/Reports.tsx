@@ -287,19 +287,19 @@ export default function Reports() {
 
       // Em domínio novo/localStorage vazio, pode não existir projeto ativo ainda.
       // Para não bloquear relatórios, hidratamos a lista do banco e setamos um projeto padrão.
-      if (!getActiveProjectId()) {
+      if (!getActiveProjectId() || !getActiveProject()) {
         try {
           const prjs = await projectsService.fetchProjectsFromDb();
           if (prjs.length) {
             saveProjects(prjs);
-            setActiveProjectId(prjs[0]!.id);
+            if (!getActiveProjectId()) setActiveProjectId(prjs[0]!.id);
           }
         } catch {
           // Se falhar, seguimos com cache local; a UI já mostra "Selecione um projeto".
         }
       }
 
-      const activeProjectId = getActiveProject()?.id;
+      const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
       if (activeProjectId) {
         try {
           // Atualiza classes + matrículas + alunos do servidor (necessário no modo B)

@@ -326,7 +326,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       for (const pid of ((s as any).presentStudentIds || []) as string[]) uniquePresentStudentIds.add(pid);
     }
 
-    const totalStudents = students.length;
+    const enrolledStudentIds = new Set(classes.flatMap((c) => c.studentIds || []));
+    const totalStudents = enrolledStudentIds.size;
     const activeStudents = uniquePresentStudentIds.size;
 
     const list: KPI[] = [
@@ -343,7 +344,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         tone: "secondary",
       },
       {
-        label: "Alunos cadastrados",
+        label: "Alunos no projeto",
         value: totalStudents,
         icon: <GraduationCap className="h-5 w-5" />,
         tone: "sky",
