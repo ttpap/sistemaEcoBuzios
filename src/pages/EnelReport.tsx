@@ -15,10 +15,11 @@ import { printEnelReport } from "@/utils/enel-report-print";
 import { enelReportService } from "@/services/enelReportService";
 import { projectsService } from "@/services/projectsService";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { getActiveProjectId, getProjects } from "@/utils/projects";
+import { getActiveProjectId, getProjects, saveProjects } from "@/utils/projects";
 import { showError } from "@/utils/toast";
-import { getCoordinatorSessionLogin, getCoordinatorSessionProjectIds } from "@/utils/coordinator-auth";
-import { getTeacherSessionTeacherId, getTeacherSessionProjectIds } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionPassword, getCoordinatorSessionProjectIds } from "@/utils/coordinator-auth";
+import { getTeacherSessionLogin, getTeacherSessionPassword, getTeacherSessionTeacherId, getTeacherSessionProjectIds } from "@/utils/teacher-auth";
+import { fetchModeBStaffProjects } from "@/integrations/supabase/mode-b-projects";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -72,10 +73,22 @@ export default function EnelReport() {
           const allowedIds = new Set([...teacherIds, ...coordIds]);
           const cached = getProjects();
           all = cached.filter((p) => allowedIds.has(p.id));
-          // Se cache local vazio, tenta buscar do DB mesmo assim
+          // Cache vazio: busca via RPC Mode B (bypassa RLS, não depende de auth Supabase)
           if (!all.length) {
-            const remote = await projectsService.fetchProjectsFromDb();
+            const teacherLogin = getTeacherSessionLogin();
+            const teacherPw = getTeacherSessionPassword();
+            const coordLogin = getCoordinatorSessionLogin();
+            const coordPw = getCoordinatorSessionPassword();
+
+            let remote: Project[] = [];
+            if (teacherLogin && teacherPw) {
+              remote = await fetchModeBStaffProjects({ login: teacherLogin, password: teacherPw });
+            } else if (coordLogin && coordPw) {
+              remote = await fetchModeBStaffProjects({ login: coordLogin, password: coordPw });
+            }
+
             all = remote.filter((p) => allowedIds.has(p.id));
+            if (all.length) saveProjects(all); // salva no cache para próximas navegações
           }
         } else {
           all = await projectsService.fetchProjectsFromDb();

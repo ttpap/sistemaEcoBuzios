@@ -25,8 +25,9 @@ import {
 import { cn } from "@/lib/utils";
 import { getActiveProject, getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
 
-import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
-import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
+import { getTeacherSessionTeacherId, getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+import { getCoordinatorSessionCoordinatorId, getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+import { fetchModeBStaffProjects } from "@/integrations/supabase/mode-b-projects";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from "@/services/classesService";
 import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
@@ -125,15 +126,29 @@ export default function MonthlyReports() {
   const [projectNonce, setProjectNonce] = useState(0);
   const [reportsNonce, setReportsNonce] = useState(0);
 
-  // Em domínio novo/localStorage vazio, pode não existir projeto ativo ainda.
+  // Em máquina nova: activeProjectId pode estar setado mas lista de projetos vazia no localStorage.
+  // Busca projetos do servidor e salva no cache para que getActiveProject() funcione.
   React.useEffect(() => {
     const run = async () => {
-      if (getActiveProjectId()) return;
+      if (getActiveProjectId() && getActiveProject()) return;
       try {
-        const prjs = await projectsService.fetchProjectsFromDb();
+        const teacherLogin = getTeacherSessionLogin();
+        const teacherPw = getTeacherSessionPassword();
+        const coordLogin = getCoordinatorSessionLogin();
+        const coordPw = getCoordinatorSessionPassword();
+
+        const fetchProjects = () => {
+          if (teacherLogin && teacherPw)
+            return fetchModeBStaffProjects({ login: teacherLogin, password: teacherPw });
+          if (coordLogin && coordPw)
+            return fetchModeBStaffProjects({ login: coordLogin, password: coordPw });
+          return projectsService.fetchProjectsFromDb();
+        };
+
+        const prjs = await fetchProjects();
         if (!prjs.length) return;
         saveProjects(prjs);
-        setActiveProjectId(prjs[0]!.id);
+        if (!getActiveProjectId()) setActiveProjectId(prjs[0]!.id);
         setProjectNonce((x) => x + 1);
       } catch {
         // Sem projeto: a UI já orienta "Selecione um projeto".
