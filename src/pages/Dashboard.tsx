@@ -56,6 +56,8 @@ import { fetchStudentsRemote } from "@/services/studentsService";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+import { readGlobalTeachers } from "@/utils/teachers";
+import { readGlobalCoordinators } from "@/utils/coordinators";
 import { enrollmentsService, type EnrollmentRow } from "@/services/enrollmentsService";
 
 type KPI = {
@@ -120,6 +122,20 @@ export default function Dashboard() {
   const thisMonth = monthKey(today);
 
   const projectId = useMemo(() => getActiveProjectId(), [location.pathname]);
+
+  const currentUser = useMemo(() => {
+    const tLogin = getTeacherSessionLogin();
+    if (tLogin) {
+      const t = readGlobalTeachers([]).find((x) => x.authLogin === tLogin);
+      if (t) return { name: t.preferredName || t.fullName, photo: t.photo || null, role: "Professor" };
+    }
+    const cLogin = getCoordinatorSessionLogin();
+    if (cLogin) {
+      const c = readGlobalCoordinators([]).find((x) => x.authLogin === cLogin);
+      if (c) return { name: c.fullName, photo: c.photo || null, role: "Coordenador" };
+    }
+    return null;
+  }, []);
 
   const justificationItems = useMemo(() => {
     if (!projectId) return [] as Array<{
@@ -526,11 +542,25 @@ export default function Dashboard() {
       />
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-primary tracking-tight">Painel de Controle</h1>
-          <p className="text-slate-500 font-medium">
-            Indicadores e visões rápidas com base nas turmas e chamadas.
-          </p>
+        <div className="flex items-center gap-4">
+          {currentUser?.photo && (
+            <div className="shrink-0 w-14 h-14 rounded-[1.25rem] overflow-hidden border-2 border-white shadow-lg">
+              <img src={currentUser.photo} alt={currentUser.name} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div>
+            {currentUser && (
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5">
+                {currentUser.role}
+              </p>
+            )}
+            <h1 className="text-3xl font-black text-primary tracking-tight">
+              {currentUser ? `Olá, ${currentUser.name.split(" ")[0]}.` : "Painel de Controle"}
+            </h1>
+            <p className="text-slate-500 font-medium">
+              Indicadores e visões rápidas com base nas turmas e chamadas.
+            </p>
+          </div>
         </div>
         <div className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 border border-slate-100 shadow-sm text-slate-600">
           <CalendarDays className="h-4 w-4 text-primary" />

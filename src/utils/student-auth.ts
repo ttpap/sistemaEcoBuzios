@@ -129,3 +129,26 @@ export async function loginStudent(input: { registration: string; password: stri
 export function logoutStudent() {
   localStorage.removeItem(STUDENT_SESSION_KEY);
 }
+
+export async function resetStudentPassword(studentId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("mode_b_reset_student_password", {
+    p_student_id: studentId,
+  });
+  if (error) return false;
+  return data === true;
+}
+
+export async function changeStudentPassword(input: {
+  studentId: string;
+  oldPassword: string;
+  newPassword: string;
+}): Promise<{ ok: true } | { ok: false; reason: "wrong_password" | "error" }> {
+  const { data, error } = await supabase.rpc("mode_b_change_student_password", {
+    p_student_id: input.studentId,
+    p_old_password: input.oldPassword,
+    p_new_password: input.newPassword,
+  });
+  if (error) return { ok: false, reason: "error" };
+  if (data === true) return { ok: true };
+  return { ok: false, reason: "wrong_password" };
+}

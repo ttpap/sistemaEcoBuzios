@@ -9,6 +9,7 @@ export type ModeBStudentMonthRow = {
   finalized_at: string | null;
   status: "presente" | "falta" | "atrasado" | "justificada" | null;
   justification_message: string | null;
+  teacher_names: string[] | null;
 };
 
 export async function fetchModeBStudentMonthSchedule(input: {

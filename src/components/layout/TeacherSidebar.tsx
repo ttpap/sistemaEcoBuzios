@@ -77,7 +77,6 @@ export default function TeacherSidebar({
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
-      { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
       { icon: Link2, label: "Links de inscrição", path: "/professor/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/professor/conta" },
     ],

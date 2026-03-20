@@ -25,12 +25,15 @@ import {
   ExternalLink,
   Clock,
   Edit2,
+  KeyRound,
 } from "lucide-react";
 import { StudentRegistration } from "@/types/student";
 import { SchoolClass } from "@/types/class";
 import { readScoped } from "@/utils/storage";
 import { Button } from "@/components/ui/button";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
+import { resetStudentPassword } from "@/utils/student-auth";
+import { showSuccess, showError } from "@/utils/toast";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -123,6 +126,13 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     navigate(`${base}/alunos/editar/${student.id}`);
   };
 
+  const onResetPassword = async () => {
+    if (!window.confirm(`Resetar a senha de ${student.fullName} para "EcoBuzios123"?`)) return;
+    const ok = await resetStudentPassword(student.id);
+    if (ok) showSuccess("Senha resetada para EcoBuzios123.");
+    else showError("Não foi possível resetar a senha.");
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -174,6 +184,15 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 </span>
               </div>
 
+              <Button
+                type="button"
+                onClick={onResetPassword}
+                variant="outline"
+                className="rounded-2xl bg-white/10 border-white/30 text-white hover:bg-white/20 font-black gap-2"
+              >
+                <KeyRound className="h-4 w-4" />
+                Resetar senha
+              </Button>
               <Button
                 type="button"
                 onClick={onEdit}

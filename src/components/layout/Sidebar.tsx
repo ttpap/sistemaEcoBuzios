@@ -50,6 +50,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: BookOpen, label: 'Turmas', path: '/turmas' },
       { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
       { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
+      { icon: FileText, label: 'Relatório ENEL', path: '/relatorios/enel' },
     ];
   }, [hasActiveProject]);
 

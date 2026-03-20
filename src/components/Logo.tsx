@@ -20,7 +20,7 @@ const Logo = ({ className = "" }: { className?: string }) => {
       <img
         src={logoUrl}
         alt="EcoBúzios Logo"
-        className="max-w-full h-auto object-contain"
+        className="max-w-full max-h-full h-auto w-auto object-contain"
       />
     </div>
   );

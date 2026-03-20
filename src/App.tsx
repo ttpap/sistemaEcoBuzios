@@ -50,6 +50,7 @@ import StudentSelectProject from "@/pages/StudentSelectProject";
 import StudentGate from "@/components/StudentGate";
 import StudentSidebar from "@/components/layout/StudentSidebar";
 import StudentDashboard from "@/pages/StudentDashboard";
+import StudentSelfEdit from "@/pages/StudentSelfEdit";
 import AppShell from "@/components/layout/AppShell";
 import DbStatus from "@/pages/DbStatus";
 import { AuthProvider } from "@/context/AuthContext";
@@ -97,6 +98,14 @@ const App = () => (
                   >
                     <Routes>
                       <Route path="selecionar-projeto" element={<StudentSelectProject />} />
+                      <Route
+                        path="minha-ficha"
+                        element={
+                          <StudentActiveProjectGate>
+                            <StudentSelfEdit />
+                          </StudentActiveProjectGate>
+                        }
+                      />
                       <Route
                         index
                         element={

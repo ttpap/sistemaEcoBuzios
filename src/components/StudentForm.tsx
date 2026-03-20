@@ -25,10 +25,11 @@ import { useAuth } from "@/context/AuthContext";
 import { differenceInYears, parseISO } from 'date-fns';
 import { StudentRegistration } from '@/types/student';
 import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
-import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from '@/utils/student-auth';
+import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration, getStudentSessionStudentId } from '@/utils/student-auth';
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
 import { studentsService } from "@/services/studentsService";
+import { supabase } from "@/integrations/supabase/client";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -196,7 +197,7 @@ const schema = z.object({
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.string().min(1, "Obrigatório"),
   race: z.string().min(1, "Obrigatório"),
-  photo: z.string().optional(),
+  photo: z.string().min(1, "Foto obrigatória"),
 
   // 2. Responsável
   guardianName: z.string().optional(),
@@ -481,6 +482,58 @@ const StudentForm = ({
         projectId,
       });
 
+      // 0) Aluno editando os próprios dados (Mode B student self-update)
+      const selfStudentId = getStudentSessionStudentId();
+      if (selfStudentId && initialData && String(initialData.id) === selfStudentId) {
+        console.info("[StudentForm] path=student_self_update");
+        const { error: selfErr } = await supabase.rpc("mode_b_student_self_update", {
+          p_student_id: selfStudentId,
+          p_full_name: row.full_name,
+          p_social_name: row.social_name ?? null,
+          p_email: row.email ?? null,
+          p_cpf: row.cpf ?? null,
+          p_birth_date: row.birth_date,
+          p_age: row.age,
+          p_cell_phone: row.cell_phone,
+          p_gender: row.gender,
+          p_race: row.race,
+          p_photo: row.photo ?? null,
+          p_guardian_name: row.guardian_name ?? null,
+          p_guardian_kinship: row.guardian_kinship ?? null,
+          p_guardian_phone: row.guardian_phone ?? null,
+          p_guardian_declaration_confirmed: row.guardian_declaration_confirmed,
+          p_school_type: row.school_type ?? null,
+          p_school_name: row.school_name,
+          p_school_other: row.school_other ?? null,
+          p_cep: row.cep,
+          p_street: row.street,
+          p_number: row.number,
+          p_complement: row.complement ?? null,
+          p_neighborhood: row.neighborhood,
+          p_city: row.city,
+          p_uf: row.uf,
+          p_blood_type: row.blood_type ?? null,
+          p_has_allergy: row.has_allergy,
+          p_allergy_detail: row.allergy_detail ?? null,
+          p_has_special_needs: row.has_special_needs,
+          p_special_needs_detail: row.special_needs_detail ?? null,
+          p_uses_medication: row.uses_medication,
+          p_medication_detail: row.medication_detail ?? null,
+          p_has_physical_restriction: row.has_physical_restriction,
+          p_physical_restriction_detail: row.physical_restriction_detail ?? null,
+          p_practiced_activity: row.practiced_activity,
+          p_practiced_activity_detail: row.practiced_activity_detail ?? null,
+          p_family_heart_history: row.family_heart_history,
+          p_health_problems: row.health_problems ?? [],
+          p_health_problems_other: row.health_problems_other ?? null,
+          p_observations: row.observations ?? null,
+          p_image_authorization: row.image_authorization,
+          p_enel_client_number: row.enel_client_number ?? null,
+        });
+        if (selfErr) throw new Error(selfErr.message || "Não foi possível salvar seus dados.");
+        return;
+      }
+
       // 1) Sessão Supabase Auth: só pode ir direto para a tabela students quando for ADMIN.
       if (isAdmin) {
         console.info("[StudentForm] path=admin_direct", { op: initialData ? "update" : "insert" });
@@ -688,11 +741,11 @@ const StudentForm = ({
         
         <div className="flex flex-col items-center justify-center mb-12">
           <div className="relative group">
-            <div className="w-40 h-40 rounded-[3rem] bg-slate-100 border-4 border-white shadow-2xl overflow-hidden flex items-center justify-center">
+            <div className={`w-40 h-40 rounded-[3rem] border-4 shadow-2xl overflow-hidden flex items-center justify-center ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}>
               {photoPreview ? (
                 <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
-                <User className="h-16 w-16 text-slate-300" />
+                <User className={`h-16 w-16 ${form.formState.errors.photo ? "text-rose-300" : "text-slate-300"}`} />
               )}
             </div>
             <label className="absolute bottom-2 right-2 bg-primary text-white p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 transition-transform">
@@ -700,7 +753,10 @@ const StudentForm = ({
               <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </label>
           </div>
-          <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno</p>
+          <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno <span className="text-rose-500">*</span></p>
+          {form.formState.errors.photo && (
+            <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
+          )}
         </div>
 
         {/* 1. Dados Gerais */}

@@ -43,7 +43,7 @@ export default function AppShell({ sidebar, title, children }: Props) {
           </Sheet>
 
           <div className="min-w-0 flex-1">
-            <div className="h-7 w-[140px]">
+            <div className="h-10 w-auto shrink-0">
               <Logo className="h-full w-auto" />
             </div>
             {title ? (

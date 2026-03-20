@@ -382,6 +382,19 @@ export default function ClassAttendance({
       if (!activeProjectId) return;
       if (!selectedSession || !draftRecords) return;
 
+      // Block save if any enrolled student has no status
+      const targetIds =
+        selectedSession.studentIds && selectedSession.studentIds.length > 0
+          ? selectedSession.studentIds
+          : studentIds;
+      const unmarked = targetIds.filter((id) => !draftRecords[id]);
+      if (unmarked.length > 0) {
+        showError(
+          `Faltam ${unmarked.length} aluno(s) sem status marcado. Marque todos antes de salvar.`,
+        );
+        return;
+      }
+
       const next: AttendanceSession = {
         ...selectedSession,
         finalizedAt: selectedSession.finalizedAt || new Date().toISOString(),

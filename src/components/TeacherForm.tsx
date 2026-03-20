@@ -45,7 +45,7 @@ const formSchema = z.object({
   email: z.string().email("E-mail inválido"),
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.enum(['Feminino', 'Masculino', 'Outro']),
-  photo: z.string().optional(),
+  photo: z.string().min(1, "Foto obrigatória"),
 
   cep: z.string().min(8, "CEP inválido"),
   street: z.string().min(1, "Obrigatório"),
@@ -225,11 +225,11 @@ const TeacherForm = ({
         
         <div className="flex flex-col items-center justify-center mb-8">
           <div className="relative group">
-            <div className="w-32 h-32 rounded-[2.5rem] bg-slate-100 border-4 border-white shadow-xl overflow-hidden flex items-center justify-center">
+            <div className={`w-32 h-32 rounded-[2.5rem] border-4 shadow-xl overflow-hidden flex items-center justify-center ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}>
               {photoPreview ? (
                 <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
-                <User className="h-12 w-12 text-slate-300" />
+                <User className={`h-12 w-12 ${form.formState.errors.photo ? "text-rose-300" : "text-slate-300"}`} />
               )}
             </div>
             <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-xl cursor-pointer shadow-lg hover:scale-110 transition-transform">
@@ -237,7 +237,10 @@ const TeacherForm = ({
               <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </label>
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-widest">Foto do Professor/Prestador</p>
+          <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-widest">Foto do Professor/Prestador <span className="text-rose-500">*</span></p>
+          {form.formState.errors.photo && (
+            <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
+          )}
         </div>
 
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[2.5rem]">
