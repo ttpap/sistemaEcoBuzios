@@ -15,10 +15,10 @@ import { printEnelReport } from "@/utils/enel-report-print";
 import { enelReportService } from "@/services/enelReportService";
 import { projectsService } from "@/services/projectsService";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { getActiveProjectId } from "@/utils/projects";
+import { getActiveProjectId, getProjects } from "@/utils/projects";
 import { showError } from "@/utils/toast";
-import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
-import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
+import { getCoordinatorSessionLogin, getCoordinatorSessionProjectIds } from "@/utils/coordinator-auth";
+import { getTeacherSessionTeacherId, getTeacherSessionProjectIds } from "@/utils/teacher-auth";
 
 function monthOptions() {
   return Array.from({ length: 12 }, (_, i) => {
@@ -62,11 +62,28 @@ export default function EnelReport() {
   useEffect(() => {
     const run = async () => {
       try {
-        const all = await projectsService.fetchProjectsFromDb();
-        setProjects(all);
+        // Para Mode B teacher/coordinator, usa projetos da sessão (cache local) para evitar bloqueio RLS.
+        const teacherIds = getTeacherSessionProjectIds();
+        const coordIds = getCoordinatorSessionProjectIds();
+        const modeB = teacherIds.length > 0 || coordIds.length > 0;
 
+        let all: Project[];
+        if (modeB) {
+          const allowedIds = new Set([...teacherIds, ...coordIds]);
+          const cached = getProjects();
+          all = cached.filter((p) => allowedIds.has(p.id));
+          // Se cache local vazio, tenta buscar do DB mesmo assim
+          if (!all.length) {
+            const remote = await projectsService.fetchProjectsFromDb();
+            all = remote.filter((p) => allowedIds.has(p.id));
+          }
+        } else {
+          all = await projectsService.fetchProjectsFromDb();
+        }
+
+        setProjects(all);
         setSelectedProjectId((prev) => {
-          if (prev) return prev;
+          if (prev && all.some((p) => p.id === prev)) return prev;
           const active = getActiveProjectId();
           if (active && all.some((p) => p.id === active)) return active;
           return all[0]?.id || "";
