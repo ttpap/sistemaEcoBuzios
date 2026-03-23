@@ -391,6 +391,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
     // Professor / Coordenador: dados do projeto ativo vinculado a eles
     const active = classes.filter((c) => c.status === "Ativo");
+    // Alunos únicos matriculados nas turmas do projeto (via class_student_enrollments)
+    const enrolledIds = new Set(active.flatMap((c) => c.studentIds || []));
 
     return [
       {
@@ -401,12 +403,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       },
       {
         label: "Alunos matriculados",
-        value: students.length,
+        value: enrolledIds.size,
         icon: <GraduationCap className="h-5 w-5" />,
         tone: "sky",
       },
     ];
-  }, [base, adminStats, classes, students]);
+  }, [base, adminStats, classes]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
