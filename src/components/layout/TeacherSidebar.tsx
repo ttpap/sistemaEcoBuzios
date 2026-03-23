@@ -14,6 +14,7 @@ import {
   Layers,
   UserCog,
   Link2,
+  MessageSquarePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -75,6 +76,7 @@ export default function TeacherSidebar({
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
+      { icon: MessageSquarePlus, label: "Justificar", path: "/professor/justificativas" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
       { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },

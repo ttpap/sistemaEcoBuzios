@@ -32,6 +32,7 @@ import TeacherSidebar from "@/components/layout/TeacherSidebar";
 import AdminTeachers from "@/pages/AdminTeachers";
 import TeacherSelectProject from "@/pages/TeacherSelectProject";
 import TeacherAccount from "@/pages/TeacherAccount";
+import TeacherJustification from "@/pages/TeacherJustification";
 import AdminCoordinators from "@/pages/AdminCoordinators";
 import NewCoordinator from "@/pages/NewCoordinator";
 import EditCoordinator from "@/pages/EditCoordinator";
@@ -138,6 +139,7 @@ const App = () => (
                     <Routes>
                       <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
                       <Route path="conta" element={<TeacherAccount />} />
+                      <Route path="justificativas" element={<TeacherJustification />} />
                       <Route
                         path="links-inscricao"
                         element={
