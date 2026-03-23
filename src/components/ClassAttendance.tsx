@@ -29,18 +29,29 @@ import {
 
 import {
   fetchStudentJustificationsForClassMonthRemote,
+  upsertStudentJustificationRemote,
   type StudentJustification,
 } from "@/services/studentJustificationsService";
 
 import { StudentRegistration } from "@/types/student";
 import { showSuccess, showError } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   CalendarDays,
   CheckCircle2,
   Clock4,
   Eye,
   FileCheck2,
+  FileText,
   Plus,
   Save,
   Trash2,
@@ -154,6 +165,14 @@ export default function ClassAttendance({
   const [justificationOpen, setJustificationOpen] = useState(false);
   const [justificationText, setJustificationText] = useState("");
 
+  // Teacher justification creator
+  const [teacherJustOpen, setTeacherJustOpen] = useState(false);
+  const [justStudentId, setJustStudentId] = useState("");
+  const [justDateFrom, setJustDateFrom] = useState("");
+  const [justDateTo, setJustDateTo] = useState("");
+  const [justMessage, setJustMessage] = useState("");
+  const [justSaving, setJustSaving] = useState(false);
+
   const openSession = useCallback((sessionId: string, opts?: { scroll?: boolean }) => {
     setSelectedId(sessionId);
 
@@ -264,10 +283,19 @@ export default function ClassAttendance({
       setSessions((prev) => prev.map((s) => (s.id === synced.id ? synced : s)));
     }
 
-    setDraftRecords({ ...(synced.records || {}) } as Record<string, AttendanceStatus>);
-    setIsDirty(false);
+    // Auto-apply "justificada" for students with justifications on this date
+    const autoRecords = { ...(synced.records || {}) } as Record<string, AttendanceStatus>;
+    let autoApplied = false;
+    for (const j of justifications) {
+      if (j.date === synced.date && !autoRecords[j.studentId]) {
+        autoRecords[j.studentId] = "justificada";
+        autoApplied = true;
+      }
+    }
+    setDraftRecords(autoRecords);
+    setIsDirty(autoApplied);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSession?.id, studentIds.join(","), activeProjectId]);
+  }, [selectedSession?.id, studentIds.join(","), activeProjectId, justifications.length]);
 
   const monthKey = selectedSession ? monthKeyFromYmd(selectedSession.date) : null;
   const monthLabel = selectedSession ? monthLabelFromYmd(selectedSession.date) : "";
@@ -446,6 +474,81 @@ export default function ClassAttendance({
     setIsStudentDetailsOpen(true);
   };
 
+  const saveTeacherJustification = async () => {
+    if (!activeProjectId || !justStudentId || !justDateFrom || !justMessage.trim()) {
+      showError("Preencha todos os campos obrigatórios.");
+      return;
+    }
+
+    const from = new Date(justDateFrom + "T00:00:00");
+    const to = justDateTo ? new Date(justDateTo + "T00:00:00") : from;
+
+    if (to < from) {
+      showError("A data final não pode ser anterior à data inicial.");
+      return;
+    }
+
+    // Max 60 days
+    const diffDays = Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 60) {
+      showError("O intervalo máximo é de 60 dias.");
+      return;
+    }
+
+    setJustSaving(true);
+    try {
+      const dates: string[] = [];
+      const cursor = new Date(from);
+      while (cursor <= to) {
+        dates.push(toYMD(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      for (const d of dates) {
+        const j: StudentJustification = {
+          id: makeId(),
+          projectId: activeProjectId,
+          classId,
+          studentId: justStudentId,
+          date: d,
+          message: justMessage.trim(),
+          createdAt: new Date().toISOString(),
+        };
+        await upsertStudentJustificationRemote(j);
+      }
+
+      // Refresh justifications list
+      const monthKeys = new Set<string>();
+      for (const d of dates) monthKeys.add(d.slice(0, 7));
+      const parts = await Promise.all(
+        Array.from(monthKeys).map((month) =>
+          fetchStudentJustificationsForClassMonthRemote({
+            projectId: activeProjectId,
+            classId,
+            month,
+          }),
+        ),
+      );
+      // Merge with existing justifications (replace months that were refreshed)
+      setJustifications((prev) => {
+        const refreshedMonths = new Set(monthKeys);
+        const kept = prev.filter((j) => !refreshedMonths.has(j.date.slice(0, 7)));
+        return [...kept, ...parts.flat()];
+      });
+
+      setTeacherJustOpen(false);
+      setJustStudentId("");
+      setJustDateFrom("");
+      setJustDateTo("");
+      setJustMessage("");
+      showSuccess(`Justificativa registrada para ${dates.length} dia(s).`);
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível salvar a justificativa.");
+    } finally {
+      setJustSaving(false);
+    }
+  };
+
   const latestSession = sessions[0] || null;
 
   const otherSessions = useMemo(() => {
@@ -483,7 +586,17 @@ export default function ClassAttendance({
           <p className="text-slate-500 font-medium">Registre presença, falta e atrasos por dia.</p>
         </div>
 
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="rounded-2xl gap-2 h-12 px-5 font-black border-sky-200 bg-white hover:bg-sky-50 text-sky-700"
+            onClick={() => setTeacherJustOpen(true)}
+          >
+            <FileText className="h-5 w-5" />
+            Justificar
+          </Button>
+
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button className="rounded-2xl gap-2 h-12 px-6 font-black shadow-lg shadow-primary/20">
               <Plus className="h-5 w-5" />
@@ -517,7 +630,92 @@ export default function ClassAttendance({
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      {/* Teacher justification dialog */}
+      <Dialog open={teacherJustOpen} onOpenChange={setTeacherJustOpen}>
+        <DialogContent className="rounded-[2rem] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-primary">Justificar ausência</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Aluno</Label>
+              <Select value={justStudentId} onValueChange={setJustStudentId}>
+                <SelectTrigger className="mt-1 h-12 rounded-2xl border-slate-200 bg-white">
+                  <SelectValue placeholder="Selecione o aluno" />
+                </SelectTrigger>
+                <SelectContent>
+                  {studentsSorted.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {displaySocialName(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Data inicial</Label>
+                <input
+                  type="date"
+                  value={justDateFrom}
+                  onChange={(e) => {
+                    setJustDateFrom(e.target.value);
+                    if (!justDateTo || e.target.value > justDateTo) setJustDateTo(e.target.value);
+                  }}
+                  className="mt-1 w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Data final</Label>
+                <input
+                  type="date"
+                  value={justDateTo}
+                  min={justDateFrom}
+                  onChange={(e) => setJustDateTo(e.target.value)}
+                  className="mt-1 w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700"
+                />
+              </div>
+            </div>
+            {justDateFrom && justDateTo && justDateFrom <= justDateTo && (
+              <p className="text-xs font-bold text-slate-500">
+                {Math.round((new Date(justDateTo + "T00:00:00").getTime() - new Date(justDateFrom + "T00:00:00").getTime()) / (1000 * 60 * 60 * 24)) + 1} dia(s) selecionado(s)
+              </p>
+            )}
+
+            <div>
+              <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Motivo</Label>
+              <Textarea
+                value={justMessage}
+                onChange={(e) => setJustMessage(e.target.value)}
+                placeholder="Ex: Férias, consulta médica, viagem familiar..."
+                className="mt-1 rounded-2xl border-slate-200 min-h-[100px] text-sm font-bold"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="rounded-2xl font-black"
+                onClick={() => setTeacherJustOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-2xl font-black gap-2 bg-sky-600 hover:bg-sky-700"
+                disabled={justSaving || !justStudentId || !justDateFrom || !justMessage.trim()}
+                onClick={saveTeacherJustification}
+              >
+                <FileCheck2 className="h-4 w-4" />
+                {justSaving ? "Salvando..." : "Registrar justificativa"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Topo: sempre mostrar a chamada do dia (hoje) */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -833,11 +1031,11 @@ export default function ClassAttendance({
                                     setJustificationText(justification.message);
                                     setJustificationOpen(true);
                                   }}
-                                  className="inline-flex items-center gap-2 rounded-full bg-sky-600/10 text-sky-700 px-3 py-1 text-xs font-black hover:bg-sky-600/15"
+                                  className="inline-flex items-center gap-2 rounded-full bg-sky-600 text-white px-3 py-1 text-xs font-black hover:bg-sky-700 transition-colors"
                                   title="Ver justificativa"
                                 >
                                   <FileCheck2 className="h-3.5 w-3.5" />
-                                  Justificativa
+                                  Justificado — ver motivo
                                 </button>
                               )}
                             </div>

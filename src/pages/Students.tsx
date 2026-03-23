@@ -355,7 +355,13 @@ const Students = () => {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-slate-700 truncate">{student.fullName}</div>
+                        <button
+                          className="text-slate-700 truncate hover:text-primary hover:underline transition-colors cursor-pointer text-left"
+                          onClick={(e) => { e.stopPropagation(); openDetails(student); }}
+                          title="Abrir ficha do aluno"
+                        >
+                          {student.fullName}
+                        </button>
                         {(student.socialName || student.preferredName) && (
                           <div className="text-xs font-bold text-slate-400 truncate">
                             {student.socialName || student.preferredName}
