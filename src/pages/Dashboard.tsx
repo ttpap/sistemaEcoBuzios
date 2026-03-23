@@ -316,19 +316,9 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   const kpis = useMemo(() => {
     const active = classes.filter((c) => c.status === "Ativo");
-    const closed = classes.filter((c) => c.status !== "Ativo");
-
-    const allAttendance = getAllAttendance();
-    const sessionsThisMonth = allAttendance.filter((s) => String(s.date || "").startsWith(thisMonth));
-
-    const uniquePresentStudentIds = new Set<string>();
-    for (const s of sessionsThisMonth) {
-      for (const pid of ((s as any).presentStudentIds || []) as string[]) uniquePresentStudentIds.add(pid);
-    }
 
     const enrolledStudentIds = new Set(classes.flatMap((c) => c.studentIds || []));
     const totalStudents = enrolledStudentIds.size;
-    const activeStudents = uniquePresentStudentIds.size;
 
     const list: KPI[] = [
       {
@@ -338,27 +328,21 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         tone: "primary",
       },
       {
-        label: "Turmas encerradas",
-        value: closed.length,
-        icon: <FileCheck2 className="h-5 w-5" />,
-        tone: "secondary",
-      },
-      {
-        label: "Alunos no projeto",
+        label: "Alunos matriculados",
         value: totalStudents,
         icon: <GraduationCap className="h-5 w-5" />,
         tone: "sky",
       },
       {
-        label: "Alunos ativos (mês)",
-        value: activeStudents,
+        label: "Justificativas (mês)",
+        value: justificationItems.length,
         icon: <ClipboardCheck className="h-5 w-5" />,
-        tone: "amber",
+        tone: justificationItems.length > 0 ? "amber" : "secondary",
       },
     ];
 
     return list;
-  }, [classes, students.length, thisMonth]);
+  }, [classes, justificationItems]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -673,7 +657,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-3">
         {kpis.map((k) => {
           const tone =
             k.tone === "primary"
