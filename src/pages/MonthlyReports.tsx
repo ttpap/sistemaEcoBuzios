@@ -895,6 +895,15 @@ export default function MonthlyReports() {
                         ? `Enviado em ${new Date(r.submittedAt).toLocaleDateString("pt-BR")}`
                         : `Rascunho (atualizado em ${new Date(r.updatedAt).toLocaleDateString("pt-BR")})`}
                     </p>
+                    {(() => {
+                      const html = (r as any).strategyHtml || (r as any).observationHtml || (r as any).adaptationHtml || "";
+                      const text = html.replace(/<[^>]*>/g, "").trim();
+                      return text ? (
+                        <p className="mt-2 text-xs text-slate-500 line-clamp-2">{text.slice(0, 120)}{text.length > 120 ? "…" : ""}</p>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-400 italic">Sem conteúdo preenchido</p>
+                      );
+                    })()}
                     <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary border border-primary/15 px-3 py-2 text-xs font-black">
                       Abrir relatório
                     </div>

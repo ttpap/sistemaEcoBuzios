@@ -7,6 +7,7 @@ import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle } from
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { SchoolClass } from '@/types/class';
 import { showError, showSuccess } from '@/utils/toast';
 import { writeScoped } from '@/utils/storage';
@@ -16,6 +17,17 @@ import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/services/classe
 
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
+
+const CLASS_COLORS = [
+  { bg: "bg-primary/10", border: "border-primary/20", badge: "bg-primary text-white", text: "text-primary" },
+  { bg: "bg-sky-50", border: "border-sky-200", badge: "bg-sky-600 text-white", text: "text-sky-700" },
+  { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-600 text-white", text: "text-amber-700" },
+  { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-600 text-white", text: "text-emerald-700" },
+  { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-600 text-white", text: "text-violet-700" },
+  { bg: "bg-rose-50", border: "border-rose-200", badge: "bg-rose-600 text-white", text: "text-rose-700" },
+  { bg: "bg-teal-50", border: "border-teal-200", badge: "bg-teal-600 text-white", text: "text-teal-700" },
+  { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-600 text-white", text: "text-orange-700" },
+];
 
 const Classes = () => {
   const navigate = useNavigate();
@@ -138,16 +150,21 @@ const Classes = () => {
             <p className="text-slate-400 font-medium">Nenhuma turma cadastrada.</p>
           </div>
         ) : (
-          filtered.map((cls) => (
+          filtered.map((cls, index) => {
+            const color = CLASS_COLORS[index % CLASS_COLORS.length]!;
+            return (
             <Card
               key={cls.id}
-              className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer"
+              className={cn(
+                "border shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer",
+                color.border
+              )}
               onClick={() => navigate(`${base}/turmas/${cls.id}`)}
             >
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
+              <CardHeader className={cn("border-b border-slate-100 p-6", color.bg)}>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-black text-primary tracking-tight">{cls.name}</CardTitle>
-                  <Badge className="rounded-full bg-secondary text-primary font-black border-none px-3">
+                  <CardTitle className={cn("text-lg font-black tracking-tight", color.text)}>{cls.name}</CardTitle>
+                  <Badge className={cn("rounded-full font-black border-none px-3", color.badge)}>
                     {cls.period}
                   </Badge>
                 </div>
@@ -155,11 +172,11 @@ const Classes = () => {
               <CardContent className="p-8 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-2xl">
-                    <Clock className="h-4 w-4 text-primary" />
+                    <Clock className={cn("h-4 w-4", color.text)} />
                     <span className="font-bold">{cls.startTime} - {cls.endTime}</span>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-slate-600 bg-slate-50 p-3 rounded-2xl">
-                    <Users className="h-4 w-4 text-primary" />
+                    <Users className={cn("h-4 w-4", color.text)} />
                     <span className="font-bold">
                       {cls.capacity === 0 ? 'Ilimitado' : `${cls.capacity} Vagas`}
                     </span>
@@ -191,7 +208,8 @@ const Classes = () => {
                 </div>
               </CardContent>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
     </div>
