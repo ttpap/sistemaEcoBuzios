@@ -45,6 +45,7 @@ import CoordinatorEditTeacher from "@/pages/CoordinatorEditTeacher";
 import PublicStudentRegistration from "@/pages/PublicStudentRegistration";
 import PublicTeacherRegistration from "@/pages/PublicTeacherRegistration";
 import PublicCoordinatorRegistration from "@/pages/PublicCoordinatorRegistration";
+import PublicCharts from "@/pages/PublicCharts";
 import AdminRegistrationLinks from "@/pages/AdminRegistrationLinks";
 import StudentSelectProject from "@/pages/StudentSelectProject";
 import StudentGate from "@/components/StudentGate";
@@ -79,6 +80,7 @@ const App = () => (
             <Route path="/inscricao" element={<PublicStudentRegistration />} />
             <Route path="/inscricao-professor" element={<PublicTeacherRegistration />} />
             <Route path="/inscricao-coordenador" element={<PublicCoordinatorRegistration />} />
+            <Route path="/graficos" element={<PublicCharts />} />
             <Route path="/db-status" element={<DbStatus />} />
 
             {/* Logins (modo B - credenciais) */}

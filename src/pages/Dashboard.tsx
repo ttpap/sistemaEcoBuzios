@@ -609,6 +609,35 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       .filter((x) => x.value > 0);
   }, [allAdminStudents]);
 
+  // Faixa de idade — professor/coordenador (dados do projeto)
+  const localAgeRangeData = useMemo(() => {
+    const buckets: Record<string, number> = {
+      "Até 10": 0, "11 – 14": 0, "15 – 17": 0, "18 – 24": 0, "25 – 35": 0, "36+": 0,
+    };
+    const currentYear = new Date().getFullYear();
+    for (const s of activeStudentsInClasses) {
+      const parts = (s.birthDate || "").split("-");
+      if (parts.length !== 3) continue;
+      const age = currentYear - Number(parts[0]);
+      if (!Number.isFinite(age) || age < 0) continue;
+      if (age <= 10) buckets["Até 10"] += 1;
+      else if (age <= 14) buckets["11 – 14"] += 1;
+      else if (age <= 17) buckets["15 – 17"] += 1;
+      else if (age <= 24) buckets["18 – 24"] += 1;
+      else if (age <= 35) buckets["25 – 35"] += 1;
+      else buckets["36+"] += 1;
+    }
+    return Object.entries(buckets).map(([name, value]) => ({ name, value })).filter((x) => x.value > 0);
+  }, [activeStudentsInClasses]);
+
+  // Alunos por turma — professor/coordenador
+  const studentsByClassData = useMemo(() => {
+    return activeClasses
+      .map((c) => ({ name: c.name, value: (c.studentIds || []).length }))
+      .filter((x) => x.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [activeClasses]);
+
   const calendarMonthLabel = useMemo(
     () => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(today),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -843,8 +872,165 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         })}
       </div>
 
+      {/* Gráficos professor/coordenador */}
+      {base !== "" && activeStudentsInClasses.length > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+
+          {/* Alunos por turma */}
+          {studentsByClassData.length > 0 && (
+            <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="p-6 md:p-8 pb-2">
+                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" /> Alunos por turma
+                </CardTitle>
+                <p className="text-slate-500 font-medium mt-1">Matrículas por turma do projeto.</p>
+              </CardHeader>
+              <CardContent className="p-6 md:p-8 pt-4">
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={studentsByClassData} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 14) + "…" : v} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {studentsByClassData.map((_, i) => (
+                          <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bairros */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <MapPinned className="h-5 w-5" /> Bairros
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Residência dos participantes deste projeto.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {neighborhoodsData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={neighborhoodsData} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 10 ? v.slice(0, 10) + "…" : v} interval={0} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {neighborhoodsData.map((_, i) => (
+                          <Cell key={i} fill={i % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Situação escolar */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <School className="h-5 w-5" /> Situação escolar
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Tipo de escola — participantes deste projeto.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
+              {schoolTypeData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <>
+                  <div className="h-[180px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={schoolTypeData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                          {schoolTypeData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 w-full space-y-1.5">
+                    {schoolTypeData.map((d) => {
+                      const total = schoolTypeData.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                            {d.name}
+                          </div>
+                          <span className="font-black text-slate-800">{d.value} · {Math.round((d.value / total) * 100)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Faixa de idade */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Users className="h-5 w-5" /> Faixa de idade
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Distribuição etária — participantes deste projeto.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {localAgeRangeData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={localAgeRangeData} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 900 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {localAgeRangeData.map((_, i) => (
+                          <Cell key={i} fill={["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"][i % 6]} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+      )}
+
       {/* Gráficos globais — apenas admin */}
       {base === "" && allAdminStudents.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Indicadores globais</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9 rounded-2xl font-black border-slate-200 text-slate-600 gap-2 text-xs"
+              onClick={() => {
+                const url = `${window.location.origin}/graficos`;
+                navigator.clipboard.writeText(url).then(() => {
+                  import("@/utils/toast").then(({ showSuccess }) => showSuccess("Link copiado!"));
+                });
+              }}
+            >
+              <ExternalLink className="h-4 w-4" /> Compartilhar gráficos
+            </Button>
+          </div>
         <div className="grid gap-6 lg:grid-cols-2">
 
           {/* Alunos por projeto */}
@@ -1015,6 +1201,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardContent>
           </Card>
 
+        </div>
         </div>
       )}
 
