@@ -17,6 +17,17 @@ import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/services/classe
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 
+const CLASS_COLORS = [
+  { header: "bg-violet-600", text: "text-white", badge: "bg-violet-100 text-violet-700", icon: "text-violet-100", sub: "text-violet-200" },
+  { header: "bg-emerald-600", text: "text-white", badge: "bg-emerald-100 text-emerald-700", icon: "text-emerald-100", sub: "text-emerald-200" },
+  { header: "bg-sky-600", text: "text-white", badge: "bg-sky-100 text-sky-700", icon: "text-sky-100", sub: "text-sky-200" },
+  { header: "bg-amber-500", text: "text-white", badge: "bg-amber-100 text-amber-700", icon: "text-amber-100", sub: "text-amber-200" },
+  { header: "bg-rose-600", text: "text-white", badge: "bg-rose-100 text-rose-700", icon: "text-rose-100", sub: "text-rose-200" },
+  { header: "bg-indigo-600", text: "text-white", badge: "bg-indigo-100 text-indigo-700", icon: "text-indigo-100", sub: "text-indigo-200" },
+  { header: "bg-teal-600", text: "text-white", badge: "bg-teal-100 text-teal-700", icon: "text-teal-100", sub: "text-teal-200" },
+  { header: "bg-orange-500", text: "text-white", badge: "bg-orange-100 text-orange-700", icon: "text-orange-100", sub: "text-orange-200" },
+];
+
 const Classes = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -138,16 +149,18 @@ const Classes = () => {
             <p className="text-slate-400 font-medium">Nenhuma turma cadastrada.</p>
           </div>
         ) : (
-          filtered.map((cls) => (
+          filtered.map((cls, idx) => {
+            const color = CLASS_COLORS[idx % CLASS_COLORS.length];
+            return (
             <Card
               key={cls.id}
               className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-2xl transition-all duration-500 cursor-pointer"
               onClick={() => navigate(`${base}/turmas/${cls.id}`)}
             >
-              <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-6">
+              <CardHeader className={`${color.header} p-6`}>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-black text-primary tracking-tight">{cls.name}</CardTitle>
-                  <Badge className="rounded-full bg-secondary text-primary font-black border-none px-3">
+                  <CardTitle className={`text-lg font-black tracking-tight ${color.text}`}>{cls.name}</CardTitle>
+                  <Badge className={`rounded-full font-black border-none px-3 ${color.badge}`}>
                     {cls.period}
                   </Badge>
                 </div>
@@ -191,7 +204,8 @@ const Classes = () => {
                 </div>
               </CardContent>
             </Card>
-          ))
+            );
+          })
         )}
       </div>
     </div>

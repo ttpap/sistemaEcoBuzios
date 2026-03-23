@@ -346,7 +346,12 @@ const Students = () => {
               filtered.map((student) => (
                 <TableRow key={student.id} className="border-slate-50 hover:bg-slate-50/30 transition-colors">
                   <TableCell className="font-bold px-8 py-4">
-                    <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      className="flex items-center gap-4 text-left hover:opacity-80 transition-opacity"
+                      onClick={() => openDetails(student)}
+                      title="Ver ficha do aluno"
+                    >
                       <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
                         {student.photo ? (
                           <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
@@ -355,14 +360,14 @@ const Students = () => {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-slate-700 truncate">{student.fullName}</div>
+                        <div className="text-slate-700 truncate underline-offset-2 hover:underline">{student.fullName}</div>
                         {(student.socialName || student.preferredName) && (
                           <div className="text-xs font-bold text-slate-400 truncate">
                             {student.socialName || student.preferredName}
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   </TableCell>
                   <TableCell className="text-slate-500 font-medium">{student.registration}</TableCell>
                   <TableCell>

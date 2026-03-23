@@ -5,7 +5,8 @@ export type StudentJustification = {
   projectId: string;
   classId: string;
   studentId: string;
-  date: string; // YYYY-MM-DD
+  date: string;    // YYYY-MM-DD — data de início
+  endDate?: string; // YYYY-MM-DD — data de fim (inclusive). Se nulo = apenas o dia "date"
   message: string;
   createdAt: string;
 };
@@ -17,6 +18,7 @@ function mapRow(row: any): StudentJustification {
     classId: row.class_id,
     studentId: row.student_id,
     date: row.date,
+    endDate: row.end_date ?? undefined,
     message: row.message,
     createdAt: row.created_at,
   };
@@ -46,12 +48,18 @@ export async function fetchStudentJustificationsForClassMonthRemote(input: {
   end.setUTCMonth(end.getUTCMonth() + 1);
   const endYmd = end.toISOString().slice(0, 10);
 
+  // Busca 30 dias antes do início do mês para capturar justificativas
+  // com end_date que se estendem até este mês (ex: férias iniciadas no mês anterior).
+  const extStart = new Date(`${start}T00:00:00Z`);
+  extStart.setDate(extStart.getDate() - 30);
+  const extStartYmd = extStart.toISOString().slice(0, 10);
+
   const { data, error } = await supabase
     .from("student_justifications")
     .select("*")
     .eq("project_id", input.projectId)
     .eq("class_id", input.classId)
-    .gte("date", start)
+    .gte("date", extStartYmd)
     .lt("date", endYmd)
     .order("created_at", { ascending: false });
 
@@ -81,12 +89,13 @@ export async function fetchStudentJustificationsForClassMonthRemote(input: {
 
 export async function upsertStudentJustificationRemote(j: StudentJustification) {
   if (!supabase) return;
-  const row = {
+  const row: Record<string, any> = {
     id: j.id,
     project_id: j.projectId,
     class_id: j.classId,
     student_id: j.studentId,
     date: j.date,
+    end_date: j.endDate ?? null,
     message: j.message,
     created_at: j.createdAt,
   };
