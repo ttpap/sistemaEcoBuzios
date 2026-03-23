@@ -173,6 +173,9 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   const [allAdminStudents, setAllAdminStudents] = useState<StudentRegistration[]>([]);
   const [adminProjectCounts, setAdminProjectCounts] = useState<{ name: string; value: number }[]>([]);
+  const [adminProjects, setAdminProjects] = useState<{ id: string; name: string }[]>([]);
+  const [adminStudentIdsByProject, setAdminStudentIdsByProject] = useState<Record<string, string[]>>({});
+  const [adminChartProjectFilter, setAdminChartProjectFilter] = useState<"all" | string>("all");
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -371,6 +374,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               .sort((a, b) => b.value - a.value);
 
             setAdminProjectCounts(projectCountsList);
+            setAdminProjects(projects.map((p) => ({ id: p.id, name: p.name })));
+            setAdminStudentIdsByProject(
+              Object.fromEntries(
+                Array.from(byProject.entries()).map(([k, v]) => [k, Array.from(v)]),
+              ),
+            );
           } catch {
             // ignore
           }
@@ -560,9 +569,15 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   // ── Gráficos globais admin ────────────────────────────────────────────────
 
+  const adminChartStudents = useMemo(() => {
+    if (adminChartProjectFilter === "all") return allAdminStudents;
+    const ids = new Set(adminStudentIdsByProject[adminChartProjectFilter] || []);
+    return allAdminStudents.filter((s) => ids.has(s.id));
+  }, [allAdminStudents, adminChartProjectFilter, adminStudentIdsByProject]);
+
   const globalNeighborhoodsData = useMemo(() => {
     const map = new Map<string, number>();
-    for (const s of allAdminStudents) {
+    for (const s of adminChartStudents) {
       const name = (s.neighborhood || "Não informado").trim() || "Não informado";
       map.set(name, (map.get(name) || 0) + 1);
     }
@@ -570,17 +585,17 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 12);
-  }, [allAdminStudents]);
+  }, [adminChartStudents]);
 
   const globalSchoolTypeData = useMemo(() => {
     const counts = { pública: 0, privada: 0, outros: 0 };
-    for (const s of allAdminStudents) counts[normalizeSchoolType(s)] += 1;
+    for (const s of adminChartStudents) counts[normalizeSchoolType(s)] += 1;
     return [
       { name: "Pública", value: counts["pública"], color: "hsl(var(--primary))" },
       { name: "Privada", value: counts["privada"], color: "hsl(var(--secondary))" },
       { name: "Outros", value: counts["outros"], color: "#60a5fa" },
     ].filter((x) => x.value > 0);
-  }, [allAdminStudents]);
+  }, [adminChartStudents]);
 
   const globalAgeRangeData = useMemo(() => {
     const buckets: Record<string, number> = {
@@ -592,7 +607,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       "36+": 0,
     };
     const currentYear = new Date().getFullYear();
-    for (const s of allAdminStudents) {
+    for (const s of adminChartStudents) {
       const parts = (s.birthDate || "").split("-");
       if (parts.length !== 3) continue;
       const age = currentYear - Number(parts[0]);
@@ -607,7 +622,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
     return Object.entries(buckets)
       .map(([name, value]) => ({ name, value }))
       .filter((x) => x.value > 0);
-  }, [allAdminStudents]);
+  }, [adminChartStudents]);
 
   // Faixa de idade — professor/coordenador (dados do projeto)
   const localAgeRangeData = useMemo(() => {
@@ -1015,64 +1030,100 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       {/* Gráficos globais — apenas admin */}
       {base === "" && allAdminStudents.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-widest text-slate-400">Indicadores globais</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-9 rounded-2xl font-black border-slate-200 text-slate-600 gap-2 text-xs"
-              onClick={() => {
-                const url = `${window.location.origin}/graficos`;
-                navigator.clipboard.writeText(url).then(() => {
-                  import("@/utils/toast").then(({ showSuccess }) => showSuccess("Link copiado!"));
-                });
-              }}
-            >
-              <ExternalLink className="h-4 w-4" /> Compartilhar gráficos
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Indicadores globais</p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-2xl font-black border-slate-200 text-slate-600 gap-2 text-xs"
+                onClick={() => {
+                  const url = `${window.location.origin}/graficos`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    import("@/utils/toast").then(({ showSuccess }) => showSuccess("Link copiado!"));
+                  });
+                }}
+              >
+                <ExternalLink className="h-4 w-4" /> Compartilhar gráficos
+              </Button>
+            </div>
+            {/* Filtro por projeto */}
+            {adminProjects.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdminChartProjectFilter("all")}
+                  className={
+                    "h-8 px-4 rounded-2xl text-xs font-black border transition-colors " +
+                    (adminChartProjectFilter === "all"
+                      ? "bg-primary text-white border-primary"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50")
+                  }
+                >
+                  Todos os projetos
+                </button>
+                {adminProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setAdminChartProjectFilter(p.id)}
+                    className={
+                      "h-8 px-4 rounded-2xl text-xs font-black border transition-colors " +
+                      (adminChartProjectFilter === p.id
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50")
+                    }
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         <div className="grid gap-6 lg:grid-cols-2">
 
-          {/* Alunos por projeto */}
-          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="p-6 md:p-8 pb-2">
-              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-                <Layers className="h-5 w-5" /> Alunos por projeto
-              </CardTitle>
-              <p className="text-slate-500 font-medium mt-1">Matrículas únicas em cada projeto.</p>
-            </CardHeader>
-            <CardContent className="p-6 md:p-8 pt-4">
-              {adminProjectCounts.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
-                <div className="h-[240px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={adminProjectCounts} margin={{ left: 0, right: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }}
-                        tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 14) + "…" : v)}
-                      />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip
-                        cursor={{ fill: "#f8fafc" }}
-                        contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
-                        formatter={(v: any) => [v, "Alunos"]}
-                      />
-                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
-                        {adminProjectCounts.map((_, i) => (
-                          <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Alunos por projeto — só quando "todos" está selecionado */}
+          {adminChartProjectFilter === "all" && (
+            <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="p-6 md:p-8 pb-2">
+                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                  <Layers className="h-5 w-5" /> Alunos por projeto
+                </CardTitle>
+                <p className="text-slate-500 font-medium mt-1">Matrículas únicas em cada projeto.</p>
+              </CardHeader>
+              <CardContent className="p-6 md:p-8 pt-4">
+                {adminProjectCounts.length === 0 ? (
+                  <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                ) : (
+                  <div className="h-[240px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={adminProjectCounts} margin={{ left: 0, right: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                        <XAxis
+                          dataKey="name"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }}
+                          tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 14) + "…" : v)}
+                        />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                        <Tooltip
+                          cursor={{ fill: "#f8fafc" }}
+                          contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
+                          formatter={(v: any) => [v, "Alunos"]}
+                        />
+                        <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                          {adminProjectCounts.map((_, i) => (
+                            <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Bairros (global) */}
           <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
