@@ -56,7 +56,8 @@ import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { fetchStudentsRemote } from "@/services/studentsService";
+import { fetchStudentsRemote, fetchStudents } from "@/services/studentsService";
+import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -169,6 +170,9 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
     enrolledStudents: number;
     justificationsThisMonth: number;
   } | null>(null);
+
+  const [allAdminStudents, setAllAdminStudents] = useState<StudentRegistration[]>([]);
+  const [adminProjectCounts, setAdminProjectCounts] = useState<{ name: string; value: number }[]>([]);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -337,6 +341,39 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         } catch {
           // ignore
         }
+
+          // Todos os alunos do sistema (para gráficos globais)
+          try {
+            const all = await fetchStudents();
+            setAllAdminStudents(all);
+          } catch {
+            // ignore
+          }
+
+          // Alunos por projeto
+          try {
+            const projects = await fetchProjectsFromDb();
+            const { data: enrollData2 } = await supabase
+              .from("class_student_enrollments")
+              .select("student_id, classes!inner(project_id)");
+
+            const byProject = new Map<string, Set<string>>();
+            for (const e of (enrollData2 || []) as any[]) {
+              const pid = e.classes?.project_id;
+              if (!pid) continue;
+              if (!byProject.has(pid)) byProject.set(pid, new Set());
+              byProject.get(pid)!.add(e.student_id);
+            }
+
+            const projectCountsList = projects
+              .map((p) => ({ name: p.name, value: byProject.get(p.id)?.size ?? 0 }))
+              .filter((p) => p.value > 0)
+              .sort((a, b) => b.value - a.value);
+
+            setAdminProjectCounts(projectCountsList);
+          } catch {
+            // ignore
+          }
       }
     };
 
@@ -520,6 +557,57 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
     () => neighborhoodsFullData.slice(0, 10),
     [neighborhoodsFullData],
   );
+
+  // ── Gráficos globais admin ────────────────────────────────────────────────
+
+  const globalNeighborhoodsData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of allAdminStudents) {
+      const name = (s.neighborhood || "Não informado").trim() || "Não informado";
+      map.set(name, (map.get(name) || 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 12);
+  }, [allAdminStudents]);
+
+  const globalSchoolTypeData = useMemo(() => {
+    const counts = { pública: 0, privada: 0, outros: 0 };
+    for (const s of allAdminStudents) counts[normalizeSchoolType(s)] += 1;
+    return [
+      { name: "Pública", value: counts["pública"], color: "hsl(var(--primary))" },
+      { name: "Privada", value: counts["privada"], color: "hsl(var(--secondary))" },
+      { name: "Outros", value: counts["outros"], color: "#60a5fa" },
+    ].filter((x) => x.value > 0);
+  }, [allAdminStudents]);
+
+  const globalAgeRangeData = useMemo(() => {
+    const buckets: Record<string, number> = {
+      "Até 10": 0,
+      "11 – 14": 0,
+      "15 – 17": 0,
+      "18 – 24": 0,
+      "25 – 35": 0,
+      "36+": 0,
+    };
+    const currentYear = new Date().getFullYear();
+    for (const s of allAdminStudents) {
+      const parts = (s.birthDate || "").split("-");
+      if (parts.length !== 3) continue;
+      const age = currentYear - Number(parts[0]);
+      if (!Number.isFinite(age) || age < 0) continue;
+      if (age <= 10) buckets["Até 10"] += 1;
+      else if (age <= 14) buckets["11 – 14"] += 1;
+      else if (age <= 17) buckets["15 – 17"] += 1;
+      else if (age <= 24) buckets["18 – 24"] += 1;
+      else if (age <= 35) buckets["25 – 35"] += 1;
+      else buckets["36+"] += 1;
+    }
+    return Object.entries(buckets)
+      .map(([name, value]) => ({ name, value }))
+      .filter((x) => x.value > 0);
+  }, [allAdminStudents]);
 
   const calendarMonthLabel = useMemo(
     () => new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(today),
@@ -754,6 +842,181 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           );
         })}
       </div>
+
+      {/* Gráficos globais — apenas admin */}
+      {base === "" && allAdminStudents.length > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+
+          {/* Alunos por projeto */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Layers className="h-5 w-5" /> Alunos por projeto
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Matrículas únicas em cada projeto.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {adminProjectCounts.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={adminProjectCounts} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }}
+                        tickFormatter={(v: string) => (v.length > 14 ? v.slice(0, 14) + "…" : v)}
+                      />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip
+                        cursor={{ fill: "#f8fafc" }}
+                        contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
+                        formatter={(v: any) => [v, "Alunos"]}
+                      />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {adminProjectCounts.map((_, i) => (
+                          <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Bairros (global) */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <MapPinned className="h-5 w-5" /> Bairros (todos os projetos)
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Top 12 bairros de residência.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {globalNeighborhoodsData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={globalNeighborhoodsData} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#64748b", fontSize: 10, fontWeight: 900 }}
+                        tickFormatter={(v: string) => (v.length > 10 ? v.slice(0, 10) + "…" : v)}
+                        interval={0}
+                      />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip
+                        cursor={{ fill: "#f8fafc" }}
+                        contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
+                        formatter={(v: any) => [v, "Alunos"]}
+                      />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {globalNeighborhoodsData.map((_, i) => (
+                          <Cell key={i} fill={i % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              <p className="mt-2 text-xs font-bold text-slate-400">Total de bairros: {globalNeighborhoodsData.length}</p>
+            </CardContent>
+          </Card>
+
+          {/* Situação escolar (global) */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <School className="h-5 w-5" /> Situação escolar
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Tipo de escola — todos os projetos.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
+              {globalSchoolTypeData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <>
+                  <div className="h-[200px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={globalSchoolTypeData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3} label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
+                          {globalSchoolTypeData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [v, n]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="mt-3 w-full space-y-1.5">
+                    {globalSchoolTypeData.map((d) => {
+                      const total = globalSchoolTypeData.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: d.color }} />
+                            {d.name}
+                          </div>
+                          <span className="font-black text-slate-800">{d.value} · {Math.round((d.value / total) * 100)}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Faixa de idade (global) */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Users className="h-5 w-5" /> Faixa de idade
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">Distribuição etária — todos os projetos.</p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {globalAgeRangeData.length === 0 ? (
+                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              ) : (
+                <div className="h-[240px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={globalAgeRangeData} margin={{ left: 0, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis
+                        dataKey="name"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#64748b", fontSize: 12, fontWeight: 900 }}
+                      />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
+                      <Tooltip
+                        cursor={{ fill: "#f8fafc" }}
+                        contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
+                        formatter={(v: any) => [v, "Alunos"]}
+                      />
+                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
+                        {globalAgeRangeData.map((_, i) => (
+                          <Cell key={i} fill={["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"][i % 6]} opacity={0.9} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+        </div>
+      )}
 
       {/* BIRTHDAYS (HIGHLIGHT) */}
       <Card className="border-none shadow-2xl shadow-primary/10 bg-white rounded-[2.75rem] overflow-hidden">
