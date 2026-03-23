@@ -33,6 +33,7 @@ import {
   Users,
   FileCheck2,
   ExternalLink,
+  MessageSquarePlus,
 } from "lucide-react";
 import { SchoolClass } from "@/types/class";
 import { TeacherRegistration } from "@/types/teacher";
@@ -181,6 +182,17 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
   const [justificationsOpen, setJustificationsOpen] = useState(false);
 
+  // Justificativas de professores do projeto (coordenador)
+  const [teacherJustifications, setTeacherJustifications] = useState<Array<{
+    id: string;
+    teacherId: string;
+    teacherName: string;
+    startDate: string;
+    endDate: string | null;
+    message: string;
+    createdAt: string;
+  }>>([]);
+
   const today = new Date();
   const thisMonth = monthKey(today);
 
@@ -306,9 +318,43 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         } catch {
           // ignore
         }
+
+        // Justificativas de professores do projeto (visível para coordenador e admin)
+        if (base === "/coordenador" || base === "") {
+          try {
+            const monthStart = `${thisMonth}-01`;
+            const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const nextMonthStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+
+            const { data: tjData } = await supabase
+              .from("teacher_justifications")
+              .select("*, teachers(full_name, preferred_name)")
+              .eq("project_id", projectId)
+              .lt("start_date", nextMonthStr)
+              .or(`end_date.gte.${monthStart},end_date.is.null,start_date.gte.${monthStart}`)
+              .order("start_date", { ascending: false });
+
+            if (tjData) {
+              setTeacherJustifications(
+                (tjData as any[]).map((r) => ({
+                  id: r.id,
+                  teacherId: r.teacher_id,
+                  teacherName: r.teachers?.preferred_name || r.teachers?.full_name || "Professor",
+                  startDate: r.start_date,
+                  endDate: r.end_date ?? null,
+                  message: r.message,
+                  createdAt: r.created_at,
+                })),
+              );
+            }
+          } catch {
+            // ignore
+          }
+        }
       } else {
         setJustifications([]);
         setAttendanceSessions([]);
+        setTeacherJustifications([]);
       }
 
       // Admin: agrega KPIs de todos os projetos
@@ -886,6 +932,50 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           );
         })}
       </div>
+
+      {/* Card de justificativas de professores — destaque para coordenador */}
+      {base === "/coordenador" && teacherJustifications.length > 0 && (
+        <Card className="border-none shadow-xl shadow-amber-100/60 bg-amber-50 rounded-[2rem] overflow-hidden">
+          <CardHeader className="p-6 pb-3 flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center">
+                <MessageSquarePlus className="h-5 w-5 text-amber-700" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-black text-amber-900">
+                  Justificativas de professores — {new Date(thisMonth + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+                </CardTitle>
+                <p className="text-xs font-bold text-amber-700/80 mt-0.5">
+                  {teacherJustifications.length} justificativa(s) registrada(s) este mês
+                </p>
+              </div>
+            </div>
+            <Badge className="rounded-full bg-amber-500 text-white border-none font-black shrink-0">
+              {teacherJustifications.length}
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-6 pt-2 space-y-2">
+            {teacherJustifications.map((tj) => {
+              const start = new Date(tj.startDate + "T00:00:00").toLocaleDateString("pt-BR");
+              const end = tj.endDate ? new Date(tj.endDate + "T00:00:00").toLocaleDateString("pt-BR") : null;
+              const periodo = end && end !== start ? `${start} até ${end}` : start;
+              return (
+                <div key={tj.id} className="rounded-[1.5rem] bg-white border border-amber-100 p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-black text-amber-900">{tj.teacherName}</span>
+                      <Badge className="rounded-full bg-amber-100 text-amber-800 border-none font-black text-[10px]">
+                        <CalendarDays className="h-3 w-3 mr-1" />{periodo}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed">{tj.message}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Gráficos professor/coordenador */}
       {base !== "" && activeStudentsInClasses.length > 0 && (

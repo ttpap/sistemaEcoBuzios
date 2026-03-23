@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { CalendarDays, LogOut, ClipboardList } from "lucide-react";
+import { CalendarDays, LogOut, ClipboardList, MessageSquarePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/Logo";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
@@ -20,6 +20,7 @@ export default function StudentSidebar({
 
   const items = [
     { icon: CalendarDays, label: "Calendário", path: "/aluno" },
+    { icon: MessageSquarePlus, label: "Justificativas", path: "/aluno/justificativas" },
     { icon: ClipboardList, label: "Minha ficha", path: "/aluno/minha-ficha" },
   ];
 

@@ -60,6 +60,7 @@ const AdminRegistrationLinks      = lazy(() => import("@/pages/AdminRegistration
 const StudentSelectProject        = lazy(() => import("@/pages/StudentSelectProject"));
 const StudentDashboard            = lazy(() => import("@/pages/StudentDashboard"));
 const StudentSelfEdit             = lazy(() => import("@/pages/StudentSelfEdit"));
+const StudentJustification        = lazy(() => import("@/pages/StudentJustification"));
 const DbStatus                    = lazy(() => import("@/pages/DbStatus"));
 const TeacherLogin                = lazy(() => import("./pages/TeacherLogin"));
 const StudentLogin                = lazy(() => import("./pages/StudentLogin"));
@@ -117,6 +118,14 @@ const App = () => (
                     >
                       <Routes>
                         <Route path="selecionar-projeto" element={<StudentSelectProject />} />
+                        <Route
+                          path="justificativas"
+                          element={
+                            <StudentActiveProjectGate>
+                              <StudentJustification />
+                            </StudentActiveProjectGate>
+                          }
+                        />
                         <Route
                           path="minha-ficha"
                           element={
