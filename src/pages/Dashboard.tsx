@@ -325,27 +325,51 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             const monthStart = `${thisMonth}-01`;
             const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
             const nextMonthStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+            // Busca 31 dias antes para capturar ranges que começaram no mês anterior
+            const extStart = new Date(monthStart);
+            extStart.setDate(extStart.getDate() - 31);
+            const extStartStr = extStart.toISOString().slice(0, 10);
 
             const { data: tjData } = await supabase
               .from("teacher_justifications")
-              .select("*, teachers(full_name, preferred_name)")
+              .select("*")
               .eq("project_id", projectId)
+              .gte("start_date", extStartStr)
               .lt("start_date", nextMonthStr)
-              .or(`end_date.gte.${monthStart},end_date.is.null,start_date.gte.${monthStart}`)
               .order("start_date", { ascending: false });
 
-            if (tjData) {
+            if (tjData && tjData.length > 0) {
+              // Busca nomes dos professores
+              const teacherIds = [...new Set((tjData as any[]).map((r) => r.teacher_id))];
+              const { data: teachersData } = await supabase
+                .from("teachers")
+                .select("id, full_name, preferred_name")
+                .in("id", teacherIds);
+
+              const teacherMap = new Map<string, string>();
+              for (const t of (teachersData || []) as any[]) {
+                teacherMap.set(t.id, t.preferred_name || t.full_name || "Professor");
+              }
+
+              // Filtra apenas os que se sobrepõem ao mês corrente
+              const items = (tjData as any[]).filter((r) => {
+                const end = r.end_date || r.start_date;
+                return r.start_date <= nextMonthStr && end >= monthStart;
+              });
+
               setTeacherJustifications(
-                (tjData as any[]).map((r) => ({
+                items.map((r) => ({
                   id: r.id,
                   teacherId: r.teacher_id,
-                  teacherName: r.teachers?.preferred_name || r.teachers?.full_name || "Professor",
+                  teacherName: teacherMap.get(r.teacher_id) || "Professor",
                   startDate: r.start_date,
                   endDate: r.end_date ?? null,
                   message: r.message,
                   createdAt: r.created_at,
                 })),
               );
+            } else {
+              setTeacherJustifications([]);
             }
           } catch {
             // ignore
@@ -933,8 +957,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         })}
       </div>
 
-      {/* Card de justificativas de professores — destaque para coordenador */}
-      {base === "/coordenador" && teacherJustifications.length > 0 && (
+      {/* Card de justificativas de professores — destaque para coordenador e admin */}
+      {(base === "/coordenador" || base === "") && teacherJustifications.length > 0 && (
         <Card className="border-none shadow-xl shadow-amber-100/60 bg-amber-50 rounded-[2rem] overflow-hidden">
           <CardHeader className="p-6 pb-3 flex flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
