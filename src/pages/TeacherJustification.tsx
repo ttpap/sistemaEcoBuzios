@@ -30,6 +30,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getTeacherSession } from "@/utils/teacher-auth";
 import { getActiveProjectId } from "@/utils/projects";
 import { showSuccess, showError } from "@/utils/toast";
+import { readGlobalTeachers } from "@/utils/teachers";
 
 type TeacherJustification = {
   id: string;
@@ -116,6 +117,11 @@ export default function TeacherJustification() {
       const startDate = toYMD(dateRange.from);
       const endDate = dateRange.to ? toYMD(dateRange.to) : null;
 
+      // Resolve nome do professor: primeiro tenta localStorage, depois usa login
+      const allTeachers = readGlobalTeachers([]);
+      const foundTeacher = allTeachers.find((t) => t.id === teacherId);
+      const teacherName = foundTeacher?.fullName || session?.login || "Professor";
+
       setSaving(true);
       try {
         const row = {
@@ -124,6 +130,7 @@ export default function TeacherJustification() {
           start_date: startDate,
           end_date: endDate,
           message: message.trim(),
+          teacher_name: teacherName,
         };
 
         const { data, error } = await supabase

@@ -339,17 +339,11 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               .order("start_date", { ascending: false });
 
             if (tjData && tjData.length > 0) {
-              // Busca nomes dos professores
-              const teacherIds = [...new Set((tjData as any[]).map((r) => r.teacher_id))];
-              const { data: teachersData } = await supabase
-                .from("teachers")
-                .select("id, full_name, preferred_name")
-                .in("id", teacherIds);
-
-              const teacherMap = new Map<string, string>();
-              for (const t of (teachersData || []) as any[]) {
-                teacherMap.set(t.id, t.preferred_name || t.full_name || "Professor");
-              }
+              // Fallback: busca nomes do localStorage caso teacher_name não esteja preenchido
+              const localTeachers = readGlobalTeachers([]);
+              const localMap = new Map<string, string>(
+                localTeachers.map((t: any) => [t.id, t.fullName || t.full_name || "Professor"]),
+              );
 
               // Filtra apenas os que se sobrepõem ao mês corrente
               const items = (tjData as any[]).filter((r) => {
@@ -361,7 +355,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 items.map((r) => ({
                   id: r.id,
                   teacherId: r.teacher_id,
-                  teacherName: teacherMap.get(r.teacher_id) || "Professor",
+                  teacherName: r.teacher_name || localMap.get(r.teacher_id) || "Professor",
                   startDate: r.start_date,
                   endDate: r.end_date ?? null,
                   message: r.message,
