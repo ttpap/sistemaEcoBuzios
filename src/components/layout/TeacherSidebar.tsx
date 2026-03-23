@@ -73,11 +73,11 @@ export default function TeacherSidebar({
   const menuItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
-      { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
-      { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
+      { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
       { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
+      { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
       { icon: Link2, label: "Links de inscrição", path: "/professor/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/professor/conta" },
     ],

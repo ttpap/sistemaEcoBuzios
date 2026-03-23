@@ -76,11 +76,11 @@ export default function CoordinatorSidebar({
   const menuItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/coordenador" },
-      { icon: GraduationCap, label: "Professores", path: "/coordenador/professores" },
       { icon: BookOpen, label: "Turmas", path: "/coordenador/turmas" },
-      { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
+      { icon: GraduationCap, label: "Professores", path: "/coordenador/professores" },
       { icon: NotebookPen, label: "Relatório mensal", path: "/coordenador/relatorios/mensais" },
       { icon: FileText, label: "Relatório ENEL", path: "/coordenador/relatorios/enel" },
+      { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
       { icon: Link2, label: "Links de inscrição", path: "/coordenador/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/coordenador/conta" },
     ],
