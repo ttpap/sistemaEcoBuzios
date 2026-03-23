@@ -14,7 +14,9 @@ export const enrollmentsService = {
       .eq("classes.project_id", input.projectId)
       .is("removed_at", null);
 
-    if (!error && data) {
+    // Só confia no resultado se não houver erro E a query retornou linhas.
+    // Se retornar vazio sem erro (RLS pode filtrar tudo para Modo B), cai no RPC.
+    if (!error && data && data.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data as any[]).map((r) => ({ class_id: r.class_id, student_id: r.student_id }));
     }

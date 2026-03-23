@@ -27,6 +27,7 @@ import {
   ClipboardCheck,
   Gift,
   GraduationCap,
+  Layers,
   MapPinned,
   School,
   Users,
@@ -50,6 +51,7 @@ import {
   type StudentJustification,
 } from "@/services/studentJustificationsService";
 import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
+import { supabase } from "@/integrations/supabase/client";
 import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
@@ -161,6 +163,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
+  const [adminStats, setAdminStats] = useState<{
+    projects: number;
+    activeClasses: number;
+    enrolledStudents: number;
+    justificationsThisMonth: number;
+  } | null>(null);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -295,10 +303,45 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         setJustifications([]);
         setAttendanceSessions([]);
       }
+
+      // Admin: agrega KPIs de todos os projetos
+      if (base === "") {
+        try {
+          const [
+            { count: projectCount },
+            { count: classCount },
+            { data: enrollData },
+          ] = await Promise.all([
+            supabase.from("projects").select("id", { count: "exact", head: true }),
+            supabase.from("classes").select("id", { count: "exact", head: true }).eq("status", "Ativo"),
+            supabase.from("class_student_enrollments").select("student_id"),
+          ]);
+
+          const uniqueStudents = new Set((enrollData || []).map((e: any) => e.student_id)).size;
+
+          const monthStart = `${thisMonth}-01`;
+          const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+          const nextMonthStr = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, "0")}-01`;
+          const { count: justifCount } = await supabase
+            .from("student_justifications")
+            .select("id", { count: "exact", head: true })
+            .gte("date", monthStart)
+            .lt("date", nextMonthStr);
+
+          setAdminStats({
+            projects: projectCount ?? 0,
+            activeClasses: classCount ?? 0,
+            enrolledStudents: uniqueStudents,
+            justificationsThisMonth: justifCount ?? 0,
+          });
+        } catch {
+          // ignore
+        }
+      }
     };
 
     void run();
-  }, [projectId, base]);
+  }, [projectId, base, thisMonth]);
 
   const classesById = useMemo(() => {
     const map = new Map<string, SchoolClass>();
@@ -314,13 +357,42 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
     return "";
   }, [classes, selectedStudent?.id]);
 
-  const kpis = useMemo(() => {
+  const kpis = useMemo((): KPI[] => {
+    // Admin: KPIs agregados de todos os projetos
+    if (base === "") {
+      const stats = adminStats ?? { projects: 0, activeClasses: 0, enrolledStudents: 0, justificationsThisMonth: 0 };
+      return [
+        {
+          label: "Projetos",
+          value: stats.projects,
+          icon: <Layers className="h-5 w-5" />,
+          tone: "primary",
+        },
+        {
+          label: "Turmas ativas",
+          value: stats.activeClasses,
+          icon: <BookOpen className="h-5 w-5" />,
+          tone: "sky",
+        },
+        {
+          label: "Alunos matriculados",
+          value: stats.enrolledStudents,
+          icon: <GraduationCap className="h-5 w-5" />,
+          tone: "secondary",
+        },
+        {
+          label: "Justificativas (mês)",
+          value: stats.justificationsThisMonth,
+          icon: <ClipboardCheck className="h-5 w-5" />,
+          tone: stats.justificationsThisMonth > 0 ? "amber" : "secondary",
+        },
+      ];
+    }
+
+    // Professor / Coordenador: dados do projeto ativo vinculado a eles
     const active = classes.filter((c) => c.status === "Ativo");
 
-    const enrolledStudentIds = new Set(classes.flatMap((c) => c.studentIds || []));
-    const totalStudents = enrolledStudentIds.size;
-
-    const list: KPI[] = [
+    return [
       {
         label: "Turmas ativas",
         value: active.length,
@@ -329,20 +401,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       },
       {
         label: "Alunos matriculados",
-        value: totalStudents,
+        value: students.length,
         icon: <GraduationCap className="h-5 w-5" />,
         tone: "sky",
       },
-      {
-        label: "Justificativas (mês)",
-        value: justificationItems.length,
-        icon: <ClipboardCheck className="h-5 w-5" />,
-        tone: justificationItems.length > 0 ? "amber" : "secondary",
-      },
     ];
-
-    return list;
-  }, [classes, justificationItems]);
+  }, [base, adminStats, classes, students]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -657,7 +721,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       </div>
 
       {/* KPIs */}
-      <div className="grid gap-6 sm:grid-cols-3">
+      <div className={`grid gap-6 ${base === "" ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2"}`}>
         {kpis.map((k) => {
           const tone =
             k.tone === "primary"
