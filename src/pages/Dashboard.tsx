@@ -1138,7 +1138,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </Card>
           )}
 
-          {/* Bairros */}
+          {/* Bairros — rosca */}
           <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="p-6 md:p-8 pb-2">
               <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
@@ -1146,26 +1146,40 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               </CardTitle>
               <p className="text-slate-500 font-medium mt-1">Residência dos participantes deste projeto.</p>
             </CardHeader>
-            <CardContent className="p-6 md:p-8 pt-4">
+            <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
               {neighborhoodsData.length === 0 ? (
                 <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={neighborhoodsData} margin={{ left: 0, right: 10 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 10 ? v.slice(0, 10) + "…" : v} interval={0} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
-                      <Bar dataKey="value" radius={[14, 14, 8, 8]}>
-                        {neighborhoodsData.map((_, i) => (
-                          <Cell key={i} fill={i % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"} opacity={0.9} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
+              ) : (() => {
+                const NBCOLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171", "#a78bfa", "#fb923c", "#4ade80", "#38bdf8", "#e879f9", "#facc15"];
+                const total = neighborhoodsData.reduce((s, x) => s + x.value, 0);
+                return (
+                  <>
+                    <div className="h-[200px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={neighborhoodsData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={88} paddingAngle={2}>
+                            {neighborhoodsData.map((_, i) => (
+                              <Cell key={i} fill={NBCOLORS[i % NBCOLORS.length]} opacity={0.92} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 w-full space-y-1.5">
+                      {neighborhoodsData.map((d, i) => (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: NBCOLORS[i % NBCOLORS.length] }} />
+                            <span className="truncate max-w-[180px]">{d.name}</span>
+                          </div>
+                          <span className="font-black text-slate-800 shrink-0 ml-2">{d.value} · {Math.round((d.value / total) * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
 
@@ -1818,21 +1832,20 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               ) : (
                 <div className="h-[260px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={institutionsData} layout="vertical" margin={{ left: 40, right: 8 }}>
-                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef2f7" />
+                    <BarChart data={institutionsData} margin={{ left: 0, right: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis
-                        type="number"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 800 }}
-                      />
-                      <YAxis
-                        type="category"
                         dataKey="name"
                         axisLine={false}
                         tickLine={false}
-                        width={160}
-                        tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }}
+                        tick={{ fill: "#64748b", fontSize: 10, fontWeight: 800 }}
+                        tickFormatter={(v: string) => v.length > 12 ? v.slice(0, 12) + "…" : v}
+                        interval={0}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 800 }}
                       />
                       <Tooltip
                         cursor={{ fill: "#f8fafc" }}
@@ -1842,7 +1855,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                           boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
                         }}
                       />
-                      <Bar dataKey="value" radius={[12, 12, 12, 12]}>
+                      <Bar dataKey="value" radius={[12, 12, 4, 4]}>
                         {institutionsData.map((_, index) => (
                           <Cell
                             key={index}
