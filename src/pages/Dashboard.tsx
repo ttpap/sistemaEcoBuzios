@@ -57,12 +57,13 @@ import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { fetchStudentsRemote, fetchStudents } from "@/services/studentsService";
+import { fetchStudentsRemoteWithMeta, fetchStudents } from "@/services/studentsService";
 import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 import { readGlobalTeachers } from "@/utils/teachers";
+import { mapTeacherRowToModel } from "@/integrations/supabase/mappers";
 import { readGlobalCoordinators } from "@/utils/coordinators";
 import { enrollmentsService, type EnrollmentRow } from "@/services/enrollmentsService";
 
@@ -262,21 +263,25 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       if (projectId) {
         // Não dependemos mais de Supabase Auth aqui: as telas do Modo B usam RPCs.
 
-        // 1) Turmas (fonte da verdade)
+        // 1) Turmas (fonte da verdade — confia no resultado mesmo que vazio; novo projeto = 0 turmas)
         try {
           const res = await fetchClassesRemoteWithMeta(projectId);
-          if (res.classes.length) {
+          if (!res.issue) {
+            nextClasses = res.classes;
+          } else if (res.classes.length) {
             nextClasses = res.classes;
           }
         } catch {
           // ignore
         }
 
-        // 2) Alunos (fonte da verdade, com fallback modo B)
+        // 2) Alunos filtrados pelo projeto (somente matriculados nas turmas do projeto)
         try {
-          const remoteStudents = await fetchStudentsRemote(projectId);
-          if (remoteStudents.length) {
-            nextStudents = remoteStudents;
+          const res = await fetchStudentsRemoteWithMeta(projectId);
+          if (!res.issue) {
+            nextStudents = res.students;
+          } else if (res.students.length) {
+            nextStudents = res.students;
           }
         } catch {
           // ignore
@@ -307,10 +312,36 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         }
       }
 
-      // Project-scoped (classes/teachers ainda usam cache local)
+      // Project-scoped — professores filtrados pelo projeto
       setClasses(nextClasses);
       setStudents(nextStudents);
-      setTeachers(readScoped("teachers", []));
+
+      // Carrega professores do projeto: tenta Supabase primeiro (filtra por projeto),
+      // com fallback para cache local (útil em Modo B sem JWT).
+      let nextTeachers = readScoped<TeacherRegistration[]>("teachers", []);
+      if (projectId && !getModeBStaffCreds()) {
+        try {
+          const { data: assignRows } = await supabase
+            .from("teacher_project_assignments")
+            .select("teacher_id")
+            .eq("project_id", projectId);
+
+          if (assignRows !== null) {
+            if (assignRows.length === 0) {
+              nextTeachers = [];
+            } else {
+              const tIds = assignRows.map((a: any) => a.teacher_id);
+              const { data: tData } = await supabase.from("teachers").select("*").in("id", tIds);
+              if (tData) {
+                nextTeachers = tData.map(mapTeacherRowToModel);
+              }
+            }
+          }
+        } catch {
+          // ignore — fallback local já carregado
+        }
+      }
+      setTeachers(nextTeachers);
 
       if (projectId) {
         setJustifications(await fetchStudentJustificationsRemote(projectId));

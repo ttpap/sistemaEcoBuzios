@@ -40,27 +40,36 @@ export async function fetchStudents(): Promise<StudentRegistration[]> {
 export type FetchStudentsIssue = "rpc_missing" | "not_allowed" | "unknown";
 export type FetchStudentsResult = { students: StudentRegistration[]; issue?: FetchStudentsIssue };
 
-// Lista estudantes disponíveis para um projeto no modo B.
-// Observação: a tabela students é global, mas usamos o project_id apenas para autorização do staff.
+// Lista estudantes do projeto (somente matriculados nas turmas do projeto).
 export async function fetchStudentsRemoteWithMeta(projectId: string): Promise<FetchStudentsResult> {
   if (!supabase) return { students: [] };
 
-  // 1) Tentativa normal
-  const { data, error } = await supabase
-    .from("students")
-    .select("*")
-    .order("registration_date", { ascending: false });
-
-  if (!error && data && data.length > 0) {
-    return { students: data.map(mapStudentRowToModel) };
-  }
-
-  // 2) Fallback (modo B)
   const creds = getModeBStaffCreds();
+
   if (!creds) {
+    // Admin / Supabase JWT — filtra via join de matrículas → turmas do projeto
+    const { data: enrollRows, error: enrollErr } = await supabase
+      .from("class_student_enrollments")
+      .select("student_id, classes!inner(project_id)")
+      .eq("classes.project_id", projectId)
+      .is("removed_at", null);
+
+    if (enrollErr) return { students: [], issue: "unknown" };
+
+    const ids = Array.from(new Set((enrollRows as any[]).map((e) => e.student_id)));
+    if (ids.length === 0) return { students: [] }; // Projeto sem matrículas
+
+    const { data, error } = await supabase
+      .from("students")
+      .select("*")
+      .in("id", ids)
+      .order("registration_date", { ascending: false });
+
+    if (error) return { students: [], issue: "unknown" };
     return { students: (data || []).map(mapStudentRowToModel) };
   }
 
+  // Modo B — usa RPC SECURITY DEFINER (já filtra por projeto)
   const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_students", {
     p_login: creds.login,
     p_password: creds.password,

@@ -186,7 +186,12 @@ export function addTeacherToProject(teacherId: string, projectId: string) {
   const teacher = readGlobalTeachers([]).find((t) => t.id === teacherId);
   if (!teacher) return { ok: false as const, reason: "teacher_not_found" as const };
 
-  migrateLegacyProjectDataToProjectIfNeeded(projectId);
+  // Guard: only run legacy migration once (prevents old project data from contaminating new projects)
+  const LEGACY_FLAG = "ecobuzios_legacy_data_migrated_v1";
+  if (!localStorage.getItem(LEGACY_FLAG)) {
+    migrateLegacyProjectDataToProjectIfNeeded(projectId);
+    localStorage.setItem(LEGACY_FLAG, "1");
+  }
 
   const map = getTeacherAssignments();
   const current = map[teacherId] || [];
