@@ -25,14 +25,37 @@ const SCHOOL_COLORS: Record<string, string> = {
 
 const AGE_COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"];
 
+function getProjectIdsFromUrl(): string[] | null {
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("projetos");
+  if (!raw) return null;
+  const ids = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return ids.length > 0 ? ids : null;
+}
+
 export default function PublicCharts() {
   const [data, setData] = useState<ChartData | null>(null);
   const [error, setError] = useState(false);
+  const [projectNames, setProjectNames] = useState<string[]>([]);
 
   useEffect(() => {
     const run = async () => {
       try {
-        const { data: result, error: rpcErr } = await supabase.rpc("public_dashboard_charts");
+        const projectIds = getProjectIdsFromUrl();
+
+        // Se há filtro de projetos, busca os nomes para exibição
+        if (projectIds) {
+          const { data: projectRows } = await supabase
+            .from("projects")
+            .select("id, name")
+            .in("id", projectIds);
+          if (projectRows) {
+            setProjectNames((projectRows as any[]).map((p) => p.name));
+          }
+        }
+
+        const rpcParams = projectIds ? { p_project_ids: projectIds } : {};
+        const { data: result, error: rpcErr } = await supabase.rpc("public_dashboard_charts", rpcParams);
         if (rpcErr || !result) { setError(true); return; }
         setData(result as ChartData);
       } catch {
@@ -41,6 +64,10 @@ export default function PublicCharts() {
     };
     void run();
   }, []);
+
+  const subtitle = projectNames.length > 0
+    ? projectNames.join(" · ")
+    : "Painel de indicadores dos participantes";
 
   return (
     <div className="min-h-screen bg-[#f5f0e6]/60">
@@ -52,7 +79,7 @@ export default function PublicCharts() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-primary tracking-tight">EcoBúzios</h1>
-            <p className="text-slate-500 font-medium text-sm">Painel de indicadores dos participantes</p>
+            <p className="text-slate-500 font-medium text-sm">{subtitle}</p>
           </div>
         </div>
       </div>

@@ -177,6 +177,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [adminProjects, setAdminProjects] = useState<{ id: string; name: string }[]>([]);
   const [adminStudentIdsByProject, setAdminStudentIdsByProject] = useState<Record<string, string[]>>({});
   const [adminChartProjectFilter, setAdminChartProjectFilter] = useState<"all" | string>("all");
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareSelectedProjects, setShareSelectedProjects] = useState<string[]>([]);
 
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDialogOpen, setIsStudentDialogOpen] = useState(false);
@@ -1146,14 +1148,88 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 variant="outline"
                 className="h-9 rounded-2xl font-black border-slate-200 text-slate-600 gap-2 text-xs"
                 onClick={() => {
-                  const url = `${window.location.origin}/graficos`;
-                  navigator.clipboard.writeText(url).then(() => {
-                    import("@/utils/toast").then(({ showSuccess }) => showSuccess("Link copiado!"));
-                  });
+                  setShareSelectedProjects([]);
+                  setShareModalOpen(true);
                 }}
               >
                 <ExternalLink className="h-4 w-4" /> Compartilhar gráficos
               </Button>
+
+              {/* Modal de compartilhamento */}
+              <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+                <DialogContent className="rounded-[2rem] max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-black text-primary">Compartilhar gráficos</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-2 space-y-4">
+                    <p className="text-sm font-medium text-slate-600">
+                      Escolha quais projetos deseja incluir no link público:
+                    </p>
+
+                    {/* Opção: todos */}
+                    <button
+                      type="button"
+                      onClick={() => setShareSelectedProjects([])}
+                      className={
+                        "w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-bold transition-colors " +
+                        (shareSelectedProjects.length === 0
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50")
+                      }
+                    >
+                      <Layers className="h-4 w-4 shrink-0" />
+                      Geral — todos os projetos
+                    </button>
+
+                    {/* Projetos individuais */}
+                    {adminProjects.map((p) => {
+                      const selected = shareSelectedProjects.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setShareSelectedProjects((prev) =>
+                              selected ? prev.filter((id) => id !== p.id) : [...prev, p.id],
+                            );
+                          }}
+                          className={
+                            "w-full flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-bold transition-colors " +
+                            (selected
+                              ? "bg-primary text-white border-primary"
+                              : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50")
+                          }
+                        >
+                          <span className={
+                            "h-4 w-4 rounded-md border-2 shrink-0 flex items-center justify-center " +
+                            (selected ? "border-white bg-white/20" : "border-slate-300")
+                          }>
+                            {selected && <span className="h-2 w-2 rounded-sm bg-white" />}
+                          </span>
+                          {p.name}
+                        </button>
+                      );
+                    })}
+
+                    <Button
+                      className="w-full rounded-2xl font-black h-11 gap-2"
+                      onClick={() => {
+                        let url = `${window.location.origin}/graficos`;
+                        if (shareSelectedProjects.length > 0) {
+                          url += `?projetos=${shareSelectedProjects.join(",")}`;
+                        }
+                        navigator.clipboard.writeText(url).then(() => {
+                          import("@/utils/toast").then(({ showSuccess }) => showSuccess("Link copiado!"));
+                          setShareModalOpen(false);
+                        });
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {shareSelectedProjects.length === 0 ? "Copiar link geral" : `Copiar link (${shareSelectedProjects.length} projeto${shareSelectedProjects.length > 1 ? "s" : ""})`}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             {/* Filtro por projeto */}
             {adminProjects.length > 1 && (
