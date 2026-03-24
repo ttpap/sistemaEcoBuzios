@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPinned, School, Users } from "lucide-react";
+import { Layers, MapPinned, School, Users } from "lucide-react";
 
 type ChartItem = { name: string; value: number };
 
