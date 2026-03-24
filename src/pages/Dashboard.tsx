@@ -532,38 +532,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   }, [classes, selectedStudent?.id]);
 
   const kpis = useMemo((): KPI[] => {
-    // Admin: KPIs agregados de todos os projetos
-    if (base === "") {
-      const stats = adminStats ?? { projects: 0, activeClasses: 0, enrolledStudents: 0, justificationsThisMonth: 0 };
-      return [
-        {
-          label: "Projetos",
-          value: stats.projects,
-          icon: <Layers className="h-5 w-5" />,
-          tone: "primary",
-        },
-        {
-          label: "Turmas ativas",
-          value: stats.activeClasses,
-          icon: <BookOpen className="h-5 w-5" />,
-          tone: "sky",
-        },
-        {
-          label: "Alunos matriculados",
-          value: stats.enrolledStudents,
-          icon: <GraduationCap className="h-5 w-5" />,
-          tone: "secondary",
-        },
-        {
-          label: "Justificativas (mês)",
-          value: stats.justificationsThisMonth,
-          icon: <ClipboardCheck className="h-5 w-5" />,
-          tone: stats.justificationsThisMonth > 0 ? "amber" : "secondary",
-        },
-      ];
-    }
-
-    // Professor / Coordenador: dados do projeto ativo vinculado a eles
+    // Todos os perfis (admin, professor, coordenador): dados do projeto ativo
     const active = classes.filter((c) => c.status === "Ativo");
     const enrolledIds = new Set(active.flatMap((c) => c.studentIds || []));
     const activeProfs = teachers.filter((t) => t.status === "Ativo");
@@ -595,7 +564,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         tone: "amber",
       },
     ];
-  }, [base, adminStats, classes, teachers, coordinators]);
+  }, [classes, teachers, coordinators]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -1029,7 +998,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       </div>
 
       {/* Equipe do projeto — professores e coordenadores */}
-      {base !== "" && (teachers.length > 0 || coordinators.length > 0) && (
+      {(teachers.length > 0 || coordinators.length > 0) && (
         <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2rem] overflow-hidden">
           <CardHeader className="p-6 pb-3 flex flex-row items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
@@ -1136,8 +1105,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         </Card>
       )}
 
-      {/* Gráficos professor/coordenador */}
-      {base !== "" && activeStudentsInClasses.length > 0 && (
+      {/* Gráficos do projeto */}
+      {activeStudentsInClasses.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
 
           {/* Alunos por turma */}
