@@ -82,6 +82,7 @@ export async function fetchStudentJustificationsForClassMonthRemote(input: {
     classId: input.classId,
     studentId: r.student_id,
     date: r.ymd,
+    endDate: r.end_ymd && r.end_ymd !== r.ymd ? r.end_ymd : undefined,
     message: r.message,
     createdAt: r.created_at,
   }));
@@ -89,16 +90,15 @@ export async function fetchStudentJustificationsForClassMonthRemote(input: {
 
 export async function upsertStudentJustificationRemote(j: StudentJustification) {
   if (!supabase) return;
-  const row: Record<string, any> = {
-    id: j.id,
-    project_id: j.projectId,
-    class_id: j.classId,
-    student_id: j.studentId,
-    date: j.date,
-    end_date: j.endDate ?? null,
-    message: j.message,
-    created_at: j.createdAt,
-  };
-  const { error } = await supabase.from("student_justifications").upsert(row);
+  // Usa RPC SECURITY DEFINER para funcionar no Modo B (sem JWT Supabase)
+  const { error } = await supabase.rpc("mode_b_upsert_student_justification", {
+    p_id: j.id,
+    p_project_id: j.projectId,
+    p_class_id: j.classId,
+    p_student_id: j.studentId,
+    p_date: j.date,
+    p_end_date: j.endDate ?? j.date,
+    p_message: j.message,
+  });
   if (error) throw error;
 }

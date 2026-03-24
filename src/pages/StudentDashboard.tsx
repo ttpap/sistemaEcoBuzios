@@ -174,11 +174,33 @@ export default function StudentDashboard() {
   const studentId = useMemo(() => getStudentSessionStudentId(), []);
   const login = useMemo(() => getStudentSessionLogin() || "", []);
 
-  const student = useMemo(() => {
+  const [student, setStudent] = useState<StudentRegistration | null>(() => {
     if (!studentId) return null;
     const list = readGlobalStudents<StudentRegistration[]>([]);
     return list.find((s) => s.id === studentId) || null;
-  }, [studentId]);
+  });
+
+  // Se não encontrou no localStorage, busca do Supabase via RPC (bypassa RLS do Mode B)
+  useEffect(() => {
+    if (student || !studentId) return;
+    const run = async () => {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { mapStudentRowToModel } = await import("@/integrations/supabase/mappers");
+        const { writeGlobalStudents } = await import("@/utils/storage");
+        const { data } = await supabase.rpc("mode_b_get_student_profile", { p_student_id: studentId });
+        if (data && Array.isArray(data) && data.length > 0) {
+          const mapped = mapStudentRowToModel(data[0]);
+          setStudent(mapped);
+          const existing = readGlobalStudents<StudentRegistration[]>([]);
+          writeGlobalStudents([...existing.filter((s) => s.id !== studentId), mapped]);
+        }
+      } catch {
+        // mantém student como null, exibe mensagem de erro
+      }
+    };
+    void run();
+  }, [student, studentId]);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const selectedMonth = useMemo(() => monthKeyFromDate(selectedDate), [selectedDate]);

@@ -2,6 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { getActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
+import { mapStudentRowToModel } from "@/integrations/supabase/mappers";
+import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
+import type { StudentRegistration } from "@/types/student";
 
 export type ModeBLoginResult =
   | { ok: true; role: "admin"; redirectTo: string }
@@ -165,6 +168,19 @@ export async function modeBLogin(input: {
   if (!projectIds.length) return { ok: false, reason: "not_assigned" };
 
   localStorage.setItem("ecobuzios_student_session", JSON.stringify({ studentId, projectIds, login: registrationOrLast4 }));
+
+  // Busca e salva os dados do aluno no localStorage para o StudentDashboard
+  try {
+    const { data: studentRows } = await supabase.rpc("mode_b_get_student_profile", { p_student_id: studentId });
+    if (Array.isArray(studentRows) && studentRows.length > 0) {
+      const studentData = mapStudentRowToModel(studentRows[0]);
+      const existing = readGlobalStudents<StudentRegistration[]>([]);
+      const others = existing.filter((s) => s.id !== studentId);
+      writeGlobalStudents([...others, studentData]);
+    }
+  } catch {
+    // Silencioso — o dashboard mostrará erro se necessário
+  }
 
   const preferred = getActiveProjectId();
   if (projectIds.length === 1) {

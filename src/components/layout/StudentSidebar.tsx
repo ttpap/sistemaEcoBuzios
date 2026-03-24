@@ -18,10 +18,10 @@ export default function StudentSidebar({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const items = [
+  const items: { icon: React.ElementType | null; label: string; path: string }[] = [
     { icon: CalendarDays, label: "Calendário", path: "/aluno" },
-    { icon: MessageSquarePlus, label: "Justificativas", path: "/aluno/justificativas" },
     { icon: ClipboardList, label: "Minha ficha", path: "/aluno/minha-ficha" },
+    { icon: MessageSquarePlus, label: "Justificativas", path: "/aluno/justificativas" },
   ];
 
   const onLogout = async () => {
@@ -60,7 +60,7 @@ export default function StudentSidebar({
                 : "text-slate-600 hover:bg-white/50 hover:text-[#008ca0] hover:shadow-sm",
             )}
           >
-            <item.icon className="h-5 w-5" />
+            {item.icon && <item.icon className="h-5 w-5" />}
             {item.label}
           </Link>
         ))}

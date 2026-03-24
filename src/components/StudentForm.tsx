@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -210,7 +210,7 @@ const schema = z.object({
 
   // 3. Escola
   schoolType: z.string().min(1, "Obrigatório"),
-  schoolName: z.string().min(1, "Obrigatório"),
+  schoolName: z.string().default(""),
   schoolOther: z.string().optional(),
 
   // 4. Endereço
@@ -238,6 +238,7 @@ const schema = z.object({
   practicedActivity: z.boolean().default(false),
   practicedActivityDetail: z.string().optional(),
   familyHeartHistory: z.boolean().default(false),
+  familyHeartHistoryDetail: z.string().optional(),
   healthProblems: z.array(z.string()).default([]),
   healthProblemsOther: z.string().optional(),
   observations: z.string().optional(),
@@ -247,6 +248,14 @@ const schema = z.object({
 
   // 7. Documentos
   docsDelivered: z.array(z.string()).default([]),
+}).superRefine((data, ctx) => {
+  if (data.schoolType !== 'none' && (!data.schoolName || data.schoolName.trim() === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Obrigatório",
+      path: ["schoolName"],
+    });
+  }
 });
 
 interface StudentFormProps {
@@ -273,6 +282,7 @@ const StudentForm = ({
   const isAdmin = Boolean(session && profile?.role === "admin");
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -320,6 +330,7 @@ const StudentForm = ({
       practicedActivity: initialData?.practicedActivity || false,
       practicedActivityDetail: initialData?.practicedActivityDetail || "",
       familyHeartHistory: initialData?.familyHeartHistory || false,
+      familyHeartHistoryDetail: initialData?.familyHeartHistoryDetail || "",
       healthProblems: initialData?.healthProblems || [],
       healthProblemsOther: initialData?.healthProblemsOther || "",
       observations: initialData?.observations || "",
@@ -458,6 +469,7 @@ const StudentForm = ({
         practiced_activity: values.practicedActivity,
         practiced_activity_detail: values.practicedActivityDetail || null,
         family_heart_history: values.familyHeartHistory,
+        family_heart_history_detail: values.familyHeartHistoryDetail || null,
         health_problems: values.healthProblems || [],
         health_problems_other: values.healthProblemsOther || null,
         observations: values.observations || null,
@@ -524,6 +536,7 @@ const StudentForm = ({
           p_practiced_activity: row.practiced_activity,
           p_practiced_activity_detail: row.practiced_activity_detail ?? null,
           p_family_heart_history: row.family_heart_history,
+          p_family_heart_history_detail: row.family_heart_history_detail ?? null,
           p_health_problems: row.health_problems ?? [],
           p_health_problems_other: row.health_problems_other ?? null,
           p_observations: row.observations ?? null,
@@ -741,17 +754,25 @@ const StudentForm = ({
         
         <div className="flex flex-col items-center justify-center mb-12">
           <div className="relative group">
-            <div className={`w-40 h-40 rounded-[3rem] border-4 shadow-2xl overflow-hidden flex items-center justify-center ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}>
+            <div
+              className={`w-40 h-40 rounded-[3rem] border-4 shadow-2xl overflow-hidden flex items-center justify-center cursor-pointer ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}
+              onClick={() => photoInputRef.current?.click()}
+              title="Clique para adicionar foto"
+            >
               {photoPreview ? (
                 <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
                 <User className={`h-16 w-16 ${form.formState.errors.photo ? "text-rose-300" : "text-slate-300"}`} />
               )}
             </div>
-            <label className="absolute bottom-2 right-2 bg-primary text-white p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 transition-transform">
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="absolute bottom-2 right-2 bg-primary text-white p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 transition-transform"
+            >
               <Camera className="h-5 w-5" />
-              <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
-            </label>
+            </button>
+            <input ref={photoInputRef} type="file" className="sr-only" accept="image/*" onChange={handlePhotoUpload} />
           </div>
           <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno <span className="text-rose-500">*</span></p>
           {form.formState.errors.photo && (
@@ -1017,7 +1038,7 @@ const StudentForm = ({
                 </div>
               ))}
 
-              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
+              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 space-y-4">
                 <FormField control={form.control} name="familyHeartHistory" render={({ field }) => (
                   <FormItem className="flex items-center justify-between space-y-0">
                     <FormLabel className="font-bold text-slate-700">Histórico Cardíaco na Família?</FormLabel>
@@ -1029,6 +1050,11 @@ const StudentForm = ({
                     </FormControl>
                   </FormItem>
                 )} />
+                {form.watch('familyHeartHistory') && (
+                  <FormField control={form.control} name="familyHeartHistoryDetail" render={({ field }) => (
+                    <FormItem><FormControl><Input {...field} placeholder="Descreva o histórico cardíaco familiar..." className="h-10 rounded-xl bg-white border-slate-200" /></FormControl></FormItem>
+                  )} />
+                )}
               </div>
 
               <div className="md:col-span-2 space-y-4">

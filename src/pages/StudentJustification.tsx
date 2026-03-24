@@ -79,89 +79,84 @@ export default function StudentJustification() {
 
   const [deleteTarget, setDeleteTarget] = useState<MyJustification | null>(null);
 
-  // Datas de aulas existentes (criadas pelo professor) para restringir o calendário
-  const [sessionDates, setSessionDates] = useState<Set<string>>(new Set());
-
   // Carrega turmas do aluno e justificativas anteriores
   useEffect(() => {
     const run = async () => {
-      if (!supabase || !studentId || !projectId) {
+      if (!studentId || !projectId) {
         setLoading(false);
         return;
       }
 
-      // Turmas do aluno neste projeto
-      const { data: enrollData } = await supabase
-        .from("class_student_enrollments")
-        .select("class_id, classes(name, project_id)")
-        .eq("student_id", studentId);
-
-      const classes: ClassOption[] = [];
-      for (const e of (enrollData || []) as any[]) {
-        if (e.classes?.project_id === projectId) {
-          classes.push({ classId: e.class_id, className: e.classes.name });
-        }
+      // Busca turmas via schedule (RPC SECURITY DEFINER — funciona no Modo B sem JWT)
+      const now = new Date();
+      const months: string[] = [];
+      for (let i = -2; i <= 1; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
       }
+
+      let allRows: { class_id: string; class_name: string }[] = [];
+      try {
+        const results = await Promise.all(
+          months.map((month) =>
+            fetchModeBStudentMonthSchedule({ projectId, studentId, month }),
+          ),
+        );
+        for (const rows of results) {
+          for (const row of rows) {
+            allRows.push({ class_id: row.class_id, class_name: row.class_name });
+          }
+        }
+      } catch {
+        // Silencioso
+      }
+
+      // Turmas únicas extraídas do schedule
+      const classMap = new Map<string, string>();
+      for (const r of allRows) {
+        if (r.class_id && !classMap.has(r.class_id)) classMap.set(r.class_id, r.class_name);
+      }
+      const classes: ClassOption[] = Array.from(classMap.entries()).map(([classId, className]) => ({ classId, className }));
       setMyClasses(classes);
 
-      // Busca datas de sessões criadas pelo professor (últimos 3 meses + mês atual)
-      if (classes.length > 0) {
-        const now = new Date();
-        const months: string[] = [];
-        for (let i = -2; i <= 1; i++) {
-          const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-          months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-        }
-        try {
-          const results = await Promise.all(
-            months.map((month) =>
-              fetchModeBStudentMonthSchedule({ projectId, studentId, month }),
-            ),
-          );
-          const dates = new Set<string>();
-          for (const rows of results) {
-            for (const row of rows) {
-              // Apenas sessões que o professor finalizou (finalized_at != null) ou agendadas
-              dates.add(row.ymd);
-            }
-          }
-          setSessionDates(dates);
-        } catch {
-          // Se falhar, deixa calendário sem restrição
-        }
-      }
-
       // Justificativas já enviadas
-      const classIds = classes.map((c) => c.classId);
-      if (classIds.length > 0) {
-        const { data: justData } = await supabase
-          .from("student_justifications")
-          .select("*")
-          .eq("student_id", studentId)
-          .in("class_id", classIds)
-          .order("date", { ascending: false });
+      if (classes.length > 0 && supabase) {
+        try {
+          const extStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+          const extEnd = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+          const classIds = classes.map((c) => c.classId);
+          const { data: justData } = await supabase
+            .from("student_justifications")
+            .select("*")
+            .eq("student_id", studentId)
+            .in("class_id", classIds)
+            .gte("date", toYMD(extStart))
+            .lt("date", toYMD(extEnd))
+            .order("date", { ascending: false });
 
-        if (justData) {
-          // Deduplica por data + mensagem (quando salva em múltiplas turmas)
-          const seen = new Set<string>();
-          const deduped: MyJustification[] = [];
-          for (const r of justData as any[]) {
-            const key = `${r.date}_${r.end_date || ""}_${r.message}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              const cls = classes.find((c) => c.classId === r.class_id);
-              deduped.push({
-                id: r.id,
-                classId: r.class_id,
-                className: cls?.className || "Turma",
-                startDate: r.date,
-                endDate: r.end_date ?? null,
-                message: r.message,
-                createdAt: r.created_at,
-              });
+          if (justData) {
+            const seen = new Set<string>();
+            const deduped: MyJustification[] = [];
+            for (const r of justData as any[]) {
+              const key = `${r.date}_${r.end_date || ""}_${r.message}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                const cls = classes.find((c) => c.classId === r.class_id);
+                deduped.push({
+                  id: r.id,
+                  classId: r.class_id,
+                  className: cls?.className || "Turma",
+                  startDate: r.date,
+                  endDate: r.end_date ?? null,
+                  message: r.message,
+                  createdAt: r.created_at,
+                });
+              }
             }
+            setJustifications(deduped);
           }
-          setJustifications(deduped);
+        } catch {
+          // Silencioso
         }
       }
 
@@ -313,18 +308,16 @@ export default function StudentJustification() {
                     selected={dateRange}
                     onSelect={setDateRange}
                     className="rounded-xl"
-                    disabled={
-                      sessionDates.size > 0
-                        ? (date: Date) => !sessionDates.has(toYMD(date))
-                        : undefined
-                    }
+                    disabled={(date: Date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                   />
                 </div>
-                {sessionDates.size > 0 && (
-                  <p className="text-[10px] font-bold text-amber-600 text-center">
-                    Apenas dias com aulas agendadas podem ser selecionados
-                  </p>
-                )}
+                <p className="text-[10px] font-bold text-amber-600 text-center">
+                  Apenas datas de hoje em diante podem ser selecionadas
+                </p>
                 {dateRange?.from ? (
                   <p className="text-xs font-bold text-sky-700 text-center">
                     {dateRange.from.toLocaleDateString("pt-BR")}

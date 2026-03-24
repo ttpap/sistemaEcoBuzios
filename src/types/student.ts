@@ -51,6 +51,7 @@ export interface StudentRegistration {
   practicedActivity: boolean;
   practicedActivityDetail?: string;
   familyHeartHistory: boolean;
+  familyHeartHistoryDetail?: string;
   healthProblems: string[];
   healthProblemsOther?: string;
   observations?: string;
