@@ -158,7 +158,12 @@ export function addCoordinatorToProject(coordinatorId: string, projectId: string
   const coord = readGlobalCoordinators([]).find((c) => c.id === coordinatorId);
   if (!coord) return { ok: false as const, reason: "coordinator_not_found" as const };
 
-  migrateLegacyProjectDataToProjectIfNeeded(projectId);
+  // Guard: só roda migração legacy uma vez (evita contaminar novos projetos com dados antigos)
+  const LEGACY_FLAG = "ecobuzios_legacy_data_migrated_v1";
+  if (!localStorage.getItem(LEGACY_FLAG)) {
+    migrateLegacyProjectDataToProjectIfNeeded(projectId);
+    localStorage.setItem(LEGACY_FLAG, "1");
+  }
 
   const map = getCoordinatorAssignments();
   const current = map[coordinatorId] || [];

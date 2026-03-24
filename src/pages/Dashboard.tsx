@@ -63,8 +63,9 @@ import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
 import { readGlobalTeachers } from "@/utils/teachers";
-import { mapTeacherRowToModel } from "@/integrations/supabase/mappers";
+import { mapTeacherRowToModel, mapCoordinatorRowToModel } from "@/integrations/supabase/mappers";
 import { readGlobalCoordinators } from "@/utils/coordinators";
+import type { CoordinatorRegistration } from "@/types/coordinator";
 import { enrollmentsService, type EnrollmentRow } from "@/services/enrollmentsService";
 
 type KPI = {
@@ -164,6 +165,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
+  const [coordinators, setCoordinators] = useState<CoordinatorRegistration[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [adminStats, setAdminStats] = useState<{
@@ -342,6 +344,35 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         }
       }
       setTeachers(nextTeachers);
+
+      // Coordenadores do projeto via Supabase (admin) ou localStorage (Modo B)
+      let nextCoordinators: CoordinatorRegistration[] = [];
+      if (projectId) {
+        if (!getModeBStaffCreds()) {
+          try {
+            const { data: coordAssignRows } = await supabase
+              .from("coordinator_project_assignments")
+              .select("coordinator_id")
+              .eq("project_id", projectId);
+
+            if (coordAssignRows !== null) {
+              if (coordAssignRows.length > 0) {
+                const cIds = coordAssignRows.map((a: any) => a.coordinator_id);
+                const { data: cData } = await supabase.from("coordinators").select("*").in("id", cIds);
+                if (cData) nextCoordinators = cData.map(mapCoordinatorRowToModel);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        } else {
+          // Modo B: filtra coordenadores do localStorage pelos assignments
+          const assignments = JSON.parse(localStorage.getItem("ecobuzios_coordinator_assignments") || "{}") as Record<string, string[]>;
+          const allCoords = readGlobalCoordinators([]);
+          nextCoordinators = allCoords.filter((c) => (assignments[c.id] || []).includes(projectId));
+        }
+      }
+      setCoordinators(nextCoordinators);
 
       if (projectId) {
         setJustifications(await fetchStudentJustificationsRemote(projectId));
@@ -534,8 +565,9 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
     // Professor / Coordenador: dados do projeto ativo vinculado a eles
     const active = classes.filter((c) => c.status === "Ativo");
-    // Alunos únicos matriculados nas turmas do projeto (via class_student_enrollments)
     const enrolledIds = new Set(active.flatMap((c) => c.studentIds || []));
+    const activeProfs = teachers.filter((t) => t.status === "Ativo");
+    const activeCoords = coordinators.filter((c) => c.status === "Ativo");
 
     return [
       {
@@ -550,8 +582,20 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         icon: <GraduationCap className="h-5 w-5" />,
         tone: "sky",
       },
+      {
+        label: "Professores",
+        value: activeProfs.length,
+        icon: <Users className="h-5 w-5" />,
+        tone: "secondary",
+      },
+      {
+        label: "Coordenadores",
+        value: activeCoords.length,
+        icon: <ClipboardCheck className="h-5 w-5" />,
+        tone: "amber",
+      },
     ];
-  }, [base, adminStats, classes]);
+  }, [base, adminStats, classes, teachers, coordinators]);
 
   const activeClasses = useMemo(() => classes.filter((c) => c.status === "Ativo"), [classes]);
 
@@ -952,7 +996,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       </div>
 
       {/* KPIs */}
-      <div className={`grid gap-6 ${base === "" ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2"}`}>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => {
           const tone =
             k.tone === "primary"
@@ -983,6 +1027,70 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           );
         })}
       </div>
+
+      {/* Equipe do projeto — professores e coordenadores */}
+      {base !== "" && (teachers.length > 0 || coordinators.length > 0) && (
+        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2rem] overflow-hidden">
+          <CardHeader className="p-6 pb-3 flex flex-row items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <CardTitle className="text-base font-black text-slate-900">Equipe do projeto</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 pt-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {coordinators.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Coordenadores
+                  </p>
+                  <div className="space-y-2">
+                    {coordinators.map((c) => (
+                      <div key={c.id} className="flex items-center gap-3 rounded-[1.25rem] bg-slate-50 px-4 py-2.5">
+                        {c.photo ? (
+                          <img src={c.photo} alt={c.fullName} className="w-8 h-8 rounded-xl object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <ClipboardCheck className="h-4 w-4 text-primary" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-slate-800 truncate">{c.fullName}</p>
+                          <p className="text-[10px] font-bold text-slate-400 truncate">{c.email}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {teachers.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                    Professores
+                  </p>
+                  <div className="space-y-2">
+                    {teachers.filter((t) => t.status === "Ativo").map((t) => (
+                      <div key={t.id} className="flex items-center gap-3 rounded-[1.25rem] bg-slate-50 px-4 py-2.5">
+                        {t.photo ? (
+                          <img src={t.photo} alt={t.fullName} className="w-8 h-8 rounded-xl object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-secondary/10 flex items-center justify-center shrink-0">
+                            <GraduationCap className="h-4 w-4 text-secondary" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-slate-800 truncate">{t.fullName}</p>
+                          <p className="text-[10px] font-bold text-slate-400 truncate">{t.email || ""}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Card de justificativas de professores — destaque para coordenador e admin */}
       {(base === "/coordenador" || base === "") && teacherJustifications.length > 0 && (
