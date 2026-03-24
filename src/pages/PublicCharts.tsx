@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, Cell, PieChart, Pie,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { MapPinned, School, Users, Layers } from "lucide-react";
+import { MapPinned, School, Users } from "lucide-react";
 
 type ChartItem = { name: string; value: number };
 
@@ -74,9 +74,11 @@ export default function PublicCharts() {
       {/* Header */}
       <div className="bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center gap-4">
-          <div className="h-12 w-12 rounded-[1.5rem] bg-primary flex items-center justify-center">
-            <Layers className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/ecobuzios-logo.png"
+            alt="EcoBúzios"
+            className="h-14 w-auto object-contain"
+          />
           <div>
             <h1 className="text-2xl font-black text-primary tracking-tight">EcoBúzios</h1>
             <p className="text-slate-500 font-medium text-sm">{subtitle}</p>
