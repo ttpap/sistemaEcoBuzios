@@ -964,6 +964,79 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         </div>
       </div>
 
+      {/* Aniversariantes do mês — professor, coordenador e admin */}
+      {birthdaysThisMonth.length > 0 && (
+        <Card className="border-none shadow-xl shadow-pink-100/60 bg-gradient-to-br from-pink-50 to-rose-50 rounded-[2rem] overflow-hidden">
+          <CardHeader className="p-6 pb-3 flex flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-pink-500/15 border border-pink-500/20 flex items-center justify-center">
+                <Gift className="h-5 w-5 text-pink-600" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-black text-pink-900">
+                  Aniversariantes de {new Date(thisMonth + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long" })}
+                </CardTitle>
+                <p className="text-xs font-bold text-pink-700/80 mt-0.5">
+                  {birthdaysThisMonth.length} aluno(s) fazem aniversário este mês
+                  {birthdaysTodayCount > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-pink-500 text-white px-2 py-0.5 text-[10px] font-black">
+                      🎂 {birthdaysTodayCount} hoje!
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <Badge className="rounded-full bg-pink-500 text-white border-none font-black shrink-0">
+              {birthdaysThisMonth.length}
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-6 pt-2">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {birthdaysThisMonth.map(({ student, day, turning }) => {
+                const isToday = day === today.getDate();
+                const name = student.socialName || student.preferredName || student.fullName;
+                return (
+                  <button
+                    key={student.id}
+                    type="button"
+                    onClick={() => openStudent(student)}
+                    className={[
+                      "flex items-center gap-3 rounded-[1.25rem] px-4 py-2.5 text-left transition-colors",
+                      isToday
+                        ? "bg-pink-500 text-white shadow-md shadow-pink-300/40"
+                        : "bg-white border border-pink-100 hover:bg-pink-50",
+                    ].join(" ")}
+                  >
+                    <div className={[
+                      "w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 text-center",
+                      isToday ? "bg-white/20" : "bg-pink-100",
+                    ].join(" ")}>
+                      <span className={["text-[10px] font-black leading-none", isToday ? "text-white" : "text-pink-600"].join(" ")}>
+                        {String(day).padStart(2, "0")}
+                      </span>
+                      <span className={["text-[8px] font-bold leading-none mt-0.5", isToday ? "text-white/80" : "text-pink-400"].join(" ")}>
+                        {new Date(thisMonth + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className={["text-sm font-black truncate", isToday ? "text-white" : "text-slate-800"].join(" ")}>
+                        {name}
+                        {isToday && " 🎉"}
+                      </p>
+                      {turning !== undefined && (
+                        <p className={["text-[10px] font-bold", isToday ? "text-white/80" : "text-pink-500"].join(" ")}>
+                          completa {turning} anos
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPIs */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => {
