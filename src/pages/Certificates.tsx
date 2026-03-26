@@ -30,6 +30,8 @@ import {
   Square,
   Eye,
   BarChart2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { getActiveProjectId, getActiveProject } from "@/utils/projects";
@@ -164,7 +166,8 @@ export default function Certificates() {
   const [selectedReportIds, setSelectedReportIds] = useState<Set<string>>(new Set());
   const [generatingReport, setGeneratingReport] = useState(false);
   const [previewReportOpen, setPreviewReportOpen] = useState(false);
-  const [previewReportData, setPreviewReportData] = useState<StudentReportData | null>(null);
+  const [previewReportDataList, setPreviewReportDataList] = useState<StudentReportData[]>([]);
+  const [previewReportIndex, setPreviewReportIndex] = useState(0);
   const [loadingPreviewReport, setLoadingPreviewReport] = useState(false);
 
   // Carrega config, turmas, matrículas e alunos ao montar
@@ -326,28 +329,35 @@ export default function Certificates() {
   const clearAllReport = () => setSelectedReportIds(new Set());
 
   const handlePreviewReport = async () => {
-    const first = displayedStudents.find((s) => selectedReportIds.has(s.id)) ?? displayedStudents[0];
-    if (!first) return;
+    const targets = displayedStudents.filter((s) => selectedReportIds.has(s.id));
+    if (targets.length === 0) {
+      showError("Selecione pelo menos um aluno para pré-visualizar.");
+      return;
+    }
     setLoadingPreviewReport(true);
+    setPreviewReportIndex(0);
     setPreviewReportOpen(true);
     try {
       const sessions = await fetchAttendanceSessionsRemote(projectId);
       const finalized = sessions.filter((s) => !!s.finalizedAt);
-      const studentSessions = finalized.filter((s) => s.studentIds?.includes(first.id));
-      const stats = { totalSessions: studentSessions.length, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
-      for (const session of studentSessions) {
-        const status = session.records[first.id];
-        if (status === "presente") stats.presente++;
-        else if (status === "falta") stats.falta++;
-        else if (status === "atrasado") stats.atrasado++;
-        else if (status === "justificada") stats.justificada++;
-      }
-      setPreviewReportData({
-        studentId: first.id,
-        fullName: first.fullName,
-        socialName: first.socialName || first.preferredName,
-        stats,
+      const allData: StudentReportData[] = targets.map((student) => {
+        const studentSessions = finalized.filter((s) => s.studentIds?.includes(student.id));
+        const stats = { totalSessions: studentSessions.length, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+        for (const session of studentSessions) {
+          const status = session.records[student.id];
+          if (status === "presente") stats.presente++;
+          else if (status === "falta") stats.falta++;
+          else if (status === "atrasado") stats.atrasado++;
+          else if (status === "justificada") stats.justificada++;
+        }
+        return {
+          studentId: student.id,
+          fullName: student.fullName,
+          socialName: student.socialName || student.preferredName,
+          stats,
+        };
       });
+      setPreviewReportDataList(allData);
     } finally {
       setLoadingPreviewReport(false);
     }
@@ -406,11 +416,16 @@ export default function Certificates() {
 
   // ── Pré-visualização ───────────────────────────────────────────────────────
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewStudentIndex, setPreviewStudentIndex] = useState(0);
+  const previewStudents = useMemo(
+    () => displayedStudents.filter((s) => selectedIds.has(s.id)),
+    [displayedStudents, selectedIds],
+  );
   const previewStudentName = (() => {
-    const first = students.find((s) => selectedIds.has(s.id));
-    if (!first) return "Nome do Aluno";
-    const social = first.socialName || first.preferredName;
-    return social ? `${first.fullName} (${social})` : first.fullName;
+    const s = previewStudents[previewStudentIndex];
+    if (!s) return "Nome do Aluno";
+    const social = s.socialName || s.preferredName;
+    return social ? `${s.fullName} (${social})` : s.fullName;
   })();
 
   return (
@@ -588,7 +603,7 @@ export default function Certificates() {
 
               <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-slate-100">
                 <Button
-                  onClick={() => setPreviewOpen(true)}
+                  onClick={() => { setPreviewStudentIndex(0); setPreviewOpen(true); }}
                   variant="outline"
                   className="rounded-2xl font-black border-slate-300 text-slate-700 hover:bg-slate-50"
                 >
@@ -953,13 +968,40 @@ export default function Certificates() {
             <div className="flex items-center justify-center py-16">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
             </div>
-          ) : previewReportData ? (
-            <ReportPreview
-              data={previewReportData}
-              projectName={projectName}
-              logoProject={config.logo_top}
-              logoEco={config.logo_bottom}
-            />
+          ) : previewReportDataList.length > 0 ? (
+            <div className="space-y-3">
+              {previewReportDataList.length > 1 && (
+                <div className="flex items-center justify-between px-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl"
+                    disabled={previewReportIndex === 0}
+                    onClick={() => setPreviewReportIndex((i) => i - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs font-bold text-slate-500">
+                    {previewReportIndex + 1} / {previewReportDataList.length}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl"
+                    disabled={previewReportIndex === previewReportDataList.length - 1}
+                    onClick={() => setPreviewReportIndex((i) => i + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              <ReportPreview
+                data={previewReportDataList[previewReportIndex]}
+                projectName={projectName}
+                logoProject={config.logo_top}
+                logoEco={config.logo_bottom}
+              />
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>
@@ -968,6 +1010,31 @@ export default function Certificates() {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl p-4">
           <DialogTitle className="sr-only">Pré-visualização do Certificado</DialogTitle>
+          {previewStudents.length > 1 && (
+            <div className="flex items-center justify-between px-1 mb-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                disabled={previewStudentIndex === 0}
+                onClick={() => setPreviewStudentIndex((i) => i - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs font-bold text-slate-500">
+                {previewStudentIndex + 1} / {previewStudents.length}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                disabled={previewStudentIndex === previewStudents.length - 1}
+                onClick={() => setPreviewStudentIndex((i) => i + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           <CertificatePreview
             config={config}
             studentName={previewStudentName}

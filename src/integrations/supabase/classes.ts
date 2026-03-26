@@ -385,26 +385,27 @@ export async function enrollStudentRemote(classId: string, studentId: string) {
 export async function removeStudentEnrollmentRemote(classId: string, studentId: string) {
   if (!supabase) return;
 
-  // Tentativa normal (pode falhar por RLS)
-  try {
-    const { error } = await supabase
-      .from("class_student_enrollments")
-      .update({ removed_at: new Date().toISOString() })
-      .eq("class_id", classId)
-      .eq("student_id", studentId);
-    if (error) throw error;
-    return;
-  } catch (e) {
-    const staff = getModeBStaffSession();
-    if (!staff) throw e;
-
+  // Modo B: vai direto para o RPC para evitar falha silenciosa.
+  // O UPDATE direto com role anon retorna 0 linhas sem erro quando o RLS bloqueia,
+  // fazendo a função retornar antes de tentar o fallback.
+  const staff = getModeBStaffSession();
+  if (staff) {
     const { error: rpcErr } = await supabase.rpc("mode_b_remove_student_enrollment", {
       p_login: staff.login,
       p_password: staff.password,
       p_class_id: classId,
       p_student_id: studentId,
     });
-
     if (rpcErr) throw rpcErr;
+    return;
   }
+
+  // Supabase Auth (admin): tenta update direto e verifica se afetou linhas.
+  const { error, count } = await supabase
+    .from("class_student_enrollments")
+    .update({ removed_at: new Date().toISOString() }, { count: "exact" })
+    .eq("class_id", classId)
+    .eq("student_id", studentId);
+  if (error) throw error;
+  if (count === 0) throw new Error("Sem permissão para remover este aluno ou matrícula não encontrada.");
 }
