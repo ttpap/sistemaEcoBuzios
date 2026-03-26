@@ -67,6 +67,7 @@ const StudentLogin                = lazy(() => import("./pages/StudentLogin"));
 const CoordinatorLogin            = lazy(() => import("@/pages/CoordinatorLogin"));
 const EnelReport                  = lazy(() => import("@/pages/EnelReport"));
 const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"));
+const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
 const StudentEnrollmentLink       = lazy(() => import("@/pages/StudentEnrollmentLink"));
 
@@ -392,6 +393,14 @@ const App = () => (
                             </ActiveProjectGate>
                           }
                         />
+                        <Route
+                          path="/certificados"
+                          element={
+                            <ActiveProjectGate>
+                              <Certificates />
+                            </ActiveProjectGate>
+                          }
+                        />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -538,6 +547,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <EnelReport />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="certificados"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <Certificates />
                             </CoordinatorActiveProjectGate>
                           }
                         />

@@ -14,6 +14,7 @@ import {
   Layers,
   UserCog,
   Link2,
+  Award,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -81,6 +82,7 @@ export default function CoordinatorSidebar({
       { icon: NotebookPen, label: "Relatório mensal", path: "/coordenador/relatorios/mensais" },
       { icon: FileText, label: "Relatório ENEL", path: "/coordenador/relatorios/enel" },
       { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
+      { icon: Award, label: "Certificados", path: "/coordenador/certificados" },
       { icon: Link2, label: "Links de inscrição", path: "/coordenador/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/coordenador/conta" },
     ],

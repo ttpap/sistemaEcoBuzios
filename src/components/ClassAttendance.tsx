@@ -124,7 +124,7 @@ export default function ClassAttendance({
 }) {
   const studentsSorted = useMemo(
     () =>
-      [...students].sort((a, b) => displaySocialName(a).localeCompare(displaySocialName(b), "pt-BR")),
+      [...students].sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR")),
     [students],
   );
 

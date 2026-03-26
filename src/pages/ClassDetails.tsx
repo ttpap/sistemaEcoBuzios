@@ -33,6 +33,7 @@ import {
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
   fetchClassesRemoteWithMeta,
+  deleteClassRemote,
 } from '@/services/classesService';
 
 import { readGlobalTeachers } from "@/utils/teachers";
@@ -287,12 +288,7 @@ const ClassDetails = () => {
     const ids = new Set(schoolClass.studentIds || []);
     return allStudents
       .filter((s) => ids.has(s.id))
-      .sort((a, b) =>
-        (a.socialName || a.preferredName || a.fullName).localeCompare(
-          b.socialName || b.preferredName || b.fullName,
-          "pt-BR",
-        ),
-      );
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
   }, [allStudents, schoolClass]);
 
   const filteredAvailableStudents = useMemo(() => {
@@ -309,13 +305,19 @@ const ClassDetails = () => {
         const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
         return !isAlreadyInClass && matchesSearch;
       })
-      .sort((a, b) =>
-        (a.socialName || a.preferredName || a.fullName).localeCompare(
-          b.socialName || b.preferredName || b.fullName,
-          "pt-BR",
-        ),
-      );
+      .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
   }, [allStudents, schoolClass, studentSearch]);
+
+  const handleDeleteClass = async () => {
+    if (!schoolClass || !window.confirm(`Tem certeza que deseja excluir a turma "${schoolClass.name}"?`)) return;
+    try {
+      await deleteClassRemote(schoolClass.id);
+      showSuccess("Turma excluída com sucesso.");
+      navigate(`${base}/turmas`, { replace: true });
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível excluir a turma.");
+    }
+  };
 
   if (!schoolClass) {
     return (
@@ -329,9 +331,9 @@ const ClassDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="rounded-xl bg-white shadow-sm border border-slate-100"
             onClick={() => navigate(`${base}/turmas`) }
           >
@@ -347,6 +349,15 @@ const ClassDetails = () => {
             </div>
           </div>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 border border-slate-100 bg-white shadow-sm"
+          onClick={handleDeleteClass}
+          title="Excluir turma"
+        >
+          <Trash2 className="h-5 w-5" />
+        </Button>
       </div>
 
       <Tabs defaultValue="geral" className="w-full">
