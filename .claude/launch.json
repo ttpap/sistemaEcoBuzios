@@ -5,7 +5,8 @@
       "name": "Vite Dev Server",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
-      "port": 8080
+      "port": 8080,
+      "autoPort": true
     }
   ]
 }

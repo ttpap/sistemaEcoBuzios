@@ -36,6 +36,13 @@ import { StudentRegistration } from "@/types/student";
 import { showSuccess, showError } from "@/utils/toast";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CalendarDays,
   CheckCircle2,
   Clock4,
@@ -229,7 +236,6 @@ export default function ClassAttendance({
     [sessions, selectedId]
   );
 
-  const todaySession = useMemo(() => sessions.find((s) => s.date === todayYmd) || null, [sessions, todayYmd]);
 
   // Verifica se uma justificativa cobre uma data específica
   function justificationCoversDate(j: StudentJustification, ymd: string): boolean {
@@ -481,12 +487,6 @@ export default function ClassAttendance({
   };
 
 
-  const latestSession = sessions[0] || null;
-
-  const otherSessions = useMemo(() => {
-    return sessions.filter((s) => s.id !== selectedId);
-  }, [sessions, selectedId]);
-
   return (
     <div className="space-y-6">
       <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(o) => (!o ? setDeleteTarget(null) : null)}>
@@ -511,7 +511,7 @@ export default function ClassAttendance({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 1) Nova chamada */}
+      {/* Cabeçalho: seletor de chamada + botão nova chamada */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-black text-primary tracking-tight">Chamada</h2>
@@ -519,6 +519,40 @@ export default function ClassAttendance({
         </div>
 
         <div className="flex flex-wrap gap-2 sm:items-center">
+          {/* Seletor de chamada por data */}
+          {sessions.length > 0 && (
+            <Select
+              value={selectedId || ""}
+              onValueChange={(v) => openSession(v, { scroll: false })}
+            >
+              <SelectTrigger className="rounded-2xl h-12 px-5 font-black border-slate-200 bg-white min-w-[200px] gap-2">
+                <CalendarDays className="h-4 w-4 text-slate-400 shrink-0" />
+                <SelectValue placeholder="Selecionar chamada..." />
+              </SelectTrigger>
+              <SelectContent className="rounded-[1.5rem]">
+                {sessions.map((s) => {
+                  const d = parseYMD(s.date);
+                  const label = d ? d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : s.date;
+                  const isToday = s.date === todayYmd;
+                  const justCount = justificationCountByDate.get(s.date) || 0;
+                  return (
+                    <SelectItem key={s.id} value={s.id} className="rounded-xl font-bold cursor-pointer">
+                      <span className="flex items-center gap-2">
+                        <span>{label}</span>
+                        {isToday && <span className="text-[10px] font-black text-primary bg-primary/10 rounded-full px-2 py-0.5">Hoje</span>}
+                        {!s.finalizedAt
+                          ? <span className="text-[10px] font-black text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">Rascunho</span>
+                          : <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">Salva</span>
+                        }
+                        {justCount > 0 && <span className="text-[10px] font-black text-sky-700">{justCount} just.</span>}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
+
           {/* Botão Nova chamada */}
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
@@ -527,164 +561,36 @@ export default function ClassAttendance({
                 Nova chamada
               </Button>
             </DialogTrigger>
-          <DialogContent className="rounded-[2rem]">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-black text-primary">Selecionar dia</DialogTitle>
-            </DialogHeader>
-            <div className="mt-4">
-              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  className="rounded-xl"
-                />
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-500">
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="text-sm font-bold">
-                    {selectedDate ? selectedDate.toLocaleDateString("pt-BR") : "Escolha uma data"}
-                  </span>
+            <DialogContent className="rounded-[2rem]">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-black text-primary">Selecionar dia</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    className="rounded-xl"
+                  />
                 </div>
-                <Button className="rounded-2xl font-black" disabled={!selectedDate} onClick={createSession}>
-                  Criar
-                </Button>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <CalendarDays className="h-4 w-4" />
+                    <span className="text-sm font-bold">
+                      {selectedDate ? selectedDate.toLocaleDateString("pt-BR") : "Escolha uma data"}
+                    </span>
+                  </div>
+                  <Button className="rounded-2xl font-black" disabled={!selectedDate} onClick={createSession}>
+                    Criar
+                  </Button>
+                </div>
               </div>
-            </div>
-          </DialogContent>
+            </DialogContent>
           </Dialog>
         </div>
       </div>
 
-      {/* Topo: sempre mostrar a chamada do dia (hoje) */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada de hoje</p>
-                <p className="mt-2 text-2xl font-black text-primary tracking-tight">
-                  {new Date(todayYmd + "T00:00:00").toLocaleDateString("pt-BR")}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {todaySession ? (
-                    <>
-                      <Badge
-                        className={cn(
-                          "rounded-full border-none font-black",
-                          !todaySession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
-                        )}
-                      >
-                        {!todaySession.finalizedAt ? "Rascunho" : "Salva"}
-                      </Badge>
-                      <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
-                        Criada em {new Date(todaySession.createdAt).toLocaleString("pt-BR")}
-                      </Badge>
-                      {(() => {
-                        const justCount = justificationCountByDate.get(todayYmd) || 0;
-                        return justCount > 0 ? (
-                          <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
-                            <FileCheck2 className="h-3.5 w-3.5 mr-2" />
-                            {justCount} justificativa(s)
-                          </Badge>
-                        ) : null;
-                      })()}
-                    </>
-                  ) : (
-                    <Badge className="rounded-full border-none bg-amber-600 text-white font-black">
-                      Ainda não criada
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:items-end gap-2">
-                {todaySession ? (
-                  <Button
-                    type="button"
-                    className="rounded-2xl font-black shadow-lg shadow-primary/20"
-                    onClick={() => openSession(todaySession.id, { scroll: true })}
-                  >
-                    Abrir chamada de hoje
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    className="rounded-2xl font-black shadow-lg shadow-primary/20"
-                    onClick={() => {
-                      setSelectedDate(new Date());
-                      setCreateOpen(true);
-                    }}
-                  >
-                    Criar chamada de hoje
-                  </Button>
-                )}
-
-                {todaySession && selectedSession?.id === todaySession.id ? (
-                  <span className="text-xs font-bold text-slate-500">Você já está visualizando a chamada de hoje.</span>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Mantém o contexto da última chamada criada */}
-        <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
-          <div className="p-6 sm:p-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Última chamada criada</p>
-                <p className="mt-2 text-2xl font-black text-primary tracking-tight">
-                  {latestSession ? new Date(latestSession.date + "T00:00:00").toLocaleDateString("pt-BR") : "—" }
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {latestSession ? (
-                    <>
-                      <Badge
-                        className={cn(
-                          "rounded-full border-none font-black",
-                          !latestSession.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
-                        )}
-                      >
-                        {!latestSession.finalizedAt ? "Rascunho" : "Salva"}
-                      </Badge>
-                      <Badge className="rounded-full border-none bg-slate-900/5 text-slate-700 font-black">
-                        Criada em {new Date(latestSession.createdAt).toLocaleString("pt-BR")}
-                      </Badge>
-                      {(() => {
-                        const justCount = justificationCountByDate.get(latestSession.date) || 0;
-                        return justCount > 0 ? (
-                          <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
-                            <FileCheck2 className="h-3.5 w-3.5 mr-2" />
-                            {justCount} justificativa(s)
-                          </Badge>
-                        ) : null;
-                      })()}
-                    </>
-                  ) : (
-                    <Badge className="rounded-full border-none bg-slate-100 text-slate-700 font-black">Sem chamadas</Badge>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:items-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-2xl font-black border-slate-200 bg-white"
-                  disabled={!latestSession}
-                  onClick={() => latestSession && openSession(latestSession.id, { scroll: true })}
-                >
-                  Abrir última chamada
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* 3) A chamada do dia (selecionada) */}
       <div ref={attendancePanelRef} />
       <Card className="border-none shadow-2xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
         <div className="p-6 sm:p-8 border-b border-slate-100 bg-white">
@@ -720,14 +626,25 @@ export default function ClassAttendance({
 
             <div className="flex flex-col gap-2 md:items-end">
               {selectedSession && (
-                <Button
-                  className="rounded-2xl font-black gap-2"
-                  onClick={saveSession}
-                  disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
-                >
-                  <Save className="h-4 w-4" />
-                  Salvar chamada
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    className="rounded-2xl font-black gap-2"
+                    onClick={saveSession}
+                    disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
+                  >
+                    <Save className="h-4 w-4" />
+                    Salvar chamada
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-2xl text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
+                    onClick={() => setDeleteTarget(selectedSession)}
+                    title="Apagar chamada"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               )}
 
               {selectedSession && summary && (
@@ -944,88 +861,6 @@ export default function ClassAttendance({
         )}
       </Card>
 
-      {/* 4) Todas as outras chamadas criadas */}
-      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
-        <div className="p-6 sm:p-8 border-b border-slate-100 bg-slate-50/50">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Todas as chamadas</p>
-          <p className="text-sm font-bold text-slate-600 mt-1">
-            {otherSessions.length === 0 ? "Nenhuma outra chamada além da selecionada." : "Clique para abrir."}
-          </p>
-        </div>
-
-        <ScrollArea className="h-[280px] sm:h-[320px]">
-          <div className="p-4 space-y-3">
-            {otherSessions.length === 0 ? (
-              <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-8 text-center">
-                <p className="text-sm font-bold text-slate-500">Sem outras chamadas.</p>
-              </div>
-            ) : (
-              otherSessions.map((s) => {
-                const d = parseYMD(s.date);
-                const justCount = justificationCountByDate.get(s.date) || 0;
-                const isLatest = latestSession?.id === s.id;
-
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => openSession(s.id, { scroll: true })}
-                    className={cn(
-                      "w-full text-left rounded-[2rem] border p-4 transition-colors",
-                      "border-slate-100 bg-white hover:border-primary/20 hover:bg-slate-50",
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-base font-black text-slate-900">
-                          {d ? d.toLocaleDateString("pt-BR") : s.date}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Badge
-                            className={cn(
-                              "rounded-full border-none font-black",
-                              !s.finalizedAt ? "bg-sky-600 text-white" : "bg-emerald-600 text-white",
-                            )}
-                          >
-                            {!s.finalizedAt ? "Rascunho" : "Salva"}
-                          </Badge>
-                          {isLatest ? (
-                            <Badge className="rounded-full border-none bg-secondary/20 text-primary font-black">
-                              Última
-                            </Badge>
-                          ) : null}
-                          {justCount > 0 ? (
-                            <Badge className="rounded-full border-none bg-sky-600/10 text-sky-700 font-black">
-                              <FileCheck2 className="h-3.5 w-3.5 mr-2" />
-                              {justCount} justificativa(s)
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="mt-2 text-xs font-bold text-slate-500">
-                          Criada em {new Date(s.createdAt).toLocaleString("pt-BR")}
-                        </p>
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-2xl text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setDeleteTarget(s);
-                        }}
-                        title="Apagar dia"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </ScrollArea>
-      </Card>
 
       <Dialog open={justificationOpen} onOpenChange={setJustificationOpen}>
         <DialogContent className="rounded-[2rem]">
