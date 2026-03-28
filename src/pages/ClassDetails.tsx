@@ -38,7 +38,7 @@ import {
 
 import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/services/teachersService";
-import { fetchStudentsRemote } from "@/services/studentsService";
+import { fetchStudents, fetchStudentsRemote } from "@/services/studentsService";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -173,7 +173,19 @@ const ClassDetails = () => {
         setAllTeachers(scoped.length ? scoped : readGlobalTeachers([]));
       }
 
-      // Alunos: no professor, buscar do Supabase (com fallback modo B) para não depender do storage local.
+      // Alunos: buscar TODOS do sistema para permitir matrícula.
+      // Tenta fetchStudents() global primeiro (admin/JWT); se falhar, tenta por projeto
+      // (modo B, filtra pelos do projeto); se ainda falhar, cai no storage local.
+      try {
+        const all = await fetchStudents();
+        if (all.length) {
+          setAllStudents(all);
+          return;
+        }
+      } catch {
+        // fallback abaixo
+      }
+
       if (projectId) {
         try {
           const remoteStudents = await fetchStudentsRemote(projectId);

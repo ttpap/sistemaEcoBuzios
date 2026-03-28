@@ -39,6 +39,7 @@ import {
 } from "@/utils/projects";
 import { projectsService } from "@/services/projectsService";
 import { fetchStudents } from "@/services/studentsService";
+import { fetchProjectEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
 
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
 import { getSystemLogo, setSystemLogo } from "@/utils/system-settings";
@@ -58,6 +59,10 @@ import {
   PieChart as PieChartIcon,
   Settings,
   Trash2,
+  Code2,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -101,6 +106,10 @@ export default function Projects() {
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [studentsSearch, setStudentsSearch] = useState("");
+  // projectId → Set<studentId> — matrículas vindas do Supabase
+  const [enrollmentsByProject, setEnrollmentsByProject] = useState<Map<string, Set<string>>>(new Map());
+  const [apiCopied, setApiCopied] = useState(false);
+  const [apiFilterProject, setApiFilterProject] = useState<string>("");
 
   const [dbMode, setDbMode] = useState<"supabase" | "local">("local");
 
@@ -139,6 +148,22 @@ export default function Projects() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Busca matrículas do Supabase para todos os projetos quando a lista muda
+  useEffect(() => {
+    if (projects.length === 0) return;
+    void (async () => {
+      const map = new Map<string, Set<string>>();
+      await Promise.all(
+        projects.map(async (p) => {
+          const { enrollments } = await fetchProjectEnrollmentsRemoteWithMeta(p.id);
+          const ids = new Set<string>(enrollments.map((e) => e.student_id));
+          map.set(p.id, ids);
+        })
+      );
+      setEnrollmentsByProject(new Map(map));
+    })();
+  }, [projects]);
 
   const onCreate = async () => {
     const n = name.trim();
@@ -364,15 +389,11 @@ export default function Projects() {
 
   const allEnrolledStudentIds = useMemo(() => {
     const ids = new Set<string>();
-
-    for (const p of projects) {
-      const classesKey = getProjectScopedKey(p.id, "classes");
-      const classes = safeParse<SchoolClass[]>(localStorage.getItem(classesKey), []);
-      for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
+    for (const projectIds of enrollmentsByProject.values()) {
+      for (const sid of projectIds) ids.add(sid);
     }
-
     return ids;
-  }, [projects]);
+  }, [enrollmentsByProject]);
 
   const studentsInAnyProject = useMemo(() => {
     if (allEnrolledStudentIds.size === 0) return [];
@@ -402,24 +423,40 @@ export default function Projects() {
       .slice(0, 12);
   }, [studentsInAnyProject]);
 
+  const schoolTypeData = useMemo(() => {
+    const counts: Record<string, number> = { municipal: 0, state: 0, private: 0, higher: 0, none: 0, outros: 0 };
+    for (const s of studentsInAnyProject) {
+      const raw = (s.schoolType || "").toLowerCase().trim();
+      if (raw === "municipal") counts.municipal += 1;
+      else if (raw === "state") counts.state += 1;
+      else if (raw === "private") counts.private += 1;
+      else if (raw === "higher") counts.higher += 1;
+      else if (raw === "none") counts.none += 1;
+      else counts.outros += 1;
+    }
+    return [
+      { name: "Municipal", value: counts.municipal, color: "#008ca0" },
+      { name: "Estadual", value: counts.state, color: "#0ea5e9" },
+      { name: "Particular", value: counts.private, color: "#f59e0b" },
+      { name: "Ens. Superior", value: counts.higher, color: "#6366f1" },
+      { name: "Não estuda", value: counts.none, color: "#f43f5e" },
+      { name: "Não informado", value: counts.outros, color: "#cbd5e1" },
+    ].filter((d) => d.value > 0);
+  }, [studentsInAnyProject]);
+
   const perProjectCounts = useMemo(() => {
     return projects
       .map((p) => {
-        const classesKey = getProjectScopedKey(p.id, "classes");
-        const classes = safeParse<SchoolClass[]>(localStorage.getItem(classesKey), []);
-
-        const ids = new Set<string>();
-        for (const c of classes) for (const sid of c.studentIds || []) ids.add(sid);
-
+        const ids = enrollmentsByProject.get(p.id) ?? new Set<string>();
         return {
           project: p,
           studentsCount: ids.size,
-          classesCount: classes.length,
+          classesCount: 0,
           isActive: p.id === activeId,
         };
       })
       .sort((a, b) => a.project.name.localeCompare(b.project.name, "pt-BR"));
-  }, [projects, activeId]);
+  }, [projects, activeId, enrollmentsByProject]);
 
   const studentsFiltered = useMemo(() => {
     const q = studentsSearch.trim().toLowerCase();
@@ -631,6 +668,10 @@ export default function Projects() {
           <TabsTrigger value="sistema" className="rounded-2xl font-black">
             <Shield className="h-4 w-4 mr-2" />
             Sistema
+          </TabsTrigger>
+          <TabsTrigger value="api" className="rounded-2xl font-black">
+            <Code2 className="h-4 w-4 mr-2" />
+            API
           </TabsTrigger>
 
         </TabsList>
@@ -882,18 +923,22 @@ export default function Projects() {
               <CardContent className="p-6 md:p-8 pt-4">
                 <div className="grid gap-4 sm:grid-cols-2 sm:items-center">
                   <div className="space-y-2">
-                    <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4">
-                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">
-                        Em turmas (projetos)
-                      </p>
-                      <p className="mt-2 text-4xl font-black text-primary tracking-tight">
+                    {perProjectCounts
+                      .filter((pc) => pc.studentsCount > 0)
+                      .map((pc) => (
+                        <div key={pc.project.id} className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 flex items-center justify-between">
+                          <p className="text-xs font-black uppercase tracking-widest text-slate-500 leading-tight">
+                            {pc.project.name}
+                          </p>
+                          <p className="text-2xl font-black text-primary tracking-tight">
+                            {pc.studentsCount}
+                          </p>
+                        </div>
+                      ))}
+                    <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4 flex items-center justify-between">
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Total em turmas</p>
+                      <p className="text-2xl font-black text-slate-800">
                         {studentsInAnyProject.length}
-                      </p>
-                    </div>
-                    <div className="rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sem turma</p>
-                      <p className="mt-2 text-2xl font-black text-slate-800">
-                        {Math.max(0, students.length - studentsInAnyProject.length)}
                       </p>
                     </div>
                   </div>
@@ -902,16 +947,21 @@ export default function Projects() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={enrollmentPieData}
+                          data={perProjectCounts
+                            .filter((pc) => pc.studentsCount > 0)
+                            .map((pc) => ({ name: pc.project.name, value: pc.studentsCount }))}
                           dataKey="value"
                           nameKey="name"
                           innerRadius={55}
                           outerRadius={85}
                           paddingAngle={2}
                         >
-                          {enrollmentPieData.map((_, idx) => (
-                            <Cell key={idx} fill={idx === 0 ? "#008ca0" : "#cbd5e1"} />
-                          ))}
+                          {perProjectCounts
+                            .filter((pc) => pc.studentsCount > 0)
+                            .map((_, idx) => {
+                              const colors = ["#008ca0", "#f59e0b", "#6366f1", "#10b981", "#ef4444", "#8b5cf6"];
+                              return <Cell key={idx} fill={colors[idx % colors.length]} />;
+                            })}
                         </Pie>
                         <Tooltip
                           contentStyle={{
@@ -978,6 +1028,58 @@ export default function Projects() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Instituição (alunos em turmas)
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">
+                Distribuição por tipo de escola — rede pública, particular e outros.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4">
+              {schoolTypeData.length === 0 ? (
+                <div className="h-[200px] rounded-[2rem] border border-slate-100 bg-white flex items-center justify-center text-sm font-bold text-slate-500">
+                  Nenhum aluno vinculado a turmas ainda.
+                </div>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2 sm:items-center">
+                  <div className="h-[200px] rounded-[2rem] border border-slate-100 bg-white p-4">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={schoolTypeData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                          {schoolTypeData.map((entry, idx) => (
+                            <Cell key={idx} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid rgba(226,232,240,1)", boxShadow: "0 20px 50px rgba(15,23,42,0.10)" }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2">
+                    {schoolTypeData.map((d) => {
+                      const total = schoolTypeData.reduce((s, x) => s + x.value, 0);
+                      const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+                      return (
+                        <div key={d.name} className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block w-3 h-3 rounded-full" style={{ background: d.color }} />
+                            <span className="text-xs font-black uppercase tracking-widest text-slate-500">{d.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-black text-slate-800">{d.value}</span>
+                            <span className="text-xs font-bold text-slate-400">{pct}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
             <CardHeader className="p-6 md:p-8 pb-3">
@@ -1119,6 +1221,107 @@ export default function Projects() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="api" className="mt-6 space-y-8">
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="p-6 md:p-8 pb-2">
+              <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                <Code2 className="h-5 w-5" /> API de Estatísticas
+              </CardTitle>
+              <p className="text-slate-500 font-medium mt-1">
+                Endpoint público que retorna total de alunos, bairros, instituição e idades por projeto.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8 pt-4 space-y-6">
+              {/* Filtro de projeto */}
+              <div className="space-y-2">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Filtrar por projeto (opcional)</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setApiFilterProject("")}
+                    className={cn(
+                      "rounded-full px-4 py-1.5 text-xs font-black border transition-colors",
+                      apiFilterProject === ""
+                        ? "bg-primary text-white border-primary"
+                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    Todos
+                  </button>
+                  {projects.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setApiFilterProject(p.id)}
+                      className={cn(
+                        "rounded-full px-4 py-1.5 text-xs font-black border transition-colors",
+                        apiFilterProject === p.id
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                      )}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* URL gerada */}
+              {(() => {
+                const base = "https://ixgujnhdjrgoakqzdkgx.supabase.co/functions/v1/public-stats-api";
+                const url = apiFilterProject ? `${base}?projetos=${apiFilterProject}` : base;
+                const copy = () => {
+                  navigator.clipboard.writeText(url).then(() => {
+                    setApiCopied(true);
+                    setTimeout(() => setApiCopied(false), 2000);
+                  });
+                };
+                return (
+                  <div className="space-y-2">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">URL gerada</p>
+                    <div className="flex items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
+                      <code className="flex-1 text-xs font-mono text-primary break-all">{url}</code>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={copy}
+                          title="Copiar URL"
+                          className="flex items-center gap-1.5 rounded-xl bg-white border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-100 transition-colors"
+                        >
+                          {apiCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                          {apiCopied ? "Copiado!" : "Copiar"}
+                        </button>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Testar no navegador"
+                          className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-black text-white hover:bg-primary/90 transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" /> Testar
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Documentação do retorno */}
+              <div className="space-y-2">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Formato da resposta (JSON)</p>
+                <pre className="rounded-[1.5rem] border border-slate-100 bg-slate-50 p-4 text-xs font-mono text-slate-600 overflow-x-auto leading-relaxed">{`{
+  "ok": true,
+  "gerado_em": "2025-01-01T00:00:00.000Z",
+  "filtro_projetos": "todos" | ["id1", "id2"],
+  "total_alunos_em_turmas": 30,
+  "por_projeto": [{ "name": "EcoBúzios", "value": 11 }, ...],
+  "bairros":     [{ "name": "Centro",    "value": 8  }, ...],
+  "instituicao": [{ "name": "Pública",   "value": 20 }, ...],
+  "idades":      [{ "name": "14-17",     "value": 15 }, ...]
+}`}</pre>
+              </div>
+            </CardContent>
+          </Card>
+
         </TabsContent>
       </Tabs>
     </div>
