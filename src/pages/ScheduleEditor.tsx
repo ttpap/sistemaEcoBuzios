@@ -23,7 +23,7 @@ import {
   updateSessionHoliday,
   upsertAssignments,
 } from "@/integrations/supabase/oficina-schedules";
-import { fetchClassesRemote } from "@/integrations/supabase/classes";
+import { fetchClassesRemote, fetchClassTeacherIdsRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
 import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
@@ -72,7 +72,14 @@ export default function ScheduleEditor() {
         setAllTeachers(teachers);
         if (projectId) {
           const classes = await fetchClassesRemote(projectId);
-          setAllClasses(classes);
+          // Mescla teacherIds (tabela separada) nas turmas
+          const classesWithTeachers = await Promise.all(
+            classes.map(async (c) => {
+              const teacherIds = await fetchClassTeacherIdsRemote(c.id);
+              return { ...c, teacherIds };
+            })
+          );
+          setAllClasses(classesWithTeachers);
           const projectCoordIds = new Set(
             assignments.filter((a) => a.project_id === projectId).map((a) => a.coordinator_id)
           );
