@@ -34,18 +34,27 @@ export default function ScheduleList() {
   async function load() {
     const projectId = getActiveProjectId();
     if (!projectId) { setLoading(false); return; }
-    const data = await fetchSchedulesByProject(projectId);
-    setSchedules(data);
-    setLoading(false);
+    try {
+      const data = await fetchSchedulesByProject(projectId);
+      setSchedules(data);
+    } catch {
+      showError("Erro ao carregar escalas.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { void load(); }, []);
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir esta escala? Esta ação não pode ser desfeita.")) return;
-    await deleteSchedule(id);
-    showSuccess("Escala excluída.");
-    void load();
+    try {
+      await deleteSchedule(id);
+      showSuccess("Escala excluída.");
+      void load();
+    } catch {
+      showError("Erro ao excluir escala.");
+    }
   }
 
   return (
