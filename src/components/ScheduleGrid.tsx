@@ -65,6 +65,26 @@ function formatDate(isoDate: string): string {
 
 const TODOS_VALUE = "__todos__";
 
+function formatTime(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
+  const m = (totalMinutes % 60).toString().padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function calcTimeRanges(
+  startTime: string,
+  templates: OficinaActivityTemplate[]
+): string[] {
+  const [h, m] = startTime.split(":").map(Number);
+  let total = h * 60 + (m || 0);
+  return templates.map((t) => {
+    const start = formatTime(total);
+    total += t.durationMinutes ?? 0;
+    const end = formatTime(total);
+    return t.durationMinutes ? `${start}/${end}` : start;
+  });
+}
+
 export default function ScheduleGrid({
   full,
   allClasses,
@@ -144,6 +164,9 @@ export default function ScheduleGrid({
         <table className="text-sm border-collapse min-w-max">
           <thead>
             <tr>
+              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-center text-slate-500 font-medium min-w-24">
+                Horário
+              </th>
               <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-center w-12 text-slate-500 font-medium">
                 Min
               </th>
@@ -172,18 +195,25 @@ export default function ScheduleGrid({
               );
               const templates = templatesByTurma.get(representativeSession.turmaId) ?? [];
 
+              const timeRanges = slotTurma?.startTime
+                ? calcTimeRanges(slotTurma.startTime, templates)
+                : [];
+
               return (
                 <React.Fragment key={representativeSession.turmaId}>
                   <tr>
                     <td
-                      colSpan={2 + dates.length}
+                      colSpan={3 + dates.length}
                       className="px-3 py-1.5 bg-indigo-50 border border-slate-200 text-xs font-semibold text-indigo-700 uppercase tracking-wide"
                     >
                       {slotTurma?.period ?? ""} — {slotTurma?.name ?? ""}
                     </td>
                   </tr>
-                  {templates.map((template) => (
+                  {templates.map((template, tIdx) => (
                     <tr key={template.id} className="hover:bg-slate-50/50">
+                      <td className="px-3 py-2 border border-slate-200 text-center text-xs text-slate-500 whitespace-nowrap">
+                        {timeRanges[tIdx] ?? ""}
+                      </td>
                       <td className="px-3 py-2 border border-slate-200 text-center text-slate-400">
                         {template.durationMinutes ?? "—"}
                       </td>
