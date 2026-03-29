@@ -70,7 +70,7 @@ const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"
 const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
 const StudentEnrollmentLink       = lazy(() => import("@/pages/StudentEnrollmentLink"));
-const ScheduleList                = lazy(() => import("./pages/ScheduleList"));
+const EscalasHub                  = lazy(() => import("./pages/EscalasHub"));
 const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"));
 const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
 
@@ -404,7 +404,7 @@ const App = () => (
                             </ActiveProjectGate>
                           }
                         />
-                        <Route path="/escalas" element={<ActiveProjectGate><ScheduleList /></ActiveProjectGate>} />
+                        <Route path="/escalas" element={<ActiveProjectGate><EscalasHub /></ActiveProjectGate>} />
                         <Route path="/escalas/nova" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="/escalas/:id" element={<ActiveProjectGate><ScheduleViewer /></ActiveProjectGate>} />
                         <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
@@ -505,7 +505,7 @@ const App = () => (
                           path="escalas"
                           element={
                             <CoordinatorActiveProjectGate>
-                              <ScheduleList />
+                              <EscalasHub />
                             </CoordinatorActiveProjectGate>
                           }
                         />
