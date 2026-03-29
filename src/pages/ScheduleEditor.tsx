@@ -58,17 +58,31 @@ export default function ScheduleEditor() {
   const [newSessionDate, setNewSessionDate] = useState("");
 
   useEffect(() => {
-    const projectId = getActiveProjectId();
-    if (projectId) {
-      fetchClassesRemote(projectId).then(setAllClasses);
-    }
-    fetchTeachers().then(setAllTeachers);
-    if (isEditing && id) {
-      fetchScheduleFull(id).then((data) => {
-        setFull(data);
+    const run = async () => {
+      try {
+        const projectId = getActiveProjectId();
+        if (projectId) {
+          const [classes, teachers] = await Promise.all([
+            fetchClassesRemote(projectId),
+            fetchTeachers(),
+          ]);
+          setAllClasses(classes);
+          setAllTeachers(teachers);
+        } else {
+          const teachers = await fetchTeachers();
+          setAllTeachers(teachers);
+        }
+        if (isEditing && id) {
+          const data = await fetchScheduleFull(id);
+          setFull(data);
+          setLoading(false);
+        }
+      } catch {
+        showError("Erro ao carregar dados da escala.");
         setLoading(false);
-      });
-    }
+      }
+    };
+    void run();
   }, [id, isEditing]);
 
   // ── Creation ──────────────────────────────────────────────────────────────
