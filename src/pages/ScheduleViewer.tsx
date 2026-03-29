@@ -181,7 +181,7 @@ export default function ScheduleViewer() {
               );
 
               return (
-                <React.Fragment key={slotIndex}>
+                <React.Fragment key={representativeSession.turmaId}>
                   <tr>
                     <td
                       colSpan={2 + dates.length}

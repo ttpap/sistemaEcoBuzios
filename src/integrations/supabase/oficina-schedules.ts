@@ -71,19 +71,44 @@ export async function upsertTemplates(
   templates: Omit<OficinaActivityTemplate, "id" | "turmaId">[]
 ): Promise<void> {
   if (!supabase) return;
-  // Delete existing and re-insert to handle reordering
-  await supabase
+  // Fetch existing to preserve IDs (assignments FK references them)
+  const { data: existing } = await supabase
     .from("oficina_activity_templates")
-    .delete()
+    .select("*")
     .eq("turma_id", turmaId);
-  if (templates.length === 0) return;
-  const rows = templates.map((t, i) => ({
-    turma_id: turmaId,
-    name: t.name,
-    duration_minutes: t.durationMinutes,
-    order_index: i,
-  }));
-  await supabase.from("oficina_activity_templates").insert(rows);
+  const existingMap = new Map<string, string>( // name → id
+    (existing ?? []).map((r: any) => [r.name, r.id])
+  );
+  const newNames = new Set(templates.map((t) => t.name));
+  // Delete removed templates (only safe if no assignments reference them,
+  // but ON DELETE CASCADE handles orphan assignments)
+  const toDelete = (existing ?? [])
+    .filter((r: any) => !newNames.has(r.name))
+    .map((r: any) => r.id);
+  if (toDelete.length > 0) {
+    await supabase
+      .from("oficina_activity_templates")
+      .delete()
+      .in("id", toDelete);
+  }
+  // Upsert each template: update if name already exists, insert if new
+  for (let i = 0; i < templates.length; i++) {
+    const t = templates[i];
+    const existingId = existingMap.get(t.name);
+    if (existingId) {
+      await supabase
+        .from("oficina_activity_templates")
+        .update({ duration_minutes: t.durationMinutes, order_index: i })
+        .eq("id", existingId);
+    } else {
+      await supabase.from("oficina_activity_templates").insert({
+        turma_id: turmaId,
+        name: t.name,
+        duration_minutes: t.durationMinutes,
+        order_index: i,
+      });
+    }
+  }
 }
 
 // ── Schedules ─────────────────────────────────────────────────────────────────

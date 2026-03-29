@@ -404,10 +404,10 @@ const App = () => (
                             </ActiveProjectGate>
                           }
                         />
-                        <Route path="/escalas" element={<ScheduleList />} />
-                        <Route path="/escalas/nova" element={<ScheduleEditor />} />
-                        <Route path="/escalas/:id" element={<ScheduleViewer />} />
-                        <Route path="/escalas/:id/editar" element={<ScheduleEditor />} />
+                        <Route path="/escalas" element={<ActiveProjectGate><ScheduleList /></ActiveProjectGate>} />
+                        <Route path="/escalas/nova" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
+                        <Route path="/escalas/:id" element={<ActiveProjectGate><ScheduleViewer /></ActiveProjectGate>} />
+                        <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>

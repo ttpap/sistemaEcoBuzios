@@ -173,7 +173,7 @@ export default function ScheduleGrid({
               const templates = templatesByTurma.get(representativeSession.turmaId) ?? [];
 
               return (
-                <React.Fragment key={slotIndex}>
+                <React.Fragment key={representativeSession.turmaId}>
                   <tr>
                     <td
                       colSpan={2 + dates.length}

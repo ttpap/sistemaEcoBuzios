@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Trash2, GripVertical, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus } from "lucide-react";
 import {
   fetchTemplatesByTurma,
   upsertTemplates,
@@ -104,7 +104,6 @@ export default function ActivityTemplateEditor({
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="w-8 px-3 py-2" />
               <th className="px-3 py-2 text-left font-medium">Atividade</th>
               <th className="px-3 py-2 text-left font-medium w-32">
                 Duração (min)
@@ -115,9 +114,6 @@ export default function ActivityTemplateEditor({
           <tbody>
             {activities.map((activity, index) => (
               <tr key={activity._key} className="border-t border-slate-100">
-                <td className="px-3 py-2 text-slate-300">
-                  <GripVertical className="h-4 w-4" />
-                </td>
                 <td className="px-3 py-2">
                   <Input
                     value={activity.name}
