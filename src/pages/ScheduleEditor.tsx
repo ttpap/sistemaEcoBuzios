@@ -25,6 +25,8 @@ import {
 } from "@/integrations/supabase/oficina-schedules";
 import { fetchClassesRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchCoordinators } from "@/integrations/supabase/coordinators";
+import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
 import type {
   OficinaScheduleFull,
   OficinaScheduleAssignment,
@@ -50,6 +52,7 @@ export default function ScheduleEditor() {
   const [full, setFull] = useState<OficinaScheduleFull | null>(null);
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
+  const [projectStaff, setProjectStaff] = useState<{ id: string; fullName: string }[]>([]);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
 
@@ -61,16 +64,22 @@ export default function ScheduleEditor() {
     const run = async () => {
       try {
         const projectId = getActiveProjectId();
+        const [teachers, coordinators, assignments] = await Promise.all([
+          fetchTeachers(),
+          fetchCoordinators(),
+          fetchCoordinatorAssignments(),
+        ]);
+        setAllTeachers(teachers);
         if (projectId) {
-          const [classes, teachers] = await Promise.all([
-            fetchClassesRemote(projectId),
-            fetchTeachers(),
-          ]);
+          const classes = await fetchClassesRemote(projectId);
           setAllClasses(classes);
-          setAllTeachers(teachers);
-        } else {
-          const teachers = await fetchTeachers();
-          setAllTeachers(teachers);
+          const projectCoordIds = new Set(
+            assignments.filter((a) => a.project_id === projectId).map((a) => a.coordinator_id)
+          );
+          const projectCoords = coordinators
+            .filter((c) => projectCoordIds.has(c.id))
+            .map((c) => ({ id: c.id, fullName: c.fullName }));
+          setProjectStaff(projectCoords);
         }
         if (isEditing && id) {
           const data = await fetchScheduleFull(id);
@@ -348,6 +357,7 @@ export default function ScheduleEditor() {
           full={full}
           allClasses={allClasses}
           allTeachers={allTeachers}
+          projectStaff={projectStaff}
           saving={saving}
           onSave={handleSaveAssignments}
         />

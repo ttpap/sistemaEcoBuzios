@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2,
-  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck
+  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck, CalendarDays
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
+import ActivityTemplateEditor from '@/components/ActivityTemplateEditor';
 import Dashboard from '@/pages/Dashboard';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
@@ -378,6 +379,11 @@ const ClassDetails = () => {
           <TabsTrigger value="chamada" className="rounded-xl font-black">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Chamada
           </TabsTrigger>
+          {!isTeacherArea && (
+            <TabsTrigger value="atividades" className="rounded-xl font-black">
+              <CalendarDays className="h-4 w-4 mr-2" /> Atividades da Escala
+            </TabsTrigger>
+          )}
           {base === "" && (
             <TabsTrigger value="dashboard" className="rounded-xl font-black">
               <Eye className="h-4 w-4 mr-2" /> Dashboard
@@ -591,6 +597,12 @@ const ClassDetails = () => {
         <TabsContent value="chamada" className="mt-8">
           <ClassAttendance classId={schoolClass.id} students={classStudents} />
         </TabsContent>
+
+        {!isTeacherArea && (
+          <TabsContent value="atividades" className="mt-8">
+            <ActivityTemplateEditor turmaId={schoolClass.id} />
+          </TabsContent>
+        )}
 
         {base === "" && (
           <TabsContent value="dashboard" className="mt-6">

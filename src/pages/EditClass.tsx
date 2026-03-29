@@ -4,8 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ClassForm from '@/components/ClassForm';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import ActivityTemplateEditor from "@/components/ActivityTemplateEditor";
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { getActiveProjectId } from '@/utils/projects';
 import { fetchClassesRemoteWithMeta } from '@/services/classesService';
@@ -19,7 +18,6 @@ const EditClass = () => {
   const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
 
   const [schoolClass, setSchoolClass] = useState<SchoolClass | null>(null);
-  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -70,25 +68,6 @@ const EditClass = () => {
       </div>
 
       <ClassForm initialData={schoolClass} />
-
-      {/* Atividades da Escala */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-        <button
-          className="flex items-center justify-between w-full text-left"
-          onClick={() => setShowTemplateEditor((v) => !v)}
-        >
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">Atividades da Escala</h2>
-            <p className="text-sm text-slate-500">Configure o template de atividades para a escala semanal desta turma.</p>
-          </div>
-          {showTemplateEditor ? (
-            <ChevronUp className="h-5 w-5 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-slate-400" />
-          )}
-        </button>
-        {showTemplateEditor && <ActivityTemplateEditor turmaId={schoolClass.id} />}
-      </div>
     </div>
   );
 };

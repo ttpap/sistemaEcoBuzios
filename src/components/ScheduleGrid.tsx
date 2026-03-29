@@ -24,6 +24,7 @@ interface ScheduleGridProps {
   full: OficinaScheduleFull;
   allClasses: SchoolClass[];
   allTeachers: TeacherRegistration[];
+  projectStaff: { id: string; fullName: string }[];
   saving: boolean;
   onSave: (assignments: Omit<OficinaScheduleAssignment, "id">[]) => Promise<void>;
 }
@@ -89,6 +90,7 @@ export default function ScheduleGrid({
   full,
   allClasses,
   allTeachers,
+  projectStaff,
   saving,
   onSave,
 }: ScheduleGridProps) {
@@ -259,6 +261,12 @@ export default function ScheduleGrid({
                         const sessionTeachers = sessionTurmaTeacherIds
                           .map((tid) => allTeachers.find((t) => t.id === tid))
                           .filter((t): t is TeacherRegistration => t !== undefined);
+                        // Combine turma teachers + project coordinators (deduplicated)
+                        const coordIds = new Set(projectStaff.map((s) => s.id));
+                        const cellStaff: { id: string; fullName: string }[] = [
+                          ...projectStaff,
+                          ...sessionTeachers.filter((t) => !coordIds.has(t.id)),
+                        ];
 
                         return (
                           <td
@@ -284,9 +292,9 @@ export default function ScheduleGrid({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value={TODOS_VALUE}>Todos</SelectItem>
-                                {sessionTeachers.map((teacher) => (
-                                  <SelectItem key={teacher.id} value={teacher.id}>
-                                    {teacher.fullName}
+                                {cellStaff.map((person) => (
+                                  <SelectItem key={person.id} value={person.id}>
+                                    {person.fullName}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
