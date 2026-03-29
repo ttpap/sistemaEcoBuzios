@@ -129,21 +129,32 @@ export default function ScheduleEditor() {
 
   // ── Session management ────────────────────────────────────────────────────
 
+  const ALL_TURMAS_VALUE = "__todas__";
+
   async function handleAddSession() {
     if (!full || !newSessionTurmaId || !newSessionDate) {
       showError("Selecione a turma e a data da sessão.");
       return;
     }
+    const turmaIds =
+      newSessionTurmaId === ALL_TURMAS_VALUE
+        ? allClasses.map((c) => c.id)
+        : [newSessionTurmaId];
     try {
-      const session = await createSession({
-        scheduleId: full.schedule.id,
-        turmaId: newSessionTurmaId,
-        date: newSessionDate,
-        isHoliday: false,
-      });
-      if (!session) { showError("Erro ao adicionar sessão."); return; }
+      const created = await Promise.all(
+        turmaIds.map((turmaId) =>
+          createSession({
+            scheduleId: full.schedule.id,
+            turmaId,
+            date: newSessionDate,
+            isHoliday: false,
+          })
+        )
+      );
+      const newSessions = created.filter(Boolean) as typeof created;
+      if (newSessions.length === 0) { showError("Erro ao adicionar sessões."); return; }
       setFull((prev) =>
-        prev ? { ...prev, sessions: [...prev.sessions, session] } : prev
+        prev ? { ...prev, sessions: [...prev.sessions, ...newSessions] } : prev
       );
       setNewSessionTurmaId("");
       setNewSessionDate("");
@@ -333,6 +344,9 @@ export default function ScheduleEditor() {
                   <SelectValue placeholder="Selecionar turma" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={ALL_TURMAS_VALUE}>
+                    Todas as turmas
+                  </SelectItem>
                   {allClasses.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
