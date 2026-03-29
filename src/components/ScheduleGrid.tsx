@@ -223,7 +223,7 @@ export default function ScheduleGrid({
   if (turmaIds.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4 w-full min-w-0">
       <div className="flex items-center justify-between sticky top-0 z-10 bg-white py-2 -mx-6 px-6 border-b border-slate-100">
         <h2 className="font-bold text-slate-800">Grade de Atividades</h2>
         <Button onClick={handleSave} disabled={saving} className="gap-2">
@@ -241,7 +241,7 @@ export default function ScheduleGrid({
         </div>
       )}
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-scroll w-full" style={{ WebkitOverflowScrolling: "touch" }}>
         <table className="text-sm border-collapse min-w-max">
           <thead>
             <tr>
