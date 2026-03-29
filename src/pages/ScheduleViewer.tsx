@@ -199,7 +199,7 @@ export default function ScheduleViewer() {
               const slotTurma = allClasses.find(
                 (c) => c.id === representativeSession.turmaId
               );
-              const templates = full.templates.filter(
+              const templates = full.activities.filter(
                 (t) => t.turmaId === representativeSession.turmaId
               );
 
@@ -248,15 +248,15 @@ export default function ScheduleViewer() {
                             </td>
                           );
                         }
-                        const sessionTemplate = full.templates.find(
+                        const sessionActivity = full.activities.find(
                           (t) =>
                             t.turmaId === session.turmaId && t.name === template.name
                         );
-                        const assignment = sessionTemplate
+                        const assignment = sessionActivity
                           ? full.assignments.find(
                               (a) =>
                                 a.sessionId === session.id &&
-                                a.activityTemplateId === sessionTemplate.id
+                                a.scheduleActivityId === sessionActivity.id
                             )
                           : undefined;
 

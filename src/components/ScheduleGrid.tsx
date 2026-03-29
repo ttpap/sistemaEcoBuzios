@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -9,16 +10,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import type {
   OficinaScheduleFull,
   OficinaScheduleAssignment,
-  OficinaActivityTemplate,
+  OficinaScheduleActivity,
   OficinaScheduleSession,
 } from "@/types/oficina-schedule";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
-import { fetchTemplatesByTurma } from "@/integrations/supabase/oficina-schedules";
+import { saveScheduleActivitiesForTurma } from "@/integrations/supabase/oficina-schedules";
+import { showError } from "@/utils/toast";
 
 interface ScheduleGridProps {
   full: OficinaScheduleFull;
@@ -29,7 +31,20 @@ interface ScheduleGridProps {
   onSave: (assignments: Omit<OficinaScheduleAssignment, "id">[]) => Promise<void>;
 }
 
-type AssignmentMap = Map<string, string | null>; // key: `${sessionId}:${activityId}` → teacherId | null
+type DraftActivity = {
+  _key: string;
+  id: string | null;
+  name: string;
+  durationMinutes: number | null;
+  orderIndex: number;
+};
+
+type AssignmentMap = Map<string, string | null>; // `${sessionId}:${activityId}` → teacherId
+
+let _keyCounter = 0;
+function newKey() {
+  return `draft_${++_keyCounter}`;
+}
 
 function groupSessionsByDate(
   sessions: OficinaScheduleSession[],
@@ -64,27 +79,24 @@ function formatDate(isoDate: string): string {
   return `${dayMonth} ${dayName}`;
 }
 
-const TODOS_VALUE = "__todos__";
-
 function formatTime(totalMinutes: number): string {
   const h = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
   const m = (totalMinutes % 60).toString().padStart(2, "0");
   return `${h}:${m}`;
 }
 
-function calcTimeRanges(
-  startTime: string,
-  templates: OficinaActivityTemplate[]
-): string[] {
+function calcTimeRanges(startTime: string, drafts: DraftActivity[]): string[] {
   const [h, m] = startTime.split(":").map(Number);
   let total = h * 60 + (m || 0);
-  return templates.map((t) => {
+  return drafts.map((d) => {
     const start = formatTime(total);
-    total += t.durationMinutes ?? 0;
+    total += d.durationMinutes ?? 0;
     const end = formatTime(total);
-    return t.durationMinutes ? `${start}/${end}` : start;
+    return d.durationMinutes ? `${start}/${end}` : start;
   });
 }
+
+const TODOS_VALUE = "__todos__";
 
 export default function ScheduleGrid({
   full,
@@ -94,34 +106,77 @@ export default function ScheduleGrid({
   saving,
   onSave,
 }: ScheduleGridProps) {
-  const [templatesByTurma, setTemplatesByTurma] = useState<
-    Map<string, OficinaActivityTemplate[]>
-  >(new Map());
+  const [draftsByTurma, setDraftsByTurma] = useState<Map<string, DraftActivity[]>>(new Map());
   const [assignments, setAssignments] = useState<AssignmentMap>(new Map());
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
 
+  // Init drafts from full.activities
   useEffect(() => {
-    const turmaIds = [...new Set(full.sessions.map((s) => s.turmaId))];
-    if (turmaIds.length === 0) { setLoadingTemplates(false); return; }
+    const map = new Map<string, DraftActivity[]>();
+    for (const a of full.activities) {
+      const list = map.get(a.turmaId) ?? [];
+      list.push({
+        _key: a.id,
+        id: a.id,
+        name: a.name,
+        durationMinutes: a.durationMinutes,
+        orderIndex: a.orderIndex,
+      });
+      map.set(a.turmaId, list);
+    }
+    for (const [turmaId, list] of map.entries()) {
+      map.set(turmaId, list.sort((a, b) => a.orderIndex - b.orderIndex));
+    }
+    setDraftsByTurma(map);
+  }, [full.activities]);
 
-    Promise.all(
-      turmaIds.map(async (turmaId) => {
-        const templates = await fetchTemplatesByTurma(turmaId);
-        return [turmaId, templates] as [string, OficinaActivityTemplate[]];
-      })
-    ).then((entries) => {
-      setTemplatesByTurma(new Map(entries));
-      setLoadingTemplates(false);
-    });
-  }, [full.sessions]);
-
+  // Init assignments from full.assignments
   useEffect(() => {
     const map = new Map<string, string | null>();
     for (const a of full.assignments) {
-      map.set(`${a.sessionId}:${a.activityTemplateId}`, a.teacherId);
+      map.set(`${a.sessionId}:${a.scheduleActivityId}`, a.teacherId);
     }
     setAssignments(map);
   }, [full.assignments]);
+
+  function setDraftField(turmaId: string, key: string, patch: Partial<DraftActivity>) {
+    setDraftsByTurma((prev) => {
+      const next = new Map(prev);
+      const list = (prev.get(turmaId) ?? []).map((d) =>
+        d._key === key ? { ...d, ...patch } : d
+      );
+      next.set(turmaId, list);
+      return next;
+    });
+  }
+
+  function addActivity(turmaId: string) {
+    setDraftsByTurma((prev) => {
+      const next = new Map(prev);
+      const list = prev.get(turmaId) ?? [];
+      next.set(turmaId, [
+        ...list,
+        {
+          _key: newKey(),
+          id: null,
+          name: "",
+          durationMinutes: null,
+          orderIndex: list.length,
+        },
+      ]);
+      return next;
+    });
+  }
+
+  function removeActivity(turmaId: string, key: string) {
+    setDraftsByTurma((prev) => {
+      const next = new Map(prev);
+      next.set(
+        turmaId,
+        (prev.get(turmaId) ?? []).filter((d) => d._key !== key)
+      );
+      return next;
+    });
+  }
 
   function setAssignment(sessionId: string, activityId: string, teacherId: string | null) {
     setAssignments((prev) => {
@@ -132,10 +187,61 @@ export default function ScheduleGrid({
   }
 
   async function handleSave() {
+    const turmaIds = [...new Set(full.sessions.map((s) => s.turmaId))];
+    // Save activities per turma to get stable IDs
+    const savedByTurma = new Map<string, OficinaScheduleActivity[]>();
+    try {
+      await Promise.all(
+        turmaIds.map(async (turmaId) => {
+          const drafts = draftsByTurma.get(turmaId) ?? [];
+          const saved = await saveScheduleActivitiesForTurma(
+            full.schedule.id,
+            turmaId,
+            drafts.map((d, i) => ({
+              id: d.id,
+              name: d.name,
+              durationMinutes: d.durationMinutes,
+              orderIndex: i,
+            }))
+          );
+          savedByTurma.set(turmaId, saved);
+        })
+      );
+    } catch {
+      showError("Erro ao salvar atividades.");
+      return;
+    }
+
+    // Update local drafts with the saved IDs
+    setDraftsByTurma((prev) => {
+      const next = new Map(prev);
+      for (const [turmaId, saved] of savedByTurma.entries()) {
+        const existing = prev.get(turmaId) ?? [];
+        const updated = saved.map((s, i) => ({
+          _key: s.id,
+          id: s.id,
+          name: s.name,
+          durationMinutes: s.durationMinutes,
+          orderIndex: i,
+        }));
+        // Preserve any drafts that were not yet saved (shouldn't happen, but safety)
+        const unsaved = existing.filter(
+          (d) => !d.id && !updated.find((u) => u.name === d.name)
+        );
+        next.set(turmaId, [...updated, ...unsaved]);
+      }
+      return next;
+    });
+
+    // Build assignments from current map (only include entries with valid activity IDs)
     const result: Omit<OficinaScheduleAssignment, "id">[] = [];
     for (const [key, teacherId] of assignments.entries()) {
-      const [sessionId, activityTemplateId] = key.split(":");
-      result.push({ sessionId, activityTemplateId, teacherId });
+      const colonIdx = key.indexOf(":");
+      const sessionId = key.slice(0, colonIdx);
+      const scheduleActivityId = key.slice(colonIdx + 1);
+      if (sessionId && scheduleActivityId) {
+        result.push({ sessionId, scheduleActivityId, teacherId });
+      }
     }
     await onSave(result);
   }
@@ -144,13 +250,7 @@ export default function ScheduleGrid({
   const dates = [...sessionsByDate.keys()];
   const maxSlots = Math.max(...[...sessionsByDate.values()].map((s) => s.length), 0);
 
-  if (loadingTemplates) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (maxSlots === 0) return null;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
@@ -169,10 +269,10 @@ export default function ScheduleGrid({
               <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-center text-slate-500 font-medium min-w-24">
                 Horário
               </th>
-              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-center w-12 text-slate-500 font-medium">
+              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-center w-16 text-slate-500 font-medium">
                 Min
               </th>
-              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-left text-slate-600 font-medium min-w-32">
+              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-left text-slate-600 font-medium min-w-44">
                 Atividade
               </th>
               {dates.map((date) => (
@@ -183,6 +283,7 @@ export default function ScheduleGrid({
                   {formatDate(date)}
                 </th>
               ))}
+              <th className="px-2 py-2 bg-slate-50 border border-slate-200 w-8" />
             </tr>
           </thead>
           <tbody>
@@ -192,36 +293,59 @@ export default function ScheduleGrid({
                 .find(Boolean);
               if (!representativeSession) return null;
 
-              const slotTurma = allClasses.find(
-                (c) => c.id === representativeSession.turmaId
-              );
-              const templates = templatesByTurma.get(representativeSession.turmaId) ?? [];
-
+              const turmaId = representativeSession.turmaId;
+              const slotTurma = allClasses.find((c) => c.id === turmaId);
+              const drafts = draftsByTurma.get(turmaId) ?? [];
               const timeRanges = slotTurma?.startTime
-                ? calcTimeRanges(slotTurma.startTime, templates)
+                ? calcTimeRanges(slotTurma.startTime, drafts)
                 : [];
 
               return (
-                <React.Fragment key={representativeSession.turmaId}>
+                <React.Fragment key={turmaId}>
+                  {/* Section header */}
                   <tr>
                     <td
-                      colSpan={3 + dates.length}
+                      colSpan={4 + dates.length}
                       className="px-3 py-1.5 bg-indigo-50 border border-slate-200 text-xs font-semibold text-indigo-700 uppercase tracking-wide"
                     >
                       {slotTurma?.period ?? ""} — {slotTurma?.name ?? ""}
                     </td>
                   </tr>
-                  {templates.map((template, tIdx) => (
-                    <tr key={template.id} className="hover:bg-slate-50/50">
+
+                  {/* Activity rows */}
+                  {drafts.map((draft, dIdx) => (
+                    <tr key={draft._key} className="hover:bg-slate-50/50">
                       <td className="px-3 py-2 border border-slate-200 text-center text-xs text-slate-500 whitespace-nowrap">
-                        {timeRanges[tIdx] ?? ""}
+                        {timeRanges[dIdx] ?? ""}
                       </td>
-                      <td className="px-3 py-2 border border-slate-200 text-center text-slate-400">
-                        {template.durationMinutes ?? "—"}
+                      <td className="px-2 py-1.5 border border-slate-200">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="—"
+                          value={draft.durationMinutes ?? ""}
+                          onChange={(e) =>
+                            setDraftField(turmaId, draft._key, {
+                              durationMinutes: e.target.value
+                                ? parseInt(e.target.value, 10)
+                                : null,
+                            })
+                          }
+                          className="h-7 w-14 text-center text-xs px-1"
+                        />
                       </td>
-                      <td className="px-3 py-2 border border-slate-200 text-slate-700">
-                        {template.name}
+                      <td className="px-2 py-1.5 border border-slate-200">
+                        <Input
+                          type="text"
+                          placeholder="Nome da atividade"
+                          value={draft.name}
+                          onChange={(e) =>
+                            setDraftField(turmaId, draft._key, { name: e.target.value })
+                          }
+                          className="h-7 text-xs min-w-36"
+                        />
                       </td>
+
                       {dates.map((date) => {
                         const session = sessionsByDate.get(date)?.[slotIndex];
                         if (!session) {
@@ -242,26 +366,24 @@ export default function ScheduleGrid({
                             </td>
                           );
                         }
-                        const sessionTemplates = templatesByTurma.get(session.turmaId) ?? [];
-                        const matchingTemplate = sessionTemplates.find(
-                          (t) => t.name === template.name
-                        );
-                        if (!matchingTemplate) {
+                        if (!draft.id) {
                           return (
                             <td
                               key={date}
-                              className="px-3 py-2 border border-slate-200 bg-slate-50"
-                            />
+                              className="px-3 py-2 border border-slate-200 bg-slate-50 text-center text-xs text-slate-400"
+                            >
+                              Salve primeiro
+                            </td>
                           );
                         }
-                        const assignmentKey = `${session.id}:${matchingTemplate.id}`;
+
+                        const assignmentKey = `${session.id}:${draft.id}`;
                         const currentTeacherId = assignments.get(assignmentKey);
                         const sessionTurmaTeacherIds =
                           allClasses.find((c) => c.id === session.turmaId)?.teacherIds ?? [];
                         const sessionTeachers = sessionTurmaTeacherIds
                           .map((tid) => allTeachers.find((t) => t.id === tid))
                           .filter((t): t is TeacherRegistration => t !== undefined);
-                        // Combine turma teachers + project coordinators (deduplicated)
                         const coordIds = new Set(projectStaff.map((s) => s.id));
                         const cellStaff: { id: string; fullName: string }[] = [
                           ...projectStaff,
@@ -269,10 +391,7 @@ export default function ScheduleGrid({
                         ];
 
                         return (
-                          <td
-                            key={date}
-                            className="px-2 py-1.5 border border-slate-200"
-                          >
+                          <td key={date} className="px-2 py-1.5 border border-slate-200">
                             <Select
                               value={
                                 currentTeacherId === null
@@ -282,7 +401,7 @@ export default function ScheduleGrid({
                               onValueChange={(val) =>
                                 setAssignment(
                                   session.id,
-                                  matchingTemplate.id,
+                                  draft.id!,
                                   val === TODOS_VALUE ? null : val
                                 )
                               }
@@ -302,8 +421,38 @@ export default function ScheduleGrid({
                           </td>
                         );
                       })}
+
+                      {/* Delete activity */}
+                      <td className="px-1 py-1 border border-slate-200">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-400 hover:text-red-600"
+                          onClick={() => removeActivity(turmaId, draft._key)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
+
+                  {/* Add activity row */}
+                  <tr>
+                    <td
+                      colSpan={4 + dates.length}
+                      className="px-3 py-1 border border-slate-200 bg-slate-50/50"
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-slate-500 hover:text-slate-700 gap-1"
+                        onClick={() => addActivity(turmaId)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Adicionar atividade
+                      </Button>
+                    </td>
+                  </tr>
                 </React.Fragment>
               );
             })}
