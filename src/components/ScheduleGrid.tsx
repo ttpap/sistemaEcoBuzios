@@ -291,13 +291,15 @@ export default function ScheduleGrid({
         </div>
       )}
 
+      <style>{`
+        .sgrid-scroll::-webkit-scrollbar { height: 10px; }
+        .sgrid-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 5px; }
+        .sgrid-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 5px; border: 2px solid #f1f5f9; }
+        .sgrid-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      `}</style>
       <div
-        className="overflow-x-scroll w-full"
-        style={{
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "auto",
-          scrollbarColor: "#94a3b8 #f1f5f9",
-        }}
+        className="sgrid-scroll overflow-x-scroll w-full"
+        style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "auto", scrollbarColor: "#94a3b8 #f1f5f9" }}
       >
         <table className="text-sm border-collapse min-w-max">
           <thead>
