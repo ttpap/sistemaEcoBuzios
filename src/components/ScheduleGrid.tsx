@@ -109,6 +109,26 @@ export default function ScheduleGrid({
           }))
         );
       }
+
+      // Auto-propagar para sessões sem atividades salvas
+      const filledIds = new Set(full.activities.map((a) => a.sessionId));
+      const firstFilledSession = full.sessions
+        .filter((s) => filledIds.has(s.id) && !s.isHoliday)
+        .sort((a, b) => a.date.localeCompare(b.date))[0];
+      if (firstFilledSession) {
+        const template = map.get(firstFilledSession.id) ?? [];
+        for (const session of full.sessions) {
+          if (!filledIds.has(session.id) && !session.isHoliday) {
+            map.set(session.id, template.map((a) => ({
+              ...a,
+              _key: newKey(),
+              id: null,       // não salvo ainda
+              teacherId: null, // professor em branco
+            })));
+          }
+        }
+      }
+
       setCellDrafts(map);
       setWasPrefilled(false);
     } else if (prefillMap && prefillMap.size > 0) {
@@ -134,10 +154,30 @@ export default function ScheduleGrid({
   function setDraftField(sessionId: string, key: string, patch: Partial<DraftActivity>) {
     setCellDrafts((prev) => {
       const next = new Map(prev);
-      const list = (prev.get(sessionId) ?? []).map((d) =>
+      const updated = (prev.get(sessionId) ?? []).map((d) =>
         d._key === key ? { ...d, ...patch } : d
       );
-      next.set(sessionId, list);
+      next.set(sessionId, updated);
+
+      // Auto-propagar para todas as células que ainda estão vazias
+      // (só quando o campo "name" muda e tem conteúdo)
+      if (patch.name !== undefined) {
+        const emptySessions = full.sessions.filter(
+          (s) => s.id !== sessionId && (prev.get(s.id) ?? []).length === 0
+        );
+        if (emptySessions.length > 0) {
+          const template = updated.map((a) => ({
+            ...a,
+            _key: newKey(),
+            id: null,
+            teacherId: null,
+          }));
+          for (const s of emptySessions) {
+            next.set(s.id, template.map((a) => ({ ...a, _key: newKey() })));
+          }
+        }
+      }
+
       return next;
     });
   }
@@ -146,10 +186,20 @@ export default function ScheduleGrid({
     setCellDrafts((prev) => {
       const next = new Map(prev);
       const list = prev.get(sessionId) ?? [];
-      next.set(sessionId, [
-        ...list,
-        { _key: newKey(), id: null, name: "", durationMinutes: null, teacherId: null },
-      ]);
+      const newActivity = { _key: newKey(), id: null, name: "", durationMinutes: null, teacherId: null };
+      next.set(sessionId, [...list, newActivity]);
+
+      // Se esta célula estava vazia e agora tem 1 atividade,
+      // propagar o novo item para todas as outras células vazias
+      if (list.length === 0) {
+        const emptySessions = full.sessions.filter(
+          (s) => s.id !== sessionId && (prev.get(s.id) ?? []).length === 0
+        );
+        for (const s of emptySessions) {
+          next.set(s.id, [{ ...newActivity, _key: newKey() }]);
+        }
+      }
+
       return next;
     });
   }
@@ -241,7 +291,14 @@ export default function ScheduleGrid({
         </div>
       )}
 
-      <div className="overflow-x-scroll w-full" style={{ WebkitOverflowScrolling: "touch" }}>
+      <div
+        className="overflow-x-scroll w-full"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "auto",
+          scrollbarColor: "#94a3b8 #f1f5f9",
+        }}
+      >
         <table className="text-sm border-collapse min-w-max">
           <thead>
             <tr>
