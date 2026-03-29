@@ -248,9 +248,21 @@ export default function ScheduleGrid({
 
   const sessionsByDate = groupSessionsByDate(full.sessions, allClasses);
   const dates = [...sessionsByDate.keys()];
-  const maxSlots = Math.max(...[...sessionsByDate.values()].map((s) => s.length), 0);
 
-  if (maxSlots === 0) return null;
+  // Ordered unique turmaIds (by period then startTime)
+  const periodOrder: Record<string, number> = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
+  const turmaIds = [
+    ...new Set([...sessionsByDate.values()].flat().map((s) => s.turmaId)),
+  ].sort((a, b) => {
+    const ca = allClasses.find((c) => c.id === a);
+    const cb = allClasses.find((c) => c.id === b);
+    const pa = periodOrder[ca?.period ?? ""] ?? 99;
+    const pb = periodOrder[cb?.period ?? ""] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return (ca?.startTime ?? "").localeCompare(cb?.startTime ?? "");
+  });
+
+  if (turmaIds.length === 0) return null;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
@@ -287,18 +299,22 @@ export default function ScheduleGrid({
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: maxSlots }, (_, slotIndex) => {
-              const representativeSession = [...sessionsByDate.values()]
-                .map((sessions) => sessions[slotIndex])
-                .find(Boolean);
-              if (!representativeSession) return null;
-
-              const turmaId = representativeSession.turmaId;
-              const slotTurma = allClasses.find((c) => c.id === turmaId);
+            {turmaIds.map((turmaId) => {
+              const turma = allClasses.find((c) => c.id === turmaId);
               const drafts = draftsByTurma.get(turmaId) ?? [];
-              const timeRanges = slotTurma?.startTime
-                ? calcTimeRanges(slotTurma.startTime, drafts)
+              const timeRanges = turma?.startTime
+                ? calcTimeRanges(turma.startTime, drafts)
                 : [];
+              // turma teachers + project coordinators (deduplicated)
+              const turmaTeacherIds = turma?.teacherIds ?? [];
+              const turmaTeachers = turmaTeacherIds
+                .map((tid) => allTeachers.find((t) => t.id === tid))
+                .filter((t): t is TeacherRegistration => t !== undefined);
+              const coordIds = new Set(projectStaff.map((s) => s.id));
+              const cellStaff: { id: string; fullName: string }[] = [
+                ...projectStaff,
+                ...turmaTeachers.filter((t) => !coordIds.has(t.id)),
+              ];
 
               return (
                 <React.Fragment key={turmaId}>
@@ -308,7 +324,7 @@ export default function ScheduleGrid({
                       colSpan={4 + dates.length}
                       className="px-3 py-1.5 bg-indigo-50 border border-slate-200 text-xs font-semibold text-indigo-700 uppercase tracking-wide"
                     >
-                      {slotTurma?.period ?? ""} — {slotTurma?.name ?? ""}
+                      {turma?.period ?? ""} — {turma?.name ?? ""}
                     </td>
                   </tr>
 
@@ -347,7 +363,9 @@ export default function ScheduleGrid({
                       </td>
 
                       {dates.map((date) => {
-                        const session = sessionsByDate.get(date)?.[slotIndex];
+                        const session = full.sessions.find(
+                          (s) => s.turmaId === turmaId && s.date === date
+                        );
                         if (!session) {
                           return (
                             <td
@@ -379,16 +397,6 @@ export default function ScheduleGrid({
 
                         const assignmentKey = `${session.id}:${draft.id}`;
                         const currentTeacherId = assignments.get(assignmentKey);
-                        const sessionTurmaTeacherIds =
-                          allClasses.find((c) => c.id === session.turmaId)?.teacherIds ?? [];
-                        const sessionTeachers = sessionTurmaTeacherIds
-                          .map((tid) => allTeachers.find((t) => t.id === tid))
-                          .filter((t): t is TeacherRegistration => t !== undefined);
-                        const coordIds = new Set(projectStaff.map((s) => s.id));
-                        const cellStaff: { id: string; fullName: string }[] = [
-                          ...projectStaff,
-                          ...sessionTeachers.filter((t) => !coordIds.has(t.id)),
-                        ];
 
                         return (
                           <td key={date} className="px-2 py-1.5 border border-slate-200">
