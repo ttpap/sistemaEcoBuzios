@@ -70,6 +70,9 @@ const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"
 const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
 const StudentEnrollmentLink       = lazy(() => import("@/pages/StudentEnrollmentLink"));
+const ScheduleList                = lazy(() => import("./pages/ScheduleList"));
+const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"));
+const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -401,6 +404,10 @@ const App = () => (
                             </ActiveProjectGate>
                           }
                         />
+                        <Route path="/escalas" element={<ScheduleList />} />
+                        <Route path="/escalas/nova" element={<ScheduleEditor />} />
+                        <Route path="/escalas/:id" element={<ScheduleViewer />} />
+                        <Route path="/escalas/:id/editar" element={<ScheduleEditor />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -491,6 +498,38 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <ClassDetails />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleList />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/nova"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleEditor />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/:id"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleViewer />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/:id/editar"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleEditor />
                             </CoordinatorActiveProjectGate>
                           }
                         />
