@@ -142,7 +142,7 @@ export async function fetchSessionsBySchedule(
   return data.map(mapSession);
 }
 
-export async function upsertSession(
+export async function createSession(
   session: Omit<OficinaScheduleSession, "id">
 ): Promise<OficinaScheduleSession | null> {
   if (!supabase) return null;
