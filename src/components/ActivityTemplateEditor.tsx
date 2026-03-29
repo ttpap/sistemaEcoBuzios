@@ -16,6 +16,7 @@ interface ActivityTemplateEditorProps {
 }
 
 type DraftActivity = {
+  _key: string;
   name: string;
   durationMinutes: string; // string for input, "" = sem tempo fixo
 };
@@ -29,19 +30,25 @@ export default function ActivityTemplateEditor({
 
   useEffect(() => {
     setLoading(true);
-    fetchTemplatesByTurma(turmaId).then((templates) => {
-      setActivities(
-        templates.map((t) => ({
-          name: t.name,
-          durationMinutes: t.durationMinutes != null ? String(t.durationMinutes) : "",
-        }))
-      );
-      setLoading(false);
-    });
+    fetchTemplatesByTurma(turmaId)
+      .then((templates) => {
+        setActivities(
+          templates.map((t) => ({
+            _key: crypto.randomUUID(),
+            name: t.name,
+            durationMinutes: t.durationMinutes != null ? String(t.durationMinutes) : "",
+          }))
+        );
+        setLoading(false);
+      })
+      .catch(() => {
+        showError("Erro ao carregar atividades.");
+        setLoading(false);
+      });
   }, [turmaId]);
 
   function addActivity() {
-    setActivities((prev) => [...prev, { name: "", durationMinutes: "" }]);
+    setActivities((prev) => [...prev, { _key: crypto.randomUUID(), name: "", durationMinutes: "" }]);
   }
 
   function removeActivity(index: number) {
@@ -65,7 +72,7 @@ export default function ActivityTemplateEditor({
         .filter((a) => a.name.trim() !== "")
         .map((a, i) => ({
           name: a.name.trim(),
-          durationMinutes: a.durationMinutes !== "" ? parseInt(a.durationMinutes, 10) : null,
+          durationMinutes: (() => { const parsed = parseInt(a.durationMinutes, 10); return a.durationMinutes !== "" && !Number.isNaN(parsed) ? parsed : null; })(),
           orderIndex: i,
         }));
       await upsertTemplates(turmaId, templates);
@@ -107,7 +114,7 @@ export default function ActivityTemplateEditor({
           </thead>
           <tbody>
             {activities.map((activity, index) => (
-              <tr key={index} className="border-t border-slate-100">
+              <tr key={activity._key} className="border-t border-slate-100">
                 <td className="px-3 py-2 text-slate-300">
                   <GripVertical className="h-4 w-4" />
                 </td>
