@@ -30,6 +30,8 @@ interface ScheduleGridProps {
   projectStaff: { id: string; fullName: string }[];
   saving: boolean;
   onSave: () => Promise<void>;
+  /** Activities from previous week, keyed by currentSessionId. Used to prefill empty schedules. */
+  prefillMap?: Map<string, { name: string; durationMinutes: number | null }[]>;
 }
 
 // Draft activity for a single cell
@@ -83,41 +85,51 @@ export default function ScheduleGrid({
   projectStaff,
   saving,
   onSave,
+  prefillMap,
 }: ScheduleGridProps) {
   const [cellDrafts, setCellDrafts] = useState<CellDrafts>(new Map());
+  const [wasPrefilled, setWasPrefilled] = useState(false);
 
-  // Init drafts from full.activities (grouped by sessionId)
+  // Init drafts from full.activities, or from prefillMap when schedule is new/empty
   useEffect(() => {
-    const map = new Map<string, DraftActivity[]>();
-    for (const a of full.activities) {
-      const list = map.get(a.sessionId) ?? [];
-      list.push({
-        _key: a.id,
-        id: a.id,
-        name: a.name,
-        durationMinutes: a.durationMinutes,
-        teacherId: a.teacherId,
-      });
-      map.set(a.sessionId, list);
+    if (full.activities.length > 0) {
+      const map = new Map<string, DraftActivity[]>();
+      for (const sessionId of new Set(full.activities.map((a) => a.sessionId))) {
+        const sorted = full.activities
+          .filter((a) => a.sessionId === sessionId)
+          .sort((a, b) => a.orderIndex - b.orderIndex);
+        map.set(
+          sessionId,
+          sorted.map((a) => ({
+            _key: a.id,
+            id: a.id,
+            name: a.name,
+            durationMinutes: a.durationMinutes,
+            teacherId: a.teacherId,
+          }))
+        );
+      }
+      setCellDrafts(map);
+      setWasPrefilled(false);
+    } else if (prefillMap && prefillMap.size > 0) {
+      // Prefill from previous week: same activities, teachers em branco
+      const map = new Map<string, DraftActivity[]>();
+      for (const [sessionId, activities] of prefillMap.entries()) {
+        map.set(
+          sessionId,
+          activities.map((a) => ({
+            _key: newKey(),
+            id: null,
+            name: a.name,
+            durationMinutes: a.durationMinutes,
+            teacherId: null,
+          }))
+        );
+      }
+      setCellDrafts(map);
+      setWasPrefilled(true);
     }
-    // Sort by orderIndex using original data
-    for (const sessionId of map.keys()) {
-      const sorted = full.activities
-        .filter((a) => a.sessionId === sessionId)
-        .sort((a, b) => a.orderIndex - b.orderIndex);
-      map.set(
-        sessionId,
-        sorted.map((a) => ({
-          _key: a.id,
-          id: a.id,
-          name: a.name,
-          durationMinutes: a.durationMinutes,
-          teacherId: a.teacherId,
-        }))
-      );
-    }
-    setCellDrafts(map);
-  }, [full.activities]);
+  }, [full.activities, prefillMap]);
 
   function setDraftField(sessionId: string, key: string, patch: Partial<DraftActivity>) {
     setCellDrafts((prev) => {
@@ -219,6 +231,15 @@ export default function ScheduleGrid({
           Salvar escala
         </Button>
       </div>
+
+      {wasPrefilled && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm text-amber-800 flex items-center gap-2">
+          <span className="text-lg">📋</span>
+          <span>
+            Atividades copiadas da semana anterior. Ajuste os responsáveis e salve.
+          </span>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         <table className="text-sm border-collapse min-w-max">

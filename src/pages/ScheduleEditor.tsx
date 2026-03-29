@@ -18,6 +18,7 @@ import { getAreaBaseFromPathname } from "@/utils/route-base";
 import {
   createSchedule,
   fetchScheduleFull,
+  fetchSchedulesByProject,
   createSession,
   deleteSession,
   updateSessionHoliday,
@@ -51,6 +52,8 @@ export default function ScheduleEditor() {
   const [projectStaff, setProjectStaff] = useState<{ id: string; fullName: string }[]>([]);
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
+  // Map<currentSessionId, {name, durationMinutes}[]> — from previous week
+  const [prefillMap, setPrefillMap] = useState<Map<string, { name: string; durationMinutes: number | null }[]>>(new Map());
 
   // Session builder
   const [newSessionTurmaId, setNewSessionTurmaId] = useState("");
@@ -87,6 +90,40 @@ export default function ScheduleEditor() {
         if (isEditing && id) {
           const data = await fetchScheduleFull(id);
           setFull(data);
+
+          // Auto-prefill from previous week when current schedule has no activities
+          if (data && data.activities.length === 0 && data.sessions.length > 0 && projectId) {
+            const allSchedules = await fetchSchedulesByProject(projectId);
+            const prevSchedule = allSchedules
+              .filter((s) => s.id !== id && s.weekNumber < data.schedule.weekNumber)
+              .sort((a, b) => b.weekNumber - a.weekNumber)[0];
+
+            if (prevSchedule) {
+              const prevFull = await fetchScheduleFull(prevSchedule.id);
+              if (prevFull && prevFull.activities.length > 0) {
+                const map = new Map<string, { name: string; durationMinutes: number | null }[]>();
+                for (const prevSession of prevFull.sessions) {
+                  const prevWeekday = new Date(prevSession.date + "T12:00:00").getDay();
+                  const matchingSession = data.sessions.find(
+                    (s) =>
+                      s.turmaId === prevSession.turmaId &&
+                      new Date(s.date + "T12:00:00").getDay() === prevWeekday
+                  );
+                  if (matchingSession) {
+                    const activities = prevFull.activities
+                      .filter((a) => a.sessionId === prevSession.id)
+                      .sort((a, b) => a.orderIndex - b.orderIndex)
+                      .map((a) => ({ name: a.name, durationMinutes: a.durationMinutes }));
+                    if (activities.length > 0) {
+                      map.set(matchingSession.id, activities);
+                    }
+                  }
+                }
+                if (map.size > 0) setPrefillMap(map);
+              }
+            }
+          }
+
           setLoading(false);
         }
       } catch {
@@ -168,7 +205,7 @@ export default function ScheduleEditor() {
           ? {
               ...prev,
               sessions: prev.sessions.filter((s) => s.id !== sessionId),
-              assignments: prev.assignments.filter((a) => a.sessionId !== sessionId),
+              activities: prev.activities.filter((a) => a.sessionId !== sessionId),
             }
           : prev
       );
@@ -374,6 +411,7 @@ export default function ScheduleEditor() {
           projectStaff={projectStaff}
           saving={saving}
           onSave={handleSave}
+          prefillMap={prefillMap}
         />
       )}
     </div>
