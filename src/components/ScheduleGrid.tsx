@@ -224,7 +224,7 @@ export default function ScheduleGrid({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between sticky top-0 z-10 bg-white py-2 -mx-6 px-6 border-b border-slate-100">
         <h2 className="font-bold text-slate-800">Grade de Atividades</h2>
         <Button onClick={handleSave} disabled={saving} className="gap-2">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -423,6 +423,13 @@ export default function ScheduleGrid({
             })}
           </tbody>
         </table>
+      </div>
+
+      <div className="flex justify-end pt-2 border-t border-slate-100">
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Salvar escala
+        </Button>
       </div>
     </div>
   );
