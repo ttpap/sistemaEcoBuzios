@@ -21,16 +21,12 @@ import {
   createSession,
   deleteSession,
   updateSessionHoliday,
-  upsertAssignments,
 } from "@/integrations/supabase/oficina-schedules";
 import { fetchClassesRemote, fetchClassTeacherIdsRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
 import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
-import type {
-  OficinaScheduleFull,
-  OficinaScheduleAssignment,
-} from "@/types/oficina-schedule";
+import type { OficinaScheduleFull } from "@/types/oficina-schedule";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import { showError, showSuccess } from "@/utils/toast";
@@ -199,14 +195,11 @@ export default function ScheduleEditor() {
     }
   }
 
-  // ── Assignments ───────────────────────────────────────────────────────────
+  // ── Save ──────────────────────────────────────────────────────────────────
 
-  async function handleSaveAssignments(
-    assignments: Omit<OficinaScheduleAssignment, "id">[]
-  ) {
+  async function handleSave() {
     setSaving(true);
     try {
-      await upsertAssignments(assignments);
       showSuccess("Escala salva.");
     } catch {
       showError("Erro ao salvar escala.");
@@ -380,7 +373,7 @@ export default function ScheduleEditor() {
           allTeachers={allTeachers}
           projectStaff={projectStaff}
           saving={saving}
-          onSave={handleSaveAssignments}
+          onSave={handleSave}
         />
       )}
     </div>

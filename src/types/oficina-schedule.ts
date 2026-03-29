@@ -1,11 +1,12 @@
 // src/types/oficina-schedule.ts
 
-export interface OficinaActivityTemplate {
+export interface OficinaScheduleActivity {
   id: string;
-  turmaId: string;
+  sessionId: string;
   name: string;
   durationMinutes: number | null;
   orderIndex: number;
+  teacherId: string | null; // null = "Todos"
 }
 
 export interface OficinaSchedule {
@@ -25,17 +26,9 @@ export interface OficinaScheduleSession {
   isHoliday: boolean;
 }
 
-export interface OficinaScheduleAssignment {
-  id: string;
-  sessionId: string;
-  activityTemplateId: string;
-  teacherId: string | null; // null = "Todos"
-}
-
-/** Shape returned by fetchScheduleWithDetails — all data for one schedule */
+/** All data for one schedule */
 export interface OficinaScheduleFull {
   schedule: OficinaSchedule;
   sessions: OficinaScheduleSession[];
-  assignments: OficinaScheduleAssignment[];
-  templates: OficinaActivityTemplate[];
+  activities: OficinaScheduleActivity[];
 }

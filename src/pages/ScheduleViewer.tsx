@@ -8,11 +8,13 @@ import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchScheduleFull } from "@/integrations/supabase/oficina-schedules";
 import { fetchClassesRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
-import type { OficinaScheduleFull, OficinaScheduleSession } from "@/types/oficina-schedule";
+import type { OficinaScheduleFull } from "@/types/oficina-schedule";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import { getActiveProjectId } from "@/utils/projects";
 import { showError } from "@/utils/toast";
+
+const periodOrder: Record<string, number> = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
 
 function formatTime(totalMinutes: number): string {
   const h = Math.floor(totalMinutes / 60).toString().padStart(2, "0");
@@ -20,17 +22,17 @@ function formatTime(totalMinutes: number): string {
   return `${h}:${m}`;
 }
 
-function calcTimeRanges(
+function calcTimeRange(
   startTime: string,
-  templates: { durationMinutes: number | null }[]
+  activities: { durationMinutes: number | null }[]
 ): string[] {
   const [h, m] = startTime.split(":").map(Number);
   let total = h * 60 + (m || 0);
-  return templates.map((t) => {
+  return activities.map((a) => {
     const start = formatTime(total);
-    total += t.durationMinutes ?? 0;
+    total += a.durationMinutes ?? 0;
     const end = formatTime(total);
-    return t.durationMinutes ? `${start}/${end}` : start;
+    return a.durationMinutes ? `${start}/${end}` : start;
   });
 }
 
@@ -38,7 +40,7 @@ function calcTimeRanges(
 function strToColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  return `hsl(${Math.abs(hash) % 360}, 60%, 85%)`;
+  return `hsl(${Math.abs(hash) % 360}, 60%, 88%)`;
 }
 
 function formatDate(isoDate: string): string {
@@ -46,31 +48,6 @@ function formatDate(isoDate: string): string {
   const dayName = d.toLocaleDateString("pt-BR", { weekday: "short" }).toUpperCase();
   const dayMonth = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   return `${dayMonth} ${dayName}`;
-}
-
-function groupSessionsByDate(
-  sessions: OficinaScheduleSession[],
-  allClasses: SchoolClass[]
-): Map<string, OficinaScheduleSession[]> {
-  const map = new Map<string, OficinaScheduleSession[]>();
-  const sorted = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
-  for (const s of sorted) {
-    const list = map.get(s.date) ?? [];
-    list.push(s);
-    map.set(s.date, list);
-  }
-  const periodOrder: Record<string, number> = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
-  for (const [, list] of map.entries()) {
-    list.sort((a, b) => {
-      const ca = allClasses.find((c) => c.id === a.turmaId);
-      const cb = allClasses.find((c) => c.id === b.turmaId);
-      const pa = periodOrder[ca?.period ?? ""] ?? 99;
-      const pb = periodOrder[cb?.period ?? ""] ?? 99;
-      if (pa !== pb) return pa - pb;
-      return (ca?.startTime ?? "").localeCompare(cb?.startTime ?? "");
-    });
-  }
-  return map;
 }
 
 export default function ScheduleViewer() {
@@ -114,9 +91,18 @@ export default function ScheduleViewer() {
     );
   }
 
-  const sessionsByDate = groupSessionsByDate(full.sessions, allClasses);
-  const dates = [...sessionsByDate.keys()];
-  const maxSlots = Math.max(...[...sessionsByDate.values()].map((s) => s.length), 0);
+  const turmaIds = [
+    ...new Set(full.sessions.map((s) => s.turmaId)),
+  ].sort((a, b) => {
+    const ca = allClasses.find((c) => c.id === a);
+    const cb = allClasses.find((c) => c.id === b);
+    const pa = periodOrder[ca?.period ?? ""] ?? 99;
+    const pb = periodOrder[cb?.period ?? ""] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return (ca?.startTime ?? "").localeCompare(cb?.startTime ?? "");
+  });
+
+  const dates = [...new Set(full.sessions.map((s) => s.date))].sort();
 
   function getTeacherName(teacherId: string | null): string {
     if (teacherId === null) return "Todos";
@@ -170,19 +156,13 @@ export default function ScheduleViewer() {
         <table className="text-sm border-collapse min-w-max w-full">
           <thead>
             <tr>
-              <th className="px-3 py-2 bg-slate-100 border border-slate-300 text-center text-slate-500 font-medium min-w-24">
-                Horário
-              </th>
-              <th className="px-3 py-2 bg-slate-100 border border-slate-300 text-center w-10 text-slate-500 font-medium">
-                Min
-              </th>
-              <th className="px-3 py-2 bg-slate-100 border border-slate-300 text-left text-slate-600 font-medium min-w-28">
-                Atividade
+              <th className="px-3 py-2 bg-slate-100 border border-slate-300 text-left text-slate-600 font-medium min-w-32">
+                Turma
               </th>
               {dates.map((date) => (
                 <th
                   key={date}
-                  className="px-3 py-2 bg-slate-100 border border-slate-300 text-center font-medium text-slate-700 min-w-32"
+                  className="px-3 py-2 bg-slate-100 border border-slate-300 text-center font-medium text-slate-700 min-w-40"
                 >
                   {formatDate(date)}
                 </th>
@@ -190,99 +170,94 @@ export default function ScheduleViewer() {
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: maxSlots }, (_, slotIndex) => {
-              const representativeSession = [...sessionsByDate.values()]
-                .map((sessions) => sessions[slotIndex])
-                .find(Boolean);
-              if (!representativeSession) return null;
-
-              const slotTurma = allClasses.find(
-                (c) => c.id === representativeSession.turmaId
-              );
-              const templates = full.activities.filter(
-                (t) => t.turmaId === representativeSession.turmaId
-              );
-
-              const timeRanges = slotTurma?.startTime
-                ? calcTimeRanges(slotTurma.startTime, templates)
-                : [];
-
+            {turmaIds.map((turmaId) => {
+              const turma = allClasses.find((c) => c.id === turmaId);
               return (
-                <React.Fragment key={representativeSession.turmaId}>
-                  <tr>
-                    <td
-                      colSpan={3 + dates.length}
-                      className="px-3 py-1.5 bg-indigo-50 border border-slate-300 text-xs font-bold text-indigo-800 uppercase tracking-wide"
-                    >
-                      {slotTurma?.period ?? ""} — {slotTurma?.name ?? ""}
-                    </td>
-                  </tr>
-                  {templates.map((template, tIdx) => (
-                    <tr key={template.id}>
-                      <td className="px-3 py-2 border border-slate-200 text-center text-xs text-slate-500 whitespace-nowrap">
-                        {timeRanges[tIdx] ?? ""}
-                      </td>
-                      <td className="px-3 py-2 border border-slate-200 text-center text-slate-400">
-                        {template.durationMinutes ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 border border-slate-200 text-slate-700">
-                        {template.name}
-                      </td>
-                      {dates.map((date) => {
-                        const session = sessionsByDate.get(date)?.[slotIndex];
-                        if (!session) {
-                          return (
-                            <td
-                              key={date}
-                              className="px-3 py-2 border border-slate-200 bg-slate-50"
-                            />
-                          );
-                        }
-                        if (session.isHoliday) {
-                          return (
-                            <td
-                              key={date}
-                              className="px-3 py-2 border border-slate-200 bg-red-50 text-center text-xs text-red-500 font-medium"
-                            >
-                              Feriado
-                            </td>
-                          );
-                        }
-                        const sessionActivity = full.activities.find(
-                          (t) =>
-                            t.turmaId === session.turmaId && t.name === template.name
-                        );
-                        const assignment = sessionActivity
-                          ? full.assignments.find(
-                              (a) =>
-                                a.sessionId === session.id &&
-                                a.scheduleActivityId === sessionActivity.id
-                            )
-                          : undefined;
+                <tr key={turmaId} className="align-top">
+                  <td className="px-3 py-3 border border-slate-200 bg-indigo-50">
+                    <p className="font-semibold text-indigo-800 text-xs uppercase tracking-wide">
+                      {turma?.period ?? ""}
+                    </p>
+                    <p className="font-medium text-slate-700 mt-0.5">{turma?.name ?? turmaId}</p>
+                    {turma?.startTime && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {turma.startTime} – {turma.endTime}
+                      </p>
+                    )}
+                  </td>
+                  {dates.map((date) => {
+                    const session = full.sessions.find(
+                      (s) => s.turmaId === turmaId && s.date === date
+                    );
 
-                        const teacherName = assignment
-                          ? getTeacherName(assignment.teacherId)
-                          : "—";
-                        const bgColor =
-                          assignment?.teacherId === null
-                            ? "#fef9c3"
-                            : assignment?.teacherId
-                            ? strToColor(teacherName)
-                            : "transparent";
+                    if (!session) {
+                      return (
+                        <td
+                          key={date}
+                          className="px-3 py-3 border border-slate-200 bg-slate-50 text-center text-xs text-slate-300"
+                        >
+                          —
+                        </td>
+                      );
+                    }
 
-                        return (
-                          <td
-                            key={date}
-                            className="px-3 py-2 border border-slate-200 text-center font-medium text-sm"
-                            style={{ backgroundColor: bgColor }}
-                          >
-                            {teacherName}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </React.Fragment>
+                    if (session.isHoliday) {
+                      return (
+                        <td
+                          key={date}
+                          className="px-3 py-3 border border-slate-200 bg-red-50 text-center text-xs text-red-500 font-medium"
+                        >
+                          Feriado
+                        </td>
+                      );
+                    }
+
+                    const activities = full.activities
+                      .filter((a) => a.sessionId === session.id)
+                      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+                    const timeRanges = turma?.startTime
+                      ? calcTimeRange(turma.startTime, activities)
+                      : [];
+
+                    return (
+                      <td
+                        key={date}
+                        className="px-2 py-2 border border-slate-200 align-top"
+                      >
+                        <div className="space-y-1">
+                          {activities.map((activity, idx) => {
+                            const teacherName = getTeacherName(activity.teacherId);
+                            const bgColor =
+                              activity.teacherId === null
+                                ? "#fef9c3"
+                                : strToColor(teacherName);
+                            return (
+                              <div
+                                key={activity.id}
+                                className="px-2 py-1.5 rounded-lg text-xs"
+                                style={{ backgroundColor: bgColor }}
+                              >
+                                {timeRanges[idx] && (
+                                  <div className="text-slate-500 font-medium mb-0.5">
+                                    {timeRanges[idx]}
+                                  </div>
+                                )}
+                                <div className="font-semibold text-slate-800">
+                                  {activity.name || "—"}
+                                </div>
+                                <div className="text-slate-600 mt-0.5">{teacherName}</div>
+                              </div>
+                            );
+                          })}
+                          {activities.length === 0 && (
+                            <span className="text-xs text-slate-300">Sem atividades</span>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
               );
             })}
           </tbody>

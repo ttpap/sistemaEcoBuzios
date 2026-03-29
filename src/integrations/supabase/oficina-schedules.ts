@@ -2,22 +2,22 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import type {
-  OficinaActivityTemplate,
+  OficinaScheduleActivity,
   OficinaSchedule,
-  OficinaScheduleAssignment,
   OficinaScheduleFull,
   OficinaScheduleSession,
 } from "@/types/oficina-schedule";
 
 // ── Mappers ──────────────────────────────────────────────────────────────────
 
-function mapTemplate(row: any): OficinaActivityTemplate {
+function mapActivity(row: any): OficinaScheduleActivity {
   return {
     id: row.id,
-    turmaId: row.turma_id,
+    sessionId: row.session_id,
     name: row.name,
     durationMinutes: row.duration_minutes ?? null,
     orderIndex: row.order_index,
+    teacherId: row.teacher_id ?? null,
   };
 }
 
@@ -42,73 +42,75 @@ function mapSession(row: any): OficinaScheduleSession {
   };
 }
 
-function mapAssignment(row: any): OficinaScheduleAssignment {
-  return {
-    id: row.id,
-    sessionId: row.session_id,
-    activityTemplateId: row.activity_template_id,
-    teacherId: row.teacher_id ?? null,
-  };
-}
+// ── Activities (per session) ──────────────────────────────────────────────────
 
-// ── Activity Templates ────────────────────────────────────────────────────────
-
-export async function fetchTemplatesByTurma(
-  turmaId: string
-): Promise<OficinaActivityTemplate[]> {
+/**
+ * Save activities for a session.
+ * Preserves IDs of existing activities.
+ * Returns saved activities with their IDs.
+ */
+export async function saveSessionActivities(
+  sessionId: string,
+  drafts: {
+    id: string | null;
+    name: string;
+    durationMinutes: number | null;
+    orderIndex: number;
+    teacherId: string | null;
+  }[]
+): Promise<OficinaScheduleActivity[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("oficina_activity_templates")
-    .select("*")
-    .eq("turma_id", turmaId)
-    .order("order_index");
-  if (error || !data) return [];
-  return data.map(mapTemplate);
-}
 
-export async function upsertTemplates(
-  turmaId: string,
-  templates: Omit<OficinaActivityTemplate, "id" | "turmaId">[]
-): Promise<void> {
-  if (!supabase) return;
-  // Fetch existing to preserve IDs (assignments FK references them)
   const { data: existing } = await supabase
-    .from("oficina_activity_templates")
-    .select("*")
-    .eq("turma_id", turmaId);
-  const existingMap = new Map<string, string>( // name → id
-    (existing ?? []).map((r: any) => [r.name, r.id])
-  );
-  const newNames = new Set(templates.map((t) => t.name));
-  // Delete removed templates (only safe if no assignments reference them,
-  // but ON DELETE CASCADE handles orphan assignments)
-  const toDelete = (existing ?? [])
-    .filter((r: any) => !newNames.has(r.name))
-    .map((r: any) => r.id);
+    .from("oficina_schedule_activities")
+    .select("id")
+    .eq("session_id", sessionId);
+
+  const existingIds = new Set((existing ?? []).map((r: any) => r.id));
+  const draftIds = new Set(drafts.filter((d) => d.id).map((d) => d.id as string));
+
+  // Delete removed activities
+  const toDelete = [...existingIds].filter((id) => !draftIds.has(id));
   if (toDelete.length > 0) {
     await supabase
-      .from("oficina_activity_templates")
+      .from("oficina_schedule_activities")
       .delete()
       .in("id", toDelete);
   }
-  // Upsert each template: update if name already exists, insert if new
-  for (let i = 0; i < templates.length; i++) {
-    const t = templates[i];
-    const existingId = existingMap.get(t.name);
-    if (existingId) {
-      await supabase
-        .from("oficina_activity_templates")
-        .update({ duration_minutes: t.durationMinutes, order_index: i })
-        .eq("id", existingId);
+
+  const saved: OficinaScheduleActivity[] = [];
+
+  for (const draft of drafts) {
+    if (draft.id) {
+      const { data } = await supabase
+        .from("oficina_schedule_activities")
+        .update({
+          name: draft.name,
+          duration_minutes: draft.durationMinutes,
+          order_index: draft.orderIndex,
+          teacher_id: draft.teacherId,
+        })
+        .eq("id", draft.id)
+        .select()
+        .single();
+      if (data) saved.push(mapActivity(data));
     } else {
-      await supabase.from("oficina_activity_templates").insert({
-        turma_id: turmaId,
-        name: t.name,
-        duration_minutes: t.durationMinutes,
-        order_index: i,
-      });
+      const { data } = await supabase
+        .from("oficina_schedule_activities")
+        .insert({
+          session_id: sessionId,
+          name: draft.name,
+          duration_minutes: draft.durationMinutes,
+          order_index: draft.orderIndex,
+          teacher_id: draft.teacherId,
+        })
+        .select()
+        .single();
+      if (data) saved.push(mapActivity(data));
     }
   }
+
+  return saved;
 }
 
 // ── Schedules ─────────────────────────────────────────────────────────────────
@@ -154,19 +156,6 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
 
-export async function fetchSessionsBySchedule(
-  scheduleId: string
-): Promise<OficinaScheduleSession[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("oficina_schedule_sessions")
-    .select("*")
-    .eq("schedule_id", scheduleId)
-    .order("date");
-  if (error || !data) return [];
-  return data.map(mapSession);
-}
-
 export async function createSession(
   session: Omit<OficinaScheduleSession, "id">
 ): Promise<OficinaScheduleSession | null> {
@@ -204,75 +193,37 @@ export async function deleteSession(sessionId: string): Promise<void> {
     .eq("id", sessionId);
 }
 
-// ── Assignments ───────────────────────────────────────────────────────────────
-
-export async function fetchAssignmentsBySchedule(
-  scheduleId: string
-): Promise<OficinaScheduleAssignment[]> {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("oficina_schedule_assignments")
-    .select("*, oficina_schedule_sessions!inner(schedule_id)")
-    .eq("oficina_schedule_sessions.schedule_id", scheduleId);
-  if (error || !data) return [];
-  return data.map(mapAssignment);
-}
-
-export async function upsertAssignments(
-  assignments: Omit<OficinaScheduleAssignment, "id">[]
-): Promise<void> {
-  if (!supabase || assignments.length === 0) return;
-  const rows = assignments.map((a) => ({
-    session_id: a.sessionId,
-    activity_template_id: a.activityTemplateId,
-    teacher_id: a.teacherId,
-  }));
-  await supabase.from("oficina_schedule_assignments").upsert(rows, {
-    onConflict: "session_id,activity_template_id",
-  });
-}
-
 // ── Full fetch ─────────────────────────────────────────────────────────────────
 
 export async function fetchScheduleFull(
   scheduleId: string
 ): Promise<OficinaScheduleFull | null> {
   if (!supabase) return null;
+
   const [scheduleRes, sessionsRes] = await Promise.all([
-    supabase
-      .from("oficina_schedules")
-      .select("*")
-      .eq("id", scheduleId)
-      .single(),
+    supabase.from("oficina_schedules").select("*").eq("id", scheduleId).single(),
     supabase
       .from("oficina_schedule_sessions")
       .select("*")
       .eq("schedule_id", scheduleId)
       .order("date"),
   ]);
+
   if (scheduleRes.error || !scheduleRes.data) return null;
 
-  const sessions = (sessionsRes.data ?? []).map(mapSession);
-  const turmaIds = [...new Set(sessions.map((s) => s.turmaId))];
-
-  const [assignmentsRes, templatesRes] = await Promise.all([
-    supabase
-      .from("oficina_schedule_assignments")
-      .select("*, oficina_schedule_sessions!inner(schedule_id)")
-      .eq("oficina_schedule_sessions.schedule_id", scheduleId),
-    turmaIds.length > 0
-      ? supabase
-          .from("oficina_activity_templates")
+  const sessionIds = (sessionsRes.data ?? []).map((s: any) => s.id);
+  const activitiesRes =
+    sessionIds.length > 0
+      ? await supabase
+          .from("oficina_schedule_activities")
           .select("*")
-          .in("turma_id", turmaIds)
+          .in("session_id", sessionIds)
           .order("order_index")
-      : Promise.resolve({ data: [], error: null }),
-  ]);
+      : { data: [], error: null };
 
   return {
     schedule: mapSchedule(scheduleRes.data),
-    sessions,
-    assignments: (assignmentsRes.data ?? []).map(mapAssignment),
-    templates: (templatesRes.data ?? []).map(mapTemplate),
+    sessions: (sessionsRes.data ?? []).map(mapSession),
+    activities: (activitiesRes.data ?? []).map(mapActivity),
   };
 }
