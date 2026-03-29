@@ -44,6 +44,8 @@ const AdminTeachers               = lazy(() => import("@/pages/AdminTeachers"));
 const TeacherSelectProject        = lazy(() => import("@/pages/TeacherSelectProject"));
 const TeacherAccount              = lazy(() => import("@/pages/TeacherAccount"));
 const TeacherJustification        = lazy(() => import("@/pages/TeacherJustification"));
+const TeacherAgenda               = lazy(() => import("@/pages/TeacherAgenda"));
+const TeacherScheduleViewer       = lazy(() => import("@/pages/TeacherScheduleViewer"));
 const AdminCoordinators           = lazy(() => import("@/pages/AdminCoordinators"));
 const NewCoordinator              = lazy(() => import("@/pages/NewCoordinator"));
 const EditCoordinator             = lazy(() => import("@/pages/EditCoordinator"));
@@ -70,6 +72,9 @@ const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"
 const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
 const StudentEnrollmentLink       = lazy(() => import("@/pages/StudentEnrollmentLink"));
+const EscalasHub                  = lazy(() => import("./pages/EscalasHub"));
+const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"));
+const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -165,6 +170,8 @@ const App = () => (
                         <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
                         <Route path="conta" element={<TeacherAccount />} />
                         <Route path="justificativas" element={<TeacherJustification />} />
+                        <Route path="agenda" element={<TeacherActiveProjectGate><TeacherAgenda /></TeacherActiveProjectGate>} />
+                        <Route path="escalas/:id" element={<TeacherActiveProjectGate><TeacherScheduleViewer /></TeacherActiveProjectGate>} />
                         <Route
                           path="links-inscricao"
                           element={
@@ -401,6 +408,10 @@ const App = () => (
                             </ActiveProjectGate>
                           }
                         />
+                        <Route path="/escalas" element={<ActiveProjectGate><EscalasHub /></ActiveProjectGate>} />
+                        <Route path="/escalas/nova" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
+                        <Route path="/escalas/:id" element={<ActiveProjectGate><ScheduleViewer /></ActiveProjectGate>} />
+                        <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -491,6 +502,38 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <ClassDetails />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <EscalasHub />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/nova"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleEditor />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/:id"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleViewer />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="escalas/:id/editar"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ScheduleEditor />
                             </CoordinatorActiveProjectGate>
                           }
                         />

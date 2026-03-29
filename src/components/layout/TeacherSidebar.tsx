@@ -15,6 +15,7 @@ import {
   UserCog,
   Link2,
   MessageSquarePlus,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -74,6 +75,7 @@ export default function TeacherSidebar({
   const menuItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
+      { icon: CalendarDays, label: "Escala", path: "/professor/agenda" },
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: MessageSquarePlus, label: "Justificar", path: "/professor/justificativas" },

@@ -1,0 +1,479 @@
+// src/pages/ScheduleEditor.tsx
+
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
+import { getActiveProjectId } from "@/utils/projects";
+import { getAreaBaseFromPathname } from "@/utils/route-base";
+import {
+  createSchedule,
+  fetchScheduleFull,
+  fetchSchedulesByProject,
+  createSession,
+  deleteSession,
+  updateSessionHoliday,
+  updateScheduleMeta,
+} from "@/integrations/supabase/oficina-schedules";
+import { fetchClassesRemote, fetchClassTeacherIdsRemote } from "@/integrations/supabase/classes";
+import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchCoordinators } from "@/integrations/supabase/coordinators";
+import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
+import type { OficinaScheduleFull } from "@/types/oficina-schedule";
+import type { SchoolClass } from "@/types/class";
+import type { TeacherRegistration } from "@/types/teacher";
+import { showError, showSuccess } from "@/utils/toast";
+import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
+import ScheduleGrid from "@/components/ScheduleGrid";
+
+export default function ScheduleEditor() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const base = useMemo(() => getAreaBaseFromPathname(location.pathname), [location.pathname]);
+  const isEditing = !!id;
+
+  // Creation form state
+  const [weekNumber, setWeekNumber] = useState("");
+  const [weekStartDate, setWeekStartDate] = useState("");
+
+  // Loaded data
+  const [full, setFull] = useState<OficinaScheduleFull | null>(null);
+  const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
+  const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
+  const [projectStaff, setProjectStaff] = useState<{ id: string; fullName: string }[]>([]);
+  const [loading, setLoading] = useState(isEditing);
+  const [saving, setSaving] = useState(false);
+  // Map<currentSessionId, {name, durationMinutes}[]> — from previous week
+  const [prefillMap, setPrefillMap] = useState<Map<string, { name: string; durationMinutes: number | null }[]>>(new Map());
+
+  // Session builder
+  const [newSessionTurmaId, setNewSessionTurmaId] = useState("");
+  const [newSessionDate, setNewSessionDate] = useState("");
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const projectId = getActiveProjectId();
+        const [teachers, coordinators, assignments] = await Promise.all([
+          fetchTeachers(),
+          fetchCoordinators(),
+          fetchCoordinatorAssignments(),
+        ]);
+        setAllTeachers(teachers);
+        if (projectId) {
+          const classes = await fetchClassesRemote(projectId);
+          // Mescla teacherIds (tabela separada) nas turmas
+          const classesWithTeachers = await Promise.all(
+            classes.map(async (c) => {
+              const teacherIds = await fetchClassTeacherIdsRemote(c.id);
+              return { ...c, teacherIds };
+            })
+          );
+          setAllClasses(classesWithTeachers);
+          const projectCoordIds = new Set(
+            assignments.filter((a) => a.project_id === projectId).map((a) => a.coordinator_id)
+          );
+          const projectCoords = coordinators
+            .filter((c) => projectCoordIds.has(c.id))
+            .map((c) => ({ id: c.id, fullName: c.fullName }));
+          setProjectStaff(projectCoords);
+        }
+        if (isEditing && id) {
+          const data = await fetchScheduleFull(id);
+          setFull(data);
+
+          // Auto-prefill from previous week when current schedule has no activities
+          if (data && data.activities.length === 0 && data.sessions.length > 0 && projectId) {
+            const allSchedules = await fetchSchedulesByProject(projectId);
+            const prevSchedule = allSchedules
+              .filter((s) => s.id !== id && s.weekNumber < data.schedule.weekNumber)
+              .sort((a, b) => b.weekNumber - a.weekNumber)[0];
+
+            if (prevSchedule) {
+              const prevFull = await fetchScheduleFull(prevSchedule.id);
+              if (prevFull && prevFull.activities.length > 0) {
+                const map = new Map<string, { name: string; durationMinutes: number | null }[]>();
+                for (const prevSession of prevFull.sessions) {
+                  const prevWeekday = new Date(prevSession.date + "T12:00:00").getDay();
+                  const matchingSession = data.sessions.find(
+                    (s) =>
+                      s.turmaId === prevSession.turmaId &&
+                      new Date(s.date + "T12:00:00").getDay() === prevWeekday
+                  );
+                  if (matchingSession) {
+                    const activities = prevFull.activities
+                      .filter((a) => a.sessionId === prevSession.id)
+                      .sort((a, b) => a.orderIndex - b.orderIndex)
+                      .map((a) => ({ name: a.name, durationMinutes: a.durationMinutes }));
+                    if (activities.length > 0) {
+                      map.set(matchingSession.id, activities);
+                    }
+                  }
+                }
+                if (map.size > 0) setPrefillMap(map);
+              }
+            }
+          }
+
+          setLoading(false);
+        }
+      } catch {
+        showError("Erro ao carregar dados da escala.");
+        setLoading(false);
+      }
+    };
+    void run();
+  }, [id, isEditing]);
+
+  // ── Creation ──────────────────────────────────────────────────────────────
+
+  async function handleCreate() {
+    const projectId = getActiveProjectId();
+    if (!projectId || !weekNumber || !weekStartDate) {
+      showError("Preencha o número da semana e a data de início.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const createdBy = getCoordinatorSessionLogin() ?? null;
+      const schedule = await createSchedule(
+        projectId,
+        parseInt(weekNumber, 10),
+        weekStartDate,
+        createdBy
+      );
+      if (!schedule) { showError("Erro ao criar escala."); return; }
+      navigate(`${base}/escalas/${schedule.id}/editar`, { replace: true });
+    } catch {
+      showError("Erro ao criar escala.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Session management ────────────────────────────────────────────────────
+
+  const ALL_TURMAS_VALUE = "__todas__";
+
+  async function handleAddSession() {
+    if (!full || !newSessionTurmaId || !newSessionDate) {
+      showError("Selecione a turma e a data da sessão.");
+      return;
+    }
+    const turmaIds =
+      newSessionTurmaId === ALL_TURMAS_VALUE
+        ? allClasses.map((c) => c.id)
+        : [newSessionTurmaId];
+    try {
+      const created = await Promise.all(
+        turmaIds.map((turmaId) =>
+          createSession({
+            scheduleId: full.schedule.id,
+            turmaId,
+            date: newSessionDate,
+            isHoliday: false,
+          })
+        )
+      );
+      const newSessions = created.filter(Boolean) as typeof created;
+      if (newSessions.length === 0) { showError("Erro ao adicionar sessões."); return; }
+      setFull((prev) =>
+        prev ? { ...prev, sessions: [...prev.sessions, ...newSessions] } : prev
+      );
+      setNewSessionTurmaId("");
+      setNewSessionDate("");
+    } catch {
+      showError("Erro ao adicionar sessão.");
+    }
+  }
+
+  async function handleRemoveSession(sessionId: string) {
+    if (!confirm("Remover esta sessão? As atribuições serão perdidas.")) return;
+    try {
+      await deleteSession(sessionId);
+      setFull((prev) =>
+        prev
+          ? {
+              ...prev,
+              sessions: prev.sessions.filter((s) => s.id !== sessionId),
+              activities: prev.activities.filter((a) => a.sessionId !== sessionId),
+            }
+          : prev
+      );
+    } catch {
+      showError("Erro ao remover sessão.");
+    }
+  }
+
+  async function handleRemoveAllSessions() {
+    if (!full || full.sessions.length === 0) return;
+    if (!confirm(`Apagar todas as ${full.sessions.length} sessões? Todas as atividades serão perdidas.`)) return;
+    try {
+      await Promise.all(full.sessions.map((s) => deleteSession(s.id)));
+      setFull((prev) => prev ? { ...prev, sessions: [], activities: [] } : prev);
+      showSuccess("Todas as sessões foram removidas.");
+    } catch {
+      showError("Erro ao remover sessões.");
+    }
+  }
+
+  async function handleToggleHoliday(sessionId: string, isHoliday: boolean) {
+    try {
+      await updateSessionHoliday(sessionId, isHoliday);
+      setFull((prev) =>
+        prev
+          ? {
+              ...prev,
+              sessions: prev.sessions.map((s) =>
+                s.id === sessionId ? { ...s, isHoliday } : s
+              ),
+            }
+          : prev
+      );
+    } catch {
+      showError("Erro ao atualizar feriado.");
+    }
+  }
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      showSuccess("Escala salva.");
+      navigate(`${base}/escalas`);
+    } catch {
+      showError("Erro ao salvar escala.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="rounded-xl bg-white shadow-sm border border-slate-100"
+          onClick={() => navigate(`${base}/escalas`)}
+        >
+          <ArrowLeft className="h-5 w-5 text-slate-600" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-black text-primary tracking-tight">
+            {isEditing
+              ? `${full?.schedule.weekNumber}ª Semana`
+              : "Nova Escala"}
+          </h1>
+          <p className="text-slate-500 font-medium">
+            {isEditing ? "Edite as atribuições da escala." : "Configure a nova escala semanal."}
+          </p>
+        </div>
+      </div>
+
+      {/* Creation form */}
+      {!isEditing && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+          <h2 className="font-bold text-slate-800">Dados da semana</h2>
+          <div className="flex flex-wrap gap-4">
+            <div className="space-y-1.5">
+              <Label>Número da semana</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="Ex: 24"
+                value={weekNumber}
+                onChange={(e) => setWeekNumber(e.target.value)}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data de início (Segunda-feira)</Label>
+              <Input
+                type="date"
+                value={weekStartDate}
+                onChange={(e) => setWeekStartDate(e.target.value)}
+                className="w-44"
+              />
+            </div>
+          </div>
+          <Button onClick={handleCreate} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            Criar escala e adicionar sessões
+          </Button>
+        </div>
+      )}
+
+      {/* Edit week meta */}
+      {isEditing && full && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+          <h2 className="font-bold text-slate-800">Dados da semana</h2>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label>Número da semana</Label>
+              <Input
+                type="number"
+                min={1}
+                value={full.schedule.weekNumber}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) setFull((prev) => prev ? { ...prev, schedule: { ...prev.schedule, weekNumber: v } } : prev);
+                }}
+                onBlur={() => full && updateScheduleMeta(full.schedule.id, { weekNumber: full.schedule.weekNumber })}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data de início</Label>
+              <Input
+                type="date"
+                value={full.schedule.weekStartDate}
+                onChange={(e) => setFull((prev) => prev ? { ...prev, schedule: { ...prev.schedule, weekStartDate: e.target.value } } : prev)}
+                onBlur={() => full && updateScheduleMeta(full.schedule.id, { weekStartDate: full.schedule.weekStartDate })}
+                className="w-44"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Session manager */}
+      {isEditing && full && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-slate-800">Sessões (turma × dia)</h2>
+            {full.sessions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 text-xs"
+                onClick={handleRemoveAllSessions}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Apagar todos
+              </Button>
+            )}
+          </div>
+
+          {full.sessions.length > 0 && (
+            <div className="rounded-xl border border-slate-100 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Turma</th>
+                    <th className="px-4 py-2 text-left">Data</th>
+                    <th className="px-4 py-2 text-left">Feriado</th>
+                    <th className="px-4 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {full.sessions
+                    .slice()
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map((session) => {
+                      const turma = allClasses.find((c) => c.id === session.turmaId);
+                      return (
+                        <tr key={session.id} className="border-t border-slate-50">
+                          <td className="px-4 py-2">{turma?.name ?? session.turmaId}</td>
+                          <td className="px-4 py-2">
+                            {new Date(session.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              type="checkbox"
+                              checked={session.isHoliday}
+                              onChange={(e) =>
+                                handleToggleHoliday(session.id, e.target.checked)
+                              }
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-400 hover:text-red-600"
+                              onClick={() => handleRemoveSession(session.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="space-y-1.5">
+              <Label>Turma</Label>
+              <Select value={newSessionTurmaId} onValueChange={setNewSessionTurmaId}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Selecionar turma" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_TURMAS_VALUE}>
+                    Todas as turmas
+                  </SelectItem>
+                  {allClasses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={newSessionDate}
+                onChange={(e) => setNewSessionDate(e.target.value)}
+                className="w-40"
+              />
+            </div>
+            <Button variant="outline" className="gap-1.5" onClick={handleAddSession}>
+              <Plus className="h-4 w-4" />
+              Adicionar sessão
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule grid */}
+      {isEditing && full && full.sessions.length > 0 && (
+        <ScheduleGrid
+          full={full}
+          allClasses={allClasses}
+          allTeachers={allTeachers}
+          projectStaff={projectStaff}
+          saving={saving}
+          onSave={handleSave}
+          prefillMap={prefillMap}
+        />
+      )}
+    </div>
+  );
+}

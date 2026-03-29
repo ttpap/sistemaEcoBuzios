@@ -592,6 +592,7 @@ const ClassDetails = () => {
           <ClassAttendance classId={schoolClass.id} students={classStudents} />
         </TabsContent>
 
+
         {base === "" && (
           <TabsContent value="dashboard" className="mt-6">
             {/* Seletor de papel */}

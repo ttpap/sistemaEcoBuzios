@@ -2,11 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "Vite Dev Server",
+      "name": "Vite Dev Server (feat-escala-oficinas)",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
-      "port": 8080,
-      "autoPort": true
+      "port": 5174
     }
   ]
 }

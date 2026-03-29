@@ -19,6 +19,7 @@ import {
   UserCog,
   DollarSign,
   Award,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -52,6 +53,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
       { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
       { icon: BookOpen, label: 'Turmas', path: '/turmas' },
+      { icon: CalendarDays, label: 'Escalas', path: '/escalas' },
       { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
       { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
       { icon: FileText, label: 'Relatório ENEL', path: '/relatorios/enel' },
