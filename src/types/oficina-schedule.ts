@@ -16,6 +16,7 @@ export interface OficinaSchedule {
   weekStartDate: string; // ISO date "YYYY-MM-DD"
   createdBy: string | null;
   createdAt: string;
+  sentAt: string | null;
 }
 
 export interface OficinaScheduleSession {

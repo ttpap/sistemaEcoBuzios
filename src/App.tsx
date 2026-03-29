@@ -44,6 +44,8 @@ const AdminTeachers               = lazy(() => import("@/pages/AdminTeachers"));
 const TeacherSelectProject        = lazy(() => import("@/pages/TeacherSelectProject"));
 const TeacherAccount              = lazy(() => import("@/pages/TeacherAccount"));
 const TeacherJustification        = lazy(() => import("@/pages/TeacherJustification"));
+const TeacherAgenda               = lazy(() => import("@/pages/TeacherAgenda"));
+const TeacherScheduleViewer       = lazy(() => import("@/pages/TeacherScheduleViewer"));
 const AdminCoordinators           = lazy(() => import("@/pages/AdminCoordinators"));
 const NewCoordinator              = lazy(() => import("@/pages/NewCoordinator"));
 const EditCoordinator             = lazy(() => import("@/pages/EditCoordinator"));
@@ -168,6 +170,8 @@ const App = () => (
                         <Route path="selecionar-projeto" element={<TeacherSelectProject />} />
                         <Route path="conta" element={<TeacherAccount />} />
                         <Route path="justificativas" element={<TeacherJustification />} />
+                        <Route path="agenda" element={<TeacherActiveProjectGate><TeacherAgenda /></TeacherActiveProjectGate>} />
+                        <Route path="escalas/:id" element={<TeacherActiveProjectGate><TeacherScheduleViewer /></TeacherActiveProjectGate>} />
                         <Route
                           path="links-inscricao"
                           element={

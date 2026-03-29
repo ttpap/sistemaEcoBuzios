@@ -22,6 +22,7 @@ import {
   createSession,
   deleteSession,
   updateSessionHoliday,
+  updateScheduleMeta,
 } from "@/integrations/supabase/oficina-schedules";
 import { fetchClassesRemote, fetchClassTeacherIdsRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
@@ -214,6 +215,18 @@ export default function ScheduleEditor() {
     }
   }
 
+  async function handleRemoveAllSessions() {
+    if (!full || full.sessions.length === 0) return;
+    if (!confirm(`Apagar todas as ${full.sessions.length} sessões? Todas as atividades serão perdidas.`)) return;
+    try {
+      await Promise.all(full.sessions.map((s) => deleteSession(s.id)));
+      setFull((prev) => prev ? { ...prev, sessions: [], activities: [] } : prev);
+      showSuccess("Todas as sessões foram removidas.");
+    } catch {
+      showError("Erro ao remover sessões.");
+    }
+  }
+
   async function handleToggleHoliday(sessionId: string, isHoliday: boolean) {
     try {
       await updateSessionHoliday(sessionId, isHoliday);
@@ -238,6 +251,7 @@ export default function ScheduleEditor() {
     setSaving(true);
     try {
       showSuccess("Escala salva.");
+      navigate(`${base}/escalas`);
     } catch {
       showError("Erro ao salvar escala.");
     } finally {
@@ -311,10 +325,56 @@ export default function ScheduleEditor() {
         </div>
       )}
 
+      {/* Edit week meta */}
+      {isEditing && full && (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+          <h2 className="font-bold text-slate-800">Dados da semana</h2>
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label>Número da semana</Label>
+              <Input
+                type="number"
+                min={1}
+                value={full.schedule.weekNumber}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) setFull((prev) => prev ? { ...prev, schedule: { ...prev.schedule, weekNumber: v } } : prev);
+                }}
+                onBlur={() => full && updateScheduleMeta(full.schedule.id, { weekNumber: full.schedule.weekNumber })}
+                className="w-36"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Data de início</Label>
+              <Input
+                type="date"
+                value={full.schedule.weekStartDate}
+                onChange={(e) => setFull((prev) => prev ? { ...prev, schedule: { ...prev.schedule, weekStartDate: e.target.value } } : prev)}
+                onBlur={() => full && updateScheduleMeta(full.schedule.id, { weekStartDate: full.schedule.weekStartDate })}
+                className="w-44"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Session manager */}
       {isEditing && full && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-          <h2 className="font-bold text-slate-800">Sessões (turma × dia)</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-bold text-slate-800">Sessões (turma × dia)</h2>
+            {full.sessions.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 text-xs"
+                onClick={handleRemoveAllSessions}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Apagar todos
+              </Button>
+            )}
+          </div>
 
           {full.sessions.length > 0 && (
             <div className="rounded-xl border border-slate-100 overflow-hidden">

@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, Eye, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Eye, Pencil, Trash2, Send, CheckCircle2, Copy } from "lucide-react";
 import { getActiveProjectId } from "@/utils/projects";
 import {
   fetchSchedulesByProject,
   deleteSchedule,
+  sendSchedule,
+  duplicateSchedule,
 } from "@/integrations/supabase/oficina-schedules";
 import type { OficinaSchedule } from "@/types/oficina-schedule";
 import { showError, showSuccess } from "@/utils/toast";
@@ -30,13 +32,18 @@ export default function ScheduleList() {
 
   const [schedules, setSchedules] = useState<OficinaSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
 
-  async function load() {
+  async function load(autoRedirect = false) {
     const projectId = getActiveProjectId();
     if (!projectId) { setLoading(false); return; }
     try {
       const data = await fetchSchedulesByProject(projectId);
       setSchedules(data);
+      if (autoRedirect && data.length > 0) {
+        navigate(`${base}/escalas/${data[0].id}/editar`, { replace: true });
+      }
     } catch {
       showError("Erro ao carregar escalas.");
     } finally {
@@ -44,14 +51,42 @@ export default function ScheduleList() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(true); }, []);
+
+  async function handleSend(id: string) {
+    if (!confirm("Enviar esta escala para todos os educadores e coordenadores envolvidos?")) return;
+    setSending(id);
+    try {
+      await sendSchedule(id);
+      showSuccess("Escala enviada! Os educadores já podem visualizar na agenda deles.");
+      void load(false);
+    } catch {
+      showError("Erro ao enviar escala.");
+    } finally {
+      setSending(null);
+    }
+  }
+
+  async function handleDuplicate(id: string) {
+    setDuplicating(id);
+    try {
+      const newSched = await duplicateSchedule(id);
+      if (!newSched) { showError("Erro ao duplicar escala."); return; }
+      showSuccess(`Semana ${newSched.weekNumber} criada como rascunho.`);
+      navigate(`${base}/escalas/${newSched.id}/editar`);
+    } catch {
+      showError("Erro ao duplicar escala.");
+    } finally {
+      setDuplicating(null);
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!confirm("Excluir esta escala? Esta ação não pode ser desfeita.")) return;
     try {
       await deleteSchedule(id);
       showSuccess("Escala excluída.");
-      void load();
+      void load(false);
     } catch {
       showError("Erro ao excluir escala.");
     }
@@ -89,6 +124,7 @@ export default function ScheduleList() {
                 <th className="px-4 py-3 text-left font-medium">Semana</th>
                 <th className="px-4 py-3 text-left font-medium">Período</th>
                 <th className="px-4 py-3 text-left font-medium">Criado por</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -103,12 +139,21 @@ export default function ScheduleList() {
                   </td>
                   <td className="px-4 py-3 text-slate-500">{s.createdBy ?? "—"}</td>
                   <td className="px-4 py-3">
+                    {s.sentAt ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-0.5">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Enviada
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => navigate(`${base}/escalas/${s.id}`)}
+                        title="Visualizar"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -117,14 +162,44 @@ export default function ScheduleList() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => navigate(`${base}/escalas/${s.id}/editar`)}
+                        title="Editar"
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      {s.sentAt && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-slate-400 hover:text-violet-600"
+                          title="Duplicar para próxima semana"
+                          disabled={duplicating === s.id}
+                          onClick={() => handleDuplicate(s.id)}
+                        >
+                          {duplicating === s.id
+                            ? <Loader2 className="h-4 w-4 animate-spin" />
+                            : <Copy className="h-4 w-4" />
+                          }
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`h-8 w-8 ${s.sentAt ? "text-emerald-500" : "text-slate-400 hover:text-indigo-600"}`}
+                        onClick={() => !s.sentAt && handleSend(s.id)}
+                        disabled={!!s.sentAt || sending === s.id}
+                        title={s.sentAt ? "Já enviada" : "Enviar para educadores"}
+                      >
+                        {sending === s.id
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : <Send className="h-4 w-4" />
+                        }
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-600"
                         onClick={() => handleDelete(s.id)}
+                        title="Excluir"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -89,6 +89,8 @@ export default function ScheduleGrid({
 }: ScheduleGridProps) {
   const [cellDrafts, setCellDrafts] = useState<CellDrafts>(new Map());
   const [wasPrefilled, setWasPrefilled] = useState(false);
+  // Session marked as "Aula modelo" — all other sessions mirror its content
+  const [modeloSessionId, setModeloSessionId] = useState<string | null>(null);
 
   // Init drafts from full.activities, or from prefillMap when schedule is new/empty
   useEffect(() => {
@@ -151,6 +153,26 @@ export default function ScheduleGrid({
     }
   }, [full.activities, prefillMap]);
 
+  function toggleModeloSession(sessionId: string) {
+    const isEnabling = modeloSessionId !== sessionId;
+    if (isEnabling) {
+      // Copy this session's activities to ALL other non-holiday sessions
+      const template = cellDrafts.get(sessionId) ?? [];
+      setCellDrafts((prevDrafts) => {
+        const nextDrafts = new Map(prevDrafts);
+        for (const s of full.sessions) {
+          if (s.id !== sessionId && !s.isHoliday) {
+            nextDrafts.set(s.id, template.map((a) => ({ ...a, _key: newKey(), id: null })));
+          }
+        }
+        return nextDrafts;
+      });
+      setModeloSessionId(sessionId);
+    } else {
+      setModeloSessionId(null);
+    }
+  }
+
   function setDraftField(sessionId: string, key: string, patch: Partial<DraftActivity>) {
     setCellDrafts((prev) => {
       const next = new Map(prev);
@@ -159,9 +181,15 @@ export default function ScheduleGrid({
       );
       next.set(sessionId, updated);
 
-      // Auto-propagar para todas as células que ainda estão vazias
-      // (só quando o campo "name" muda e tem conteúdo)
-      if (patch.name !== undefined) {
+      if (modeloSessionId === sessionId) {
+        // Modelo mode: copy entire updated list to ALL other sessions
+        for (const s of full.sessions) {
+          if (s.id !== sessionId && !s.isHoliday) {
+            next.set(s.id, updated.map((a) => ({ ...a, _key: newKey(), id: null })));
+          }
+        }
+      } else if (patch.name !== undefined) {
+        // Auto-propagar para todas as células que ainda estão vazias
         const emptySessions = full.sessions.filter(
           (s) => s.id !== sessionId && (prev.get(s.id) ?? []).length === 0
         );
@@ -187,11 +215,18 @@ export default function ScheduleGrid({
       const next = new Map(prev);
       const list = prev.get(sessionId) ?? [];
       const newActivity = { _key: newKey(), id: null, name: "", durationMinutes: null, teacherId: null };
-      next.set(sessionId, [...list, newActivity]);
+      const updatedList = [...list, newActivity];
+      next.set(sessionId, updatedList);
 
-      // Se esta célula estava vazia e agora tem 1 atividade,
-      // propagar o novo item para todas as outras células vazias
-      if (list.length === 0) {
+      if (modeloSessionId === sessionId) {
+        // Modelo mode: add to ALL other sessions
+        for (const s of full.sessions) {
+          if (s.id !== sessionId && !s.isHoliday) {
+            next.set(s.id, updatedList.map((a) => ({ ...a, _key: newKey(), id: null })));
+          }
+        }
+      } else if (list.length === 0) {
+        // Se esta célula estava vazia, propagar o novo item para células vazias
         const emptySessions = full.sessions.filter(
           (s) => s.id !== sessionId && (prev.get(s.id) ?? []).length === 0
         );
@@ -207,10 +242,18 @@ export default function ScheduleGrid({
   function removeActivity(sessionId: string, key: string) {
     setCellDrafts((prev) => {
       const next = new Map(prev);
-      next.set(
-        sessionId,
-        (prev.get(sessionId) ?? []).filter((d) => d._key !== key)
-      );
+      const filtered = (prev.get(sessionId) ?? []).filter((d) => d._key !== key);
+      next.set(sessionId, filtered);
+
+      if (modeloSessionId === sessionId) {
+        // Modelo mode: sync removal to all other sessions
+        for (const s of full.sessions) {
+          if (s.id !== sessionId && !s.isHoliday) {
+            next.set(s.id, filtered.map((a) => ({ ...a, _key: newKey(), id: null })));
+          }
+        }
+      }
+
       return next;
     });
   }
@@ -301,16 +344,19 @@ export default function ScheduleGrid({
         className="sgrid-scroll overflow-x-scroll w-full"
         style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "auto", scrollbarColor: "#94a3b8 #f1f5f9" }}
       >
-        <table className="text-sm border-collapse min-w-max">
+        <table
+          className="text-sm border-collapse table-fixed"
+          style={{ width: `${160 + dates.length * 288}px` }}
+        >
           <thead>
             <tr>
-              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-left text-slate-600 font-medium min-w-32">
+              <th className="px-3 py-2 bg-slate-50 border border-slate-200 text-left text-slate-600 font-medium w-40">
                 Turma
               </th>
               {dates.map((date) => (
                 <th
                   key={date}
-                  className="px-3 py-2 bg-slate-50 border border-slate-200 text-center font-medium text-slate-700 min-w-56"
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 text-center font-medium text-slate-700 w-72"
                 >
                   {formatDate(date)}
                 </th>
@@ -382,12 +428,25 @@ export default function ScheduleGrid({
                       ? calcTimeRanges(turma.startTime, drafts)
                       : [];
 
+                    const isModelo = modeloSessionId === session.id;
                     return (
                       <td
                         key={date}
-                        className="px-2 py-2 border border-slate-200 align-top"
+                        className={`px-2 py-2 border align-top ${isModelo ? "border-violet-300 bg-violet-50/40" : "border-slate-200"}`}
                       >
                         <div className="space-y-1.5 min-w-48">
+                          {/* Aula modelo toggle */}
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none mb-1">
+                            <input
+                              type="checkbox"
+                              checked={isModelo}
+                              onChange={() => toggleModeloSession(session.id)}
+                              className="accent-violet-600 w-3 h-3"
+                            />
+                            <span className={`text-xs ${isModelo ? "text-violet-700 font-semibold" : "text-slate-400"}`}>
+                              Aula modelo
+                            </span>
+                          </label>
                           {drafts.map((draft, dIdx) => (
                             <div
                               key={draft._key}

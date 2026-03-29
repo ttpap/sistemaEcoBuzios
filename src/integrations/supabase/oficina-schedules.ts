@@ -29,6 +29,7 @@ function mapSchedule(row: any): OficinaSchedule {
     weekStartDate: row.week_start_date,
     createdBy: row.created_by ?? null,
     createdAt: row.created_at,
+    sentAt: row.sent_at ?? null,
   };
 }
 
@@ -152,6 +153,136 @@ export async function createSchedule(
 export async function deleteSchedule(scheduleId: string): Promise<void> {
   if (!supabase) return;
   await supabase.from("oficina_schedules").delete().eq("id", scheduleId);
+}
+
+/**
+ * Duplicate a schedule: creates a new unsent draft for the next week,
+ * copying all sessions (dates +7 days) and their activities.
+ */
+export async function duplicateSchedule(
+  scheduleId: string
+): Promise<OficinaSchedule | null> {
+  if (!supabase) return null;
+
+  const original = await fetchScheduleFull(scheduleId);
+  if (!original) return null;
+
+  // New schedule: next week
+  const origStart = new Date(original.schedule.weekStartDate + "T12:00:00");
+  origStart.setDate(origStart.getDate() + 7);
+  const newStartDate = origStart.toISOString().slice(0, 10);
+  const newWeekNumber = original.schedule.weekNumber + 1;
+
+  const { data: newSched, error } = await supabase
+    .from("oficina_schedules")
+    .insert({
+      project_id: original.schedule.projectId,
+      week_number: newWeekNumber,
+      week_start_date: newStartDate,
+      created_by: original.schedule.createdBy,
+    })
+    .select()
+    .single();
+
+  if (error || !newSched) return null;
+
+  // Copy sessions and activities
+  for (const session of original.sessions) {
+    const origDate = new Date(session.date + "T12:00:00");
+    origDate.setDate(origDate.getDate() + 7);
+    const newDate = origDate.toISOString().slice(0, 10);
+
+    const { data: newSession } = await supabase
+      .from("oficina_schedule_sessions")
+      .insert({
+        schedule_id: newSched.id,
+        turma_id: session.turmaId,
+        date: newDate,
+        is_holiday: session.isHoliday,
+      })
+      .select()
+      .single();
+
+    if (!newSession) continue;
+
+    const activities = original.activities
+      .filter((a) => a.sessionId === session.id)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+    if (activities.length > 0) {
+      await supabase.from("oficina_schedule_activities").insert(
+        activities.map((a) => ({
+          session_id: newSession.id,
+          name: a.name,
+          duration_minutes: a.durationMinutes,
+          order_index: a.orderIndex,
+          teacher_id: a.teacherId,
+        }))
+      );
+    }
+  }
+
+  return mapSchedule(newSched);
+}
+
+export async function sendSchedule(scheduleId: string): Promise<void> {
+  if (!supabase) return;
+  await supabase
+    .from("oficina_schedules")
+    .update({ sent_at: new Date().toISOString() })
+    .eq("id", scheduleId);
+}
+
+/** Fetch all sent schedules for a project, fully populated with sessions + activities */
+export async function fetchSentSchedulesFull(
+  projectId: string
+): Promise<OficinaScheduleFull[]> {
+  if (!supabase) return [];
+
+  const { data: schedules } = await supabase
+    .from("oficina_schedules")
+    .select("*")
+    .eq("project_id", projectId)
+    .not("sent_at", "is", null)
+    .order("week_number", { ascending: false });
+
+  if (!schedules || schedules.length === 0) return [];
+
+  const scheduleIds = schedules.map((s: any) => s.id);
+
+  const { data: sessions } = await supabase
+    .from("oficina_schedule_sessions")
+    .select("*")
+    .in("schedule_id", scheduleIds);
+
+  const sessionIds = (sessions ?? []).map((s: any) => s.id);
+
+  const { data: activities } = sessionIds.length > 0
+    ? await supabase
+        .from("oficina_schedule_activities")
+        .select("*")
+        .in("session_id", sessionIds)
+        .order("order_index", { ascending: true })
+    : { data: [] };
+
+  return schedules.map((s: any) => ({
+    schedule: mapSchedule(s),
+    sessions: (sessions ?? []).filter((ss: any) => ss.schedule_id === s.id).map(mapSession),
+    activities: (activities ?? []).filter((a: any) =>
+      (sessions ?? []).some((ss: any) => ss.schedule_id === s.id && ss.id === a.session_id)
+    ).map(mapActivity),
+  }));
+}
+
+export async function updateScheduleMeta(
+  scheduleId: string,
+  patch: { weekNumber?: number; weekStartDate?: string }
+): Promise<void> {
+  if (!supabase) return;
+  const update: Record<string, unknown> = {};
+  if (patch.weekNumber !== undefined) update.week_number = patch.weekNumber;
+  if (patch.weekStartDate !== undefined) update.week_start_date = patch.weekStartDate;
+  await supabase.from("oficina_schedules").update(update).eq("id", scheduleId);
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
