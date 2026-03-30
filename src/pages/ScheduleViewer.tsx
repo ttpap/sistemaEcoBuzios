@@ -81,7 +81,15 @@ export default function ScheduleViewer() {
         // Load all other sent schedules for history
         if (projectId) {
           const sent = await fetchSentSchedulesFull(projectId);
-          setHistory(sent.filter((s) => s.schedule.id !== id));
+          setHistory(
+            sent
+              .filter((s) => s.schedule.id !== id)
+              .sort((a, b) => {
+                const aDate = a.schedule.sentAt ? new Date(a.schedule.sentAt).getTime() : 0;
+                const bDate = b.schedule.sentAt ? new Date(b.schedule.sentAt).getTime() : 0;
+                return bDate - aDate;
+              })
+          );
         }
       } catch {
         showError("Erro ao carregar escala.");
