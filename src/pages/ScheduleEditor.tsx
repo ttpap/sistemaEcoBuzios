@@ -298,7 +298,7 @@ export default function ScheduleEditor() {
           <h2 className="font-bold text-slate-800">Dados da semana</h2>
           <div className="flex flex-wrap gap-4">
             <div className="space-y-1.5">
-              <Label>Número da semana</Label>
+              <Label>Número de dias da semana</Label>
               <Input
                 type="number"
                 min={1}
