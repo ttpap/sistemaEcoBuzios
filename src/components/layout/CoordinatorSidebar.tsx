@@ -16,6 +16,7 @@ import {
   Link2,
   Award,
   CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -85,6 +86,7 @@ export default function CoordinatorSidebar({
       { icon: FileText, label: "Relatório ENEL", path: "/coordenador/relatorios/enel" },
       { icon: BarChart3, label: "Relatórios", path: "/coordenador/relatorios" },
       { icon: Award, label: "Certificados", path: "/coordenador/certificados" },
+      { icon: ClipboardList, label: "Ata de Reunião", path: "/coordenador/ata-reuniao" },
       { icon: Link2, label: "Links de inscrição", path: "/coordenador/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/coordenador/conta" },
     ],

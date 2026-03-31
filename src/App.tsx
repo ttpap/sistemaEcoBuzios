@@ -75,6 +75,7 @@ const StudentEnrollmentLink       = lazy(() => import("@/pages/StudentEnrollment
 const EscalasHub                  = lazy(() => import("./pages/EscalasHub"));
 const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"));
 const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
+const AtaReuniao                  = lazy(() => import("./pages/AtaReuniao"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -412,6 +413,7 @@ const App = () => (
                         <Route path="/escalas/nova" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="/escalas/:id" element={<ActiveProjectGate><ScheduleViewer /></ActiveProjectGate>} />
                         <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
+                        <Route path="/ata-reuniao" element={<ActiveProjectGate><AtaReuniao /></ActiveProjectGate>} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -598,6 +600,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <Certificates />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="ata-reuniao"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <AtaReuniao />
                             </CoordinatorActiveProjectGate>
                           }
                         />

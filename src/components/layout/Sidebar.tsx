@@ -20,6 +20,7 @@ import {
   DollarSign,
   Award,
   CalendarDays,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -58,6 +59,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
       { icon: FileText, label: 'Relatório ENEL', path: '/relatorios/enel' },
       { icon: Award, label: 'Certificados', path: '/certificados' },
+      { icon: ClipboardList, label: 'Ata de Reunião', path: '/ata-reuniao' },
     ];
   }, [hasActiveProject]);
 
