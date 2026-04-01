@@ -88,8 +88,10 @@ export default function AtaReuniao() {
   // Gravação
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [transcribingSegment, setTranscribingSegment] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const mimeTypeRef = useRef<string>("audio/webm");
 
   // IA
   const [generatingAI, setGeneratingAI] = useState(false);
@@ -186,20 +188,43 @@ export default function AtaReuniao() {
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+
+      // Bitrate reduzido (16 kbps) → suporta ~3,5 h dentro do limite de 25 MB da API
+      const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
+      mimeTypeRef.current = preferredMime;
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: preferredMime,
+        audioBitsPerSecond: 16000,
+      });
       chunksRef.current = [];
 
+      // Coleta dados a cada 60 s para monitorar tamanho em tempo real
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await handleTranscribe(blob);
+        if (chunksRef.current.length === 0) return;
+
+        const totalSize = chunksRef.current.reduce((s, c) => s + c.size, 0);
+        const mime = mimeTypeRef.current;
+
+        if (totalSize <= 23 * 1024 * 1024) {
+          // Cabe em uma única chamada
+          const blob = new Blob(chunksRef.current, { type: mime });
+          await handleTranscribe(blob);
+        } else {
+          // Gravação longa: divide em segmentos de ≤ 22 MB
+          // O primeiro chunk contém o cabeçalho WebM e é incluído em cada segmento
+          await transcribeInSegments(chunksRef.current, mime);
+        }
       };
 
-      recorder.start();
+      recorder.start(60000); // chunk a cada 60 s
       mediaRecorderRef.current = recorder;
       setRecording(true);
     } catch {
@@ -222,6 +247,51 @@ export default function AtaReuniao() {
       toast.error(err instanceof Error ? err.message : "Erro na transcrição");
     } finally {
       setTranscribing(false);
+    }
+  }
+
+  async function transcribeInSegments(chunks: Blob[], mime: string) {
+    // Divide os chunks em segmentos de ≤ 22 MB.
+    // O chunk 0 (cabeçalho WebM) é incluído no início de cada segmento
+    // para que o áudio seja decodificável.
+    const LIMIT = 22 * 1024 * 1024;
+    const header = chunks[0];
+    const segments: Blob[][] = [];
+    let current: Blob[] = [header];
+    let currentSize = header.size;
+
+    for (let i = 1; i < chunks.length; i++) {
+      if (currentSize + chunks[i].size > LIMIT && current.length > 1) {
+        segments.push(current);
+        current = [header, chunks[i]];
+        currentSize = header.size + chunks[i].size;
+      } else {
+        current.push(chunks[i]);
+        currentSize += chunks[i].size;
+      }
+    }
+    if (current.length > 0) segments.push(current);
+
+    setTranscribing(true);
+    const parts: string[] = [];
+    try {
+      for (let i = 0; i < segments.length; i++) {
+        setTranscribingSegment(`parte ${i + 1} de ${segments.length}`);
+        const blob = new Blob(segments[i], { type: mime });
+        const text = await transcribeAudio(blob);
+        parts.push(text);
+      }
+      const combined = parts.join("\n\n[continuação]\n\n");
+      setRawNotes((prev) => (prev ? prev + "\n\n" + combined : combined));
+      toast.success("Transcrição concluída!");
+    } catch (err: unknown) {
+      if (parts.length > 0) {
+        setRawNotes((prev) => (prev ? prev + "\n\n" + parts.join("\n\n") : parts.join("\n\n")));
+      }
+      toast.error(err instanceof Error ? err.message : "Erro na transcrição");
+    } finally {
+      setTranscribing(false);
+      setTranscribingSegment(null);
     }
   }
 
@@ -663,7 +733,9 @@ export default function AtaReuniao() {
             {transcribing && (
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Transcrevendo áudio...
+                {transcribingSegment
+                  ? `Transcrevendo ${transcribingSegment}...`
+                  : "Transcrevendo áudio..."}
               </div>
             )}
             {recording && (
