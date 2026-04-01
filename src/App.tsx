@@ -76,6 +76,7 @@ const EscalasHub                  = lazy(() => import("./pages/EscalasHub"));
 const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"));
 const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
 const AtaReuniao                  = lazy(() => import("./pages/AtaReuniao"));
+const AtaReuniaoViewer            = lazy(() => import("./pages/AtaReuniaoViewer"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -178,6 +179,14 @@ const App = () => (
                           element={
                             <TeacherActiveProjectGate>
                               <StudentEnrollmentLink />
+                            </TeacherActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="ata-reuniao"
+                          element={
+                            <TeacherActiveProjectGate>
+                              <AtaReuniaoViewer />
                             </TeacherActiveProjectGate>
                           }
                         />

@@ -16,6 +16,7 @@ import {
   Link2,
   MessageSquarePlus,
   CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -82,6 +83,7 @@ export default function TeacherSidebar({
       { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
       { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
       { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
+      { icon: ClipboardList, label: "Ata de Reunião", path: "/professor/ata-reuniao" },
       { icon: Link2, label: "Links de inscrição", path: "/professor/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/professor/conta" },
     ],
