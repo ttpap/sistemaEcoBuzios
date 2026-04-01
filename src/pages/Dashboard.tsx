@@ -824,7 +824,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   return (
     <div className="space-y-6">
-      {justificationCount > 0 && !embeddedForRole && (
+      {justificationCount > 0 && (
         <>
           <Alert
             variant="destructive"

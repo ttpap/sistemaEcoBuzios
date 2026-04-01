@@ -2,17 +2,11 @@
 // Grade: linhas = turmas, colunas = datas.
 // Cada célula (turma × dia) tem sua própria lista independente de atividades.
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Plus, Trash2, ChevronDown } from "lucide-react";
 import type {
   OficinaScheduleFull,
   OficinaScheduleActivity,
@@ -51,8 +45,102 @@ function newKey() {
   return `d${++_keyCounter}`;
 }
 
-const TODOS_VALUE = "__todos__";
 const periodOrder: Record<string, number> = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
+
+// Helpers para múltiplos professores armazenados como string separada por vírgula
+function parseTeacherIds(teacherId: string | null): string[] {
+  if (!teacherId) return [];
+  return teacherId.split(",").filter(Boolean);
+}
+
+function serializeTeacherIds(ids: string[]): string | null {
+  if (ids.length === 0) return null;
+  return ids.join(",");
+}
+
+// Componente de multi-seleção compacto para educadores
+function TeacherMultiSelect({
+  value,
+  onChange,
+  staff,
+}: {
+  value: string | null;
+  onChange: (val: string | null) => void;
+  staff: { id: string; fullName: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = parseTeacherIds(value);
+
+  // Fecha ao clicar fora
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  function toggleTodos() {
+    onChange(null);
+    setOpen(false);
+  }
+
+  function togglePerson(id: string) {
+    const next = selected.includes(id)
+      ? selected.filter((s) => s !== id)
+      : [...selected, id];
+    onChange(serializeTeacherIds(next));
+  }
+
+  const label =
+    selected.length === 0
+      ? "Todos"
+      : selected.length === 1
+      ? (staff.find((s) => s.id === selected[0])?.fullName?.split(" ")[0] ?? "—")
+      : `${selected.length} selecionados`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        className="flex items-center justify-between w-full h-6 px-1.5 text-xs rounded border border-input bg-background hover:bg-slate-50 gap-1"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown className="h-3 w-3 opacity-50 flex-shrink-0" />
+      </button>
+      {open && staff.length > 0 && (
+        <div className="absolute z-50 top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-md py-1">
+          {/* Todos */}
+          <label className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-slate-50 text-xs">
+            <Checkbox
+              checked={selected.length === 0}
+              onCheckedChange={toggleTodos}
+              className="h-3.5 w-3.5"
+            />
+            <span>Todos</span>
+          </label>
+          <div className="border-t border-slate-100 my-0.5" />
+          {staff.map((person) => (
+            <label
+              key={person.id}
+              className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-slate-50 text-xs"
+            >
+              <Checkbox
+                checked={selected.includes(person.id)}
+                onCheckedChange={() => togglePerson(person.id)}
+                className="h-3.5 w-3.5"
+              />
+              <span className="truncate">{person.fullName}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatDate(isoDate: string): string {
   const d = new Date(isoDate + "T12:00:00");
@@ -494,31 +582,14 @@ export default function ScheduleGrid({
                                   <Trash2 className="h-3 w-3" />
                                 </Button>
                               </div>
-                              {/* Teacher */}
-                              <Select
-                                value={
-                                  draft.teacherId === null
-                                    ? TODOS_VALUE
-                                    : draft.teacherId ?? TODOS_VALUE
+                              {/* Educadores (multi-seleção) */}
+                              <TeacherMultiSelect
+                                value={draft.teacherId}
+                                onChange={(val) =>
+                                  setDraftField(session.id, draft._key, { teacherId: val })
                                 }
-                                onValueChange={(val) =>
-                                  setDraftField(session.id, draft._key, {
-                                    teacherId: val === TODOS_VALUE ? null : val,
-                                  })
-                                }
-                              >
-                                <SelectTrigger className="h-6 text-xs w-full">
-                                  <SelectValue placeholder="Responsável" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value={TODOS_VALUE}>Todos</SelectItem>
-                                  {cellStaff.map((person) => (
-                                    <SelectItem key={person.id} value={person.id}>
-                                      {person.fullName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                staff={cellStaff}
+                              />
                             </div>
                           ))}
 

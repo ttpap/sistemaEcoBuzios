@@ -28,6 +28,8 @@ import { fetchClassesRemote, fetchClassTeacherIdsRemote } from "@/integrations/s
 import { fetchTeachers } from "@/integrations/supabase/teachers";
 import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
+import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
+import { getTeacherAssignments } from "@/utils/teachers";
 import type { OficinaScheduleFull } from "@/types/oficina-schedule";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
@@ -64,10 +66,11 @@ export default function ScheduleEditor() {
     const run = async () => {
       try {
         const projectId = getActiveProjectId();
-        const [teachers, coordinators, assignments] = await Promise.all([
+        const [teachers, coordinators, , teacherAssignments] = await Promise.all([
           fetchTeachers(),
           fetchCoordinators(),
           fetchCoordinatorAssignments(),
+          fetchTeacherAssignments(),
         ]);
         setAllTeachers(teachers);
         if (projectId) {
@@ -80,13 +83,33 @@ export default function ScheduleEditor() {
             })
           );
           setAllClasses(classesWithTeachers);
-          const projectCoordIds = new Set(
-            assignments.filter((a) => a.project_id === projectId).map((a) => a.coordinator_id)
-          );
-          const projectCoords = coordinators
-            .filter((c) => projectCoordIds.has(c.id))
-            .map((c) => ({ id: c.id, fullName: c.fullName }));
-          setProjectStaff(projectCoords);
+
+          // Todos os coordenadores aparecem no dropdown (independente de vínculo ao projeto)
+          const projectCoords = coordinators.map((c) => ({ id: c.id, fullName: c.fullName }));
+
+          // Professores linkados ao projeto (Supabase com fallback para localStorage)
+          let projectTeacherIds: Set<string>;
+          if (teacherAssignments.length > 0) {
+            projectTeacherIds = new Set(
+              teacherAssignments.filter((a) => a.project_id === projectId).map((a) => a.teacher_id)
+            );
+          } else {
+            const localAssignments = getTeacherAssignments(); // Record<teacherId, projectIds[]>
+            projectTeacherIds = new Set(
+              Object.entries(localAssignments)
+                .filter(([, pids]) => pids.includes(projectId))
+                .map(([tid]) => tid)
+            );
+          }
+          const projectTeachers = teachers
+            .filter((t) => projectTeacherIds.has(t.id))
+            .map((t) => ({ id: t.id, fullName: t.fullName }));
+
+          const coordIdSet = new Set(projectCoords.map((c) => c.id));
+          setProjectStaff([
+            ...projectCoords,
+            ...projectTeachers.filter((t) => !coordIdSet.has(t.id)),
+          ]);
         }
         if (isEditing && id) {
           const data = await fetchScheduleFull(id);

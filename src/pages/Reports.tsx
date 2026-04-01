@@ -255,6 +255,227 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
   }, 250);
 }
 
+async function downloadClassesYearPdf(
+  rows: { classId: string; name: string; period: string; total: number; byMonth: Record<string, number> }[],
+  months: string[],
+  grandTotal: number,
+  yearFilter: string,
+) {
+  const jsPDF = (await import("jspdf")).default;
+  const autoTable = (await import("jspdf-autotable")).default;
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+
+  // Load logo
+  const logoUrl = getReportLogoUrl();
+  let logoDataUrl: string | null = null;
+  let logoAspect = 1;
+  try {
+    await new Promise<void>((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          const w = img.naturalWidth || img.width;
+          const h = img.naturalHeight || img.height;
+          logoAspect = w / h;
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) { ctx.drawImage(img, 0, 0); logoDataUrl = canvas.toDataURL("image/png"); }
+        } catch { /* ignore */ }
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = logoUrl;
+    });
+  } catch { /* ignore */ }
+
+  // Header bar
+  doc.setFillColor(0, 140, 160);
+  doc.rect(0, 0, pageW, 12, "F");
+
+  // Logo in header area
+  const logoH = 14;
+  const logoW = logoH * logoAspect;
+  const textX = logoDataUrl ? 14 + logoW + 4 : 14;
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 14, 14, logoW, logoH);
+  }
+
+  doc.setFontSize(16);
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.text(`AULAS REALIZADAS — ${yearFilter}`, textX, 22);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "normal");
+  doc.text(`${getReportProjectName()} · ${grandTotal} aulas · ${grandTotal * 2}h · Gerado em ${new Date().toLocaleString("pt-BR")}`, textX, 29);
+
+  const monthLabels = months.map((m) => {
+    const d = new Date(m + "-15");
+    return d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase();
+  });
+
+  const head = [["Turma", "Período", ...monthLabels, "Aulas", "Horas"]];
+  const body = rows.map((row) => [
+    row.name,
+    row.period,
+    ...months.map((m) => (row.byMonth[m] ?? "—").toString()),
+    row.total.toString(),
+    `${row.total * 2}h`,
+  ]);
+  // Total row
+  body.push([
+    "TOTAL",
+    "",
+    ...months.map((m) => (rows.reduce((s, r) => s + (r.byMonth[m] ?? 0), 0) || "—").toString()),
+    grandTotal.toString(),
+    `${grandTotal * 2}h`,
+  ]);
+
+  autoTable(doc, {
+    head,
+    body,
+    startY: 35,
+    styles: { fontSize: 8, cellPadding: 3 },
+    headStyles: { fillColor: [0, 140, 160], textColor: 255, fontStyle: "bold", halign: "center" },
+    columnStyles: {
+      0: { halign: "left", cellWidth: 40 },
+      1: { halign: "left", cellWidth: 22 },
+      [head[0].length - 2]: { halign: "center", fontStyle: "bold" },
+      [head[0].length - 1]: { halign: "center", fontStyle: "bold", textColor: [5, 150, 105] },
+    },
+    didParseCell: (data) => {
+      // Style last row (total)
+      if (data.row.index === body.length - 1) {
+        data.cell.styles.fontStyle = "bold";
+        data.cell.styles.fillColor = [241, 245, 249];
+      }
+    },
+  });
+
+  doc.save(`aulas-realizadas-${yearFilter}.pdf`);
+}
+
+function printClassesYearReport(
+  rows: { classId: string; name: string; period: string; total: number; byMonth: Record<string, number> }[],
+  months: string[],
+  grandTotal: number,
+  yearFilter: string,
+) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const logoUrl = getReportLogoUrl();
+  const projectName = getReportProjectName();
+  const generatedAt = new Date().toLocaleString("pt-BR");
+
+  const monthLabels = months.map((m) => {
+    const d = new Date(m + "-15");
+    return d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  });
+
+  const headerCols = monthLabels.map((ml) => `<th>${ml.toUpperCase()}</th>`).join("");
+  const bodyRows = rows.map((row) => {
+    const monthCells = months.map((m) => `<td class="center">${row.byMonth[m] ?? "—"}</td>`).join("");
+    return `<tr>
+      <td class="name"><div class="cls">${row.name}</div>${row.period ? `<div class="period">${row.period}</div>` : ""}</td>
+      ${monthCells}
+      <td class="center bold">${row.total}</td>
+      <td class="center hours">${row.total * 2}h</td>
+    </tr>`;
+  }).join("");
+
+  const totalCells = months.map((m) => {
+    const sum = rows.reduce((s, r) => s + (r.byMonth[m] ?? 0), 0);
+    return `<td class="center bold">${sum || "—"}</td>`;
+  }).join("");
+
+  const html = `<html>
+    <head>
+      <title>Aulas Realizadas ${yearFilter}</title>
+      <style>
+        :root { --primary: #008ca0; --slate: #0f172a; --muted: #64748b; --border: #e2e8f0; --soft: #f8fafc; }
+        * { box-sizing: border-box; }
+        body { font-family: Inter, Arial, sans-serif; font-size: 10px; margin: 18px; color: var(--slate); }
+        .sheet-header { border: 1px solid var(--border); border-radius: 22px; background: #fff; overflow: hidden; margin-bottom: 16px; }
+        .brandbar { height: 8px; background: var(--primary); }
+        .header-inner { padding: 14px 16px 12px; }
+        .toprow { display:flex; align-items:center; justify-content: space-between; gap: 14px; }
+        .brand { display:flex; align-items:center; gap: 12px; }
+        .logo { height: 44px; width: auto; object-fit: contain; }
+        .proj { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+        .header { font-weight: 950; font-size: 15px; margin: 3px 0 0; letter-spacing: -0.02em; }
+        .sub { font-size: 11px; margin-top: 4px; color: #334155; font-weight: 850; }
+        .chip { display:inline-flex; align-items:center; border-radius: 999px; padding: 6px 10px; font-weight: 900; font-size: 10px; border: 1px solid rgba(0,140,160,0.22); background: rgba(0,140,160,0.08); color: var(--primary); white-space: nowrap; }
+        .meta { margin-top: 10px; display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; border-radius: 16px; background: var(--soft); border: 1px solid var(--border); color: #334155; font-weight: 800; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #cbd5e1; padding: 6px 8px; vertical-align: middle; }
+        th { background: #f1f5f9; text-align: center; font-weight: 950; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+        th.left { text-align: left; }
+        td.name { width: 220px; }
+        .cls { font-weight: 900; }
+        .period { color: #94a3b8; font-size: 9px; margin-top: 1px; }
+        .center { text-align: center; }
+        .bold { font-weight: 900; }
+        .hours { font-weight: 900; color: #059669; }
+        tr.total { background: #f8fafc; border-top: 2px solid #cbd5e1; }
+        tr.total td { font-weight: 900; }
+        @media print { @page { size: landscape; margin: 1cm; } }
+      </style>
+    </head>
+    <body>
+      <div class="sheet-header">
+        <div class="brandbar"></div>
+        <div class="header-inner">
+          <div class="toprow">
+            <div class="brand">
+              <img class="logo" src="${logoUrl}" alt="Logo" />
+              <div>
+                <div class="proj">${projectName}</div>
+                <p class="header">AULAS REALIZADAS — ${yearFilter}</p>
+                <div class="sub">${grandTotal} aulas · ${grandTotal * 2}h no total</div>
+              </div>
+            </div>
+            <div class="chip">EcoBúzios • Relatório Anual</div>
+          </div>
+          <div class="meta">
+            <div>Gerado em <strong>${generatedAt}</strong></div>
+            <div>Fonte: aulas finalizadas na chamada</div>
+          </div>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th class="left">Turma</th>
+            ${headerCols}
+            <th>Aulas</th>
+            <th>Horas</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+          <tr class="total">
+            <td class="name bold">TOTAL</td>
+            ${totalCells}
+            <td class="center bold">${grandTotal}</td>
+            <td class="center hours">${grandTotal * 2}h</td>
+          </tr>
+        </tbody>
+      </table>
+    </body>
+  </html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 250);
+}
+
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -267,7 +488,8 @@ export default function Reports() {
     profile?.role === "coordinator" ||
     Boolean(getCoordinatorSessionLogin());
 
-  const [report, setReport] = useState<"home" | "attendance">("home");
+  const [report, setReport] = useState<"home" | "attendance" | "classes-year">("home");
+  const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
@@ -501,6 +723,26 @@ export default function Reports() {
             </CardContent>
           </Card>
 
+          <Card
+            className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+            onClick={() => setReport("classes-year")}
+          >
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-3xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-lg font-black text-primary">Aulas Dadas no Ano</p>
+                  <p className="text-sm font-bold text-slate-500 mt-1">
+                    Total de aulas realizadas por turma no ano, com carga horária (2h por aula).
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {canSeeEnel ? (
             <Card
               className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
@@ -522,6 +764,137 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : null}
+        </div>
+      ) : report === "classes-year" ? (
+        /* ── Relatório: Aulas Dadas no Ano ── */
+        <div className="space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <Button
+              variant="ghost"
+              className="rounded-2xl w-fit px-4 font-black text-slate-600 hover:bg-slate-100"
+              onClick={() => setReport("home")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-500">Ano:</span>
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value)}
+                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
+              >
+                {Array.from(new Set(attendanceSessions.map((s) => s.date.slice(0, 4)))).sort().reverse().map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {(() => {
+            const filtered = attendanceSessions.filter(
+              (s) => s.finalizedAt && s.date.startsWith(yearFilter)
+            );
+
+            // Months present in filtered data
+            const months = [...new Set(filtered.map((s) => s.date.slice(0, 7)))].sort();
+
+            // Build rows: per class
+            const classIds = [...new Set(filtered.map((s) => s.classId))];
+            const rows = classIds.map((classId) => {
+              const cls = classes.find((c) => c.id === classId);
+              const bySessions = filtered.filter((s) => s.classId === classId);
+              const total = bySessions.length;
+              const byMonth: Record<string, number> = {};
+              for (const s of bySessions) {
+                const m = s.date.slice(0, 7);
+                byMonth[m] = (byMonth[m] ?? 0) + 1;
+              }
+              return { classId, name: cls?.name ?? classId, period: cls?.period ?? "", total, byMonth };
+            }).sort((a, b) => a.name.localeCompare(b.name));
+
+            const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
+
+            if (rows.length === 0) return (
+              <div className="text-center py-16 text-slate-400">
+                Nenhuma aula finalizada encontrada para {yearFilter}.
+              </div>
+            );
+
+            return (
+              <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800">Aulas Realizadas — {yearFilter}</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {grandTotal} aulas · {grandTotal * 2}h no total
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-2xl font-bold gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={() => printClassesYearReport(rows, months, grandTotal, yearFilter)}
+                    >
+                      <Printer className="h-4 w-4" /> Imprimir
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-2xl font-bold gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={() => void downloadClassesYearPdf(rows, months, grandTotal, yearFilter)}
+                    >
+                      <FileDown className="h-4 w-4" /> PDF
+                    </Button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left px-6 py-3 font-medium text-slate-500 text-xs uppercase tracking-wide">Turma</th>
+                        {months.map((m) => (
+                          <th key={m} className="text-center px-4 py-3 font-medium text-slate-500 text-xs uppercase tracking-wide whitespace-nowrap">
+                            {new Date(m + "-15").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}
+                          </th>
+                        ))}
+                        <th className="text-center px-4 py-3 font-medium text-slate-500 text-xs uppercase tracking-wide">Aulas</th>
+                        <th className="text-center px-4 py-3 font-semibold text-emerald-700 text-xs uppercase tracking-wide">Horas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {rows.map((row) => (
+                        <tr key={row.classId} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-3">
+                            <p className="font-semibold text-slate-800">{row.name}</p>
+                            {row.period && <p className="text-xs text-slate-400">{row.period}</p>}
+                          </td>
+                          {months.map((m) => (
+                            <td key={m} className="text-center px-4 py-3 text-slate-600">
+                              {row.byMonth[m] ?? <span className="text-slate-200">—</span>}
+                            </td>
+                          ))}
+                          <td className="text-center px-4 py-3 font-semibold text-slate-700">{row.total}</td>
+                          <td className="text-center px-4 py-3 font-bold text-emerald-600">{row.total * 2}h</td>
+                        </tr>
+                      ))}
+                      {/* Total row */}
+                      <tr className="bg-slate-50 border-t-2 border-slate-200">
+                        <td className="px-6 py-3 font-bold text-slate-700">TOTAL</td>
+                        {months.map((m) => (
+                          <td key={m} className="text-center px-4 py-3 font-semibold text-slate-700">
+                            {rows.reduce((sum, r) => sum + (r.byMonth[m] ?? 0), 0) || <span className="text-slate-200">—</span>}
+                          </td>
+                        ))}
+                        <td className="text-center px-4 py-3 font-bold text-slate-800">{grandTotal}</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-700">{grandTotal * 2}h</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            );
+          })()}
         </div>
       ) : (
         <div className="space-y-6">

@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { fetchScheduleFull } from "@/integrations/supabase/oficina-schedules";
 import { fetchClassesRemote } from "@/integrations/supabase/classes";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { getActiveProjectId } from "@/utils/projects";
 import { showError } from "@/utils/toast";
@@ -55,6 +56,7 @@ export default function TeacherScheduleViewer() {
   const [full, setFull] = useState<OficinaScheduleFull | null>(null);
   const [allClasses, setAllClasses] = useState<SchoolClass[]>([]);
   const [allTeachers, setAllTeachers] = useState<TeacherRegistration[]>([]);
+  const [allStaff, setAllStaff] = useState<{ id: string; fullName: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,14 +64,20 @@ export default function TeacherScheduleViewer() {
     const projectId = getActiveProjectId();
     const run = async () => {
       try {
-        const [scheduleData, classes, teachers] = await Promise.all([
+        const [scheduleData, classes, teachers, coordinators] = await Promise.all([
           fetchScheduleFull(id),
           projectId ? fetchClassesRemote(projectId) : Promise.resolve([]),
           fetchTeachers(),
+          fetchCoordinators(),
         ]);
         setFull(scheduleData);
         setAllClasses(classes);
         setAllTeachers(teachers);
+        const teacherIds = new Set(teachers.map((t) => t.id));
+        setAllStaff([
+          ...teachers.map((t) => ({ id: t.id, fullName: t.fullName })),
+          ...coordinators.filter((c) => !teacherIds.has(c.id)).map((c) => ({ id: c.id, fullName: c.fullName })),
+        ]);
       } catch {
         showError("Erro ao carregar escala.");
       } finally {
@@ -99,9 +107,33 @@ export default function TeacherScheduleViewer() {
   const dates = [...new Set(full.sessions.map((s) => s.date))].sort();
 
   function getTeacherName(tId: string | null): string {
-    if (tId === null) return "Todos";
-    const t = allTeachers.find((t) => t.id === tId);
-    return t?.fullName?.split(" ")[0] ?? "—";
+    if (!tId) return "Todos";
+    const ids = tId.split(",").filter(Boolean);
+    if (ids.length === 0) return "Todos";
+    return ids
+      .map((id) => allStaff.find((s) => s.id === id)?.fullName?.split(" ")[0] ?? "—")
+      .join(", ");
+  }
+
+  function getActivityBg(tId: string | null, isMe: boolean, isAll: boolean): string {
+    if (isMe) return "#818cf8";
+    if (isAll) return "#fef9c3";
+    const ids = tId ? tId.split(",").filter(Boolean) : [];
+    if (ids.length <= 1) {
+      const name = allStaff.find((s) => s.id === ids[0])?.fullName?.split(" ")[0] ?? "—";
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      return `hsl(${Math.abs(hash) % 360}, 60%, 88%)`;
+    }
+    const pct = 100 / ids.length;
+    const stops = ids.map((id, i) => {
+      const name = allStaff.find((s) => s.id === id)?.fullName?.split(" ")[0] ?? "—";
+      let hash = 0;
+      for (let k = 0; k < name.length; k++) hash = name.charCodeAt(k) + ((hash << 5) - hash);
+      const color = `hsl(${Math.abs(hash) % 360}, 60%, 88%)`;
+      return `${color} ${i * pct}%, ${color} ${(i + 1) * pct}%`;
+    });
+    return `linear-gradient(to right, ${stops.join(", ")})`;
   }
 
   return (
@@ -183,24 +215,27 @@ export default function TeacherScheduleViewer() {
                       <td key={date} className="px-2 py-2 border border-slate-200 align-top">
                         <div className="space-y-1">
                           {activities.map((activity, idx) => {
-                            const isMe = activity.teacherId === teacherId;
-                            const isAll = activity.teacherId === null;
+                            const assignedIds = activity.teacherId ? activity.teacherId.split(",").filter(Boolean) : [];
+                            const isMe = assignedIds.includes(teacherId);
+                            const isAll = assignedIds.length === 0;
                             const teacherName = getTeacherName(activity.teacherId);
-                            const bgColor = isMe
-                              ? "#818cf8" // indigo-400 — bem mais saturado
-                              : isAll
-                              ? "#fef9c3"
-                              : strToColor(teacherName);
+                            const bgStyle = getActivityBg(activity.teacherId, isMe, isAll);
+                            const isGradient = bgStyle.startsWith("linear-gradient");
                             const borderColor = isMe ? "#6366f1" : isAll ? "#fde68a" : "transparent";
                             return (
                               <div
                                 key={activity.id}
-                                className="px-2 py-1.5 rounded-lg text-xs"
-                                style={{ backgroundColor: bgColor, border: `1px solid ${borderColor}` }}
+                                className="px-2 py-1.5 rounded-lg text-xs overflow-hidden"
+                                style={{ ...(isGradient ? { background: bgStyle } : { backgroundColor: bgStyle }), border: `1px solid ${borderColor}` }}
                               >
                                 {timeRanges[idx] && (
-                                  <div className={`font-medium mb-0.5 ${isMe ? "text-white/80" : "text-slate-500"}`}>
-                                    {timeRanges[idx]}
+                                  <div className={`font-medium mb-0.5 flex items-center gap-1 ${isMe ? "text-white/80" : "text-slate-500"}`}>
+                                    <span>{timeRanges[idx]}</span>
+                                    {activity.durationMinutes && (
+                                      <span className="text-[10px] bg-white/60 rounded px-1 leading-tight text-slate-400">
+                                        {activity.durationMinutes}min
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                                 <div className={`font-bold ${isMe ? "text-white" : "text-slate-800"}`}>
