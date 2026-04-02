@@ -51,6 +51,7 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [photoZoom, setPhotoZoom] = useState<{ src: string; name: string } | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -352,7 +353,12 @@ const Students = () => {
                       onClick={() => openDetails(student)}
                       title="Ver ficha do aluno"
                     >
-                      <div className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
+                      <div
+                        className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0"
+                        onClick={student.photo ? (e) => { e.stopPropagation(); setPhotoZoom({ src: student.photo!, name: student.fullName }); } : undefined}
+                        title={student.photo ? "Ampliar foto" : undefined}
+                        style={student.photo ? { cursor: 'zoom-in' } : undefined}
+                      >
                         {student.photo ? (
                           <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
                         ) : (
@@ -414,6 +420,22 @@ const Students = () => {
           </TableBody>
         </Table>
       </div>
+
+      {photoZoom && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPhotoZoom(null)}
+        >
+          <img
+            src={photoZoom.src}
+            alt={photoZoom.name}
+            className="max-h-[75vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <p className="mt-4 text-white text-lg font-bold drop-shadow">{photoZoom.name}</p>
+          <p className="mt-1 text-white/60 text-sm">Clique fora para fechar</p>
+        </div>
+      )}
     </div>
   );
 };
