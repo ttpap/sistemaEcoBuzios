@@ -1,5 +1,7 @@
 export {
   fetchStudents,
+  fetchStudentsCount,
+  fetchStudentsByIds,
   fetchStudentsRemote,
   fetchStudentsRemoteWithMeta,
   deleteStudent,

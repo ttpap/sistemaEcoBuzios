@@ -21,6 +21,7 @@ import {
   Award,
   CalendarDays,
   ClipboardList,
+  KeyRound,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -41,6 +42,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       { icon: Users, label: 'Professores', path: '/professores' },
       { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
       { icon: Link2, label: 'Links de inscrição', path: '/links-inscricao' },
+      { icon: KeyRound, label: 'Chaves de API', path: '/api-keys' },
       { icon: Database, label: 'Supabase', path: '/supabase' },
       { icon: UserCog, label: 'Minha conta', path: '/conta' },
     ];

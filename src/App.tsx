@@ -77,6 +77,7 @@ const ScheduleEditor              = lazy(() => import("./pages/ScheduleEditor"))
 const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"));
 const AtaReuniao                  = lazy(() => import("./pages/AtaReuniao"));
 const AtaReuniaoViewer            = lazy(() => import("./pages/AtaReuniaoViewer"));
+const AdminApiKeys                = lazy(() => import("@/pages/AdminApiKeys"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -305,6 +306,7 @@ const App = () => (
                     >
                       <Routes>
                         <Route path="/projetos" element={<Projects />} />
+                        <Route path="/api-keys" element={<AdminApiKeys />} />
                         <Route path="/supabase" element={<SupabaseSettings />} />
                         <Route path="/conta" element={<AdminAccount />} />
                         <Route path="/links-inscricao" element={<AdminRegistrationLinks />} />

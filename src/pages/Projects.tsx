@@ -38,7 +38,7 @@ import {
   saveProjects,
 } from "@/utils/projects";
 import { projectsService } from "@/services/projectsService";
-import { fetchStudents } from "@/services/studentsService";
+import { fetchStudents, fetchStudentsCount, fetchStudentsByIds } from "@/services/studentsService";
 import { fetchProjectEnrollmentsRemoteWithMeta } from "@/integrations/supabase/classes";
 
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
@@ -105,9 +105,11 @@ export default function Projects() {
   const [systemLogoFileName, setSystemLogoFileName] = useState<string>("");
 
   const [students, setStudents] = useState<StudentRegistration[]>([]);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(0);
   const [studentsSearch, setStudentsSearch] = useState("");
   // projectId → Set<studentId> — matrículas vindas do Supabase
   const [enrollmentsByProject, setEnrollmentsByProject] = useState<Map<string, Set<string>>>(new Map());
+  const [enrolledStudentsData, setEnrolledStudentsData] = useState<StudentRegistration[]>([]);
   const [apiCopied, setApiCopied] = useState(false);
   const [apiFilterProject, setApiFilterProject] = useState<string>("");
 
@@ -130,8 +132,12 @@ export default function Projects() {
 
     // Admin: lista global de alunos vem do Supabase quando possível.
     try {
-      const remoteStudents = await fetchStudents();
+      const [remoteStudents, count] = await Promise.all([
+        fetchStudents(),
+        fetchStudentsCount(),
+      ]);
 
+      setTotalStudentsCount(count);
       if (remoteStudents.length > 0) {
         writeGlobalStudents(remoteStudents);
         setStudents(remoteStudents);
@@ -395,10 +401,20 @@ export default function Projects() {
     return ids;
   }, [enrollmentsByProject]);
 
-  const studentsInAnyProject = useMemo(() => {
-    if (allEnrolledStudentIds.size === 0) return [];
-    return students.filter((s) => allEnrolledStudentIds.has(s.id));
-  }, [students, allEnrolledStudentIds]);
+  // Busca os dados completos dos alunos matriculados diretamente do banco,
+  // porque o array `students` é limitado a 1000 registros mais recentes
+  // e os alunos matriculados podem estar fora dessa janela.
+  useEffect(() => {
+    if (allEnrolledStudentIds.size === 0) {
+      setEnrolledStudentsData([]);
+      return;
+    }
+    void fetchStudentsByIds(Array.from(allEnrolledStudentIds))
+      .then(setEnrolledStudentsData)
+      .catch(() => {});
+  }, [allEnrolledStudentIds]);
+
+  const studentsInAnyProject = enrolledStudentsData;
 
   const enrollmentPieData = useMemo(() => {
     const enrolled = studentsInAnyProject.length;
@@ -876,7 +892,7 @@ export default function Projects() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-0">
-                <div className="text-4xl font-black text-primary tracking-tight">{students.length}</div>
+                <div className="text-4xl font-black text-primary tracking-tight">{totalStudentsCount > 0 ? totalStudentsCount : students.length}</div>
                 <p className="mt-2 text-xs font-bold text-slate-500">
                   Total de alunos cadastrados no sistema.
                 </p>

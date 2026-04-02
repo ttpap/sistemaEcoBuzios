@@ -37,6 +37,25 @@ export async function fetchStudents(): Promise<StudentRegistration[]> {
   return data.map(mapStudentRowToModel);
 }
 
+export async function fetchStudentsByIds(ids: string[]): Promise<StudentRegistration[]> {
+  if (!supabase || ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from("students")
+    .select("*")
+    .in("id", ids);
+  if (error || !data) return [];
+  return data.map(mapStudentRowToModel);
+}
+
+export async function fetchStudentsCount(): Promise<number> {
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from("students")
+    .select("*", { count: "exact", head: true });
+  if (error) return 0;
+  return count ?? 0;
+}
+
 export type FetchStudentsIssue = "rpc_missing" | "not_allowed" | "unknown";
 export type FetchStudentsResult = { students: StudentRegistration[]; issue?: FetchStudentsIssue };
 
