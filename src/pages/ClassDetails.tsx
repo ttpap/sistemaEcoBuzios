@@ -38,7 +38,7 @@ import {
 
 import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/services/teachersService";
-import { fetchStudents, fetchStudentsRemote } from "@/services/studentsService";
+import { fetchStudents, fetchStudentsRemote, fetchStudentsByIds } from "@/services/studentsService";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -64,6 +64,7 @@ const ClassDetails = () => {
       }
 
       const projectId = getActiveProjectId();
+      let activeStudentIds: string[] = [];
 
       // 1) Tenta carregar as turmas do storage (pode falhar se não houver projeto ativo)
       let classes: SchoolClass[] = [];
@@ -118,7 +119,7 @@ const ClassDetails = () => {
               removed_at: e.removedAt ?? null,
             }));
 
-        const activeStudentIds = enrollments.filter((e) => !e.removed_at).map((e) => e.student_id);
+        activeStudentIds = enrollments.filter((e) => !e.removed_at).map((e) => e.student_id);
         const studentEnrollments = enrollments.map((e) => ({
           studentId: e.student_id,
           enrolledAt: e.enrolled_at,
@@ -179,7 +180,18 @@ const ClassDetails = () => {
       try {
         const all = await fetchStudents();
         if (all.length) {
-          setAllStudents(all);
+          // fetchStudents retorna no máximo 1000 registros (limite Supabase).
+          // Garante que os alunos matriculados nesta turma estejam no array,
+          // buscando-os diretamente pelos IDs caso não estejam nos 1000.
+          const enrolledIds = activeStudentIds ?? [];
+          const allIds = new Set(all.map((s) => s.id));
+          const missingIds = enrolledIds.filter((sid) => !allIds.has(sid));
+          if (missingIds.length > 0) {
+            const missing = await fetchStudentsByIds(missingIds);
+            setAllStudents([...all, ...missing]);
+          } else {
+            setAllStudents(all);
+          }
           return;
         }
       } catch {
