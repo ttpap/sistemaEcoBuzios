@@ -266,7 +266,21 @@ export async function fetchClassTeacherIdsRemote(classId: string): Promise<strin
 
 export async function setClassTeacherIdsRemote(classId: string, teacherIds: string[]) {
   if (!supabase) return;
-  // simple sync: delete then insert
+
+  // Modo B (coordenador/professor): usa RPC SECURITY DEFINER para evitar bloqueio de RLS
+  const staff = getModeBStaffSession();
+  if (staff) {
+    const { error: rpcErr } = await supabase.rpc("mode_b_set_class_teachers", {
+      p_login: staff.login,
+      p_password: staff.password,
+      p_class_id: classId,
+      p_teacher_ids: teacherIds,
+    });
+    if (rpcErr) throw rpcErr;
+    return;
+  }
+
+  // Admin (Supabase Auth JWT): delete + insert direto — comportamento original
   const { error: delError } = await supabase.from("class_teachers").delete().eq("class_id", classId);
   if (delError) throw delError;
 
