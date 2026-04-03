@@ -26,6 +26,8 @@ import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
+import { getCoordinatorSessionProjectId } from '@/utils/coordinator-auth';
+import { getTeacherSessionProjectId } from '@/utils/teacher-auth';
 import {
   enrollStudentRemote,
   fetchClassTeacherIdsRemote,
@@ -63,7 +65,9 @@ const ClassDetails = () => {
         return;
       }
 
-      const projectId = getActiveProjectId();
+      const projectId = getActiveProjectId()
+        || getCoordinatorSessionProjectId()
+        || getTeacherSessionProjectId();
       let activeStudentIds: string[] = [];
 
       // 1) Tenta carregar as turmas do storage (pode falhar se não houver projeto ativo)

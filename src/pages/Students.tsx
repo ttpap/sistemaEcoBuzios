@@ -27,6 +27,8 @@ import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { fetchStudentsRemoteWithMeta, deleteStudent, fetchStudents } from "@/services/studentsService";
 
 import { getActiveProjectId } from '@/utils/projects';
+import { getCoordinatorSessionProjectId } from '@/utils/coordinator-auth';
+import { getTeacherSessionProjectId } from '@/utils/teacher-auth';
 import { fetchClassesRemoteWithMeta, fetchProjectEnrollmentsRemoteWithMeta } from '@/services/classesService';
 
 import { useAuth } from '@/context/AuthContext';
@@ -58,7 +60,9 @@ const Students = () => {
     const run = async () => {
       setIsLoading(true);
       try {
-        const projectId = getActiveProjectId();
+        const projectId = getActiveProjectId()
+          || getCoordinatorSessionProjectId()
+          || getTeacherSessionProjectId();
 
         // Admin: lista global (todos os alunos do sistema), independente de projeto.
         if (effectiveRole === 'admin') {

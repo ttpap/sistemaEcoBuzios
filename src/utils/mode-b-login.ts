@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
-import { getActiveProjectId } from "@/utils/projects";
+import { getActiveProjectId, setActiveProjectId } from "@/utils/projects";
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration } from "@/utils/student-auth";
 import { mapStudentRowToModel } from "@/integrations/supabase/mappers";
 import { readGlobalStudents, writeGlobalStudents } from "@/utils/storage";
@@ -86,6 +86,7 @@ export async function modeBLogin(input: {
           "ecobuzios_teacher_session",
           JSON.stringify({ teacherId: personId, projectIds, projectId: projectIds[0], login: loginRaw }),
         );
+        setActiveProjectId(projectIds[0]);
         return { ok: true, role: "teacher", redirectTo: "/professor" };
       }
 
@@ -94,6 +95,7 @@ export async function modeBLogin(input: {
           "ecobuzios_teacher_session",
           JSON.stringify({ teacherId: personId, projectIds, projectId: preferred, login: loginRaw }),
         );
+        setActiveProjectId(preferred);
         return { ok: true, role: "teacher", redirectTo: "/professor" };
       }
 
@@ -118,6 +120,7 @@ export async function modeBLogin(input: {
           "ecobuzios_coordinator_session",
           JSON.stringify({ coordinatorId: personId, projectIds, projectId: projectIds[0], login: loginRaw }),
         );
+        setActiveProjectId(projectIds[0]);
         return { ok: true, role: "coordinator", redirectTo: "/coordenador" };
       }
 
@@ -126,6 +129,7 @@ export async function modeBLogin(input: {
           "ecobuzios_coordinator_session",
           JSON.stringify({ coordinatorId: personId, projectIds, projectId: preferred, login: loginRaw }),
         );
+        setActiveProjectId(preferred);
         return { ok: true, role: "coordinator", redirectTo: "/coordenador" };
       }
 
