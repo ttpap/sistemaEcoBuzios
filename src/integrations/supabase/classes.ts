@@ -256,12 +256,32 @@ export type FetchEnrollmentsResult = { enrollments: ClassStudentEnrollmentRow[];
 
 export async function fetchClassTeacherIdsRemote(classId: string): Promise<string[]> {
   if (!supabase) return [];
+
   const { data, error } = await supabase
     .from("class_teachers")
     .select("teacher_id")
     .eq("class_id", classId);
-  if (error || !data) return [];
-  return data.map((r: any) => r.teacher_id);
+
+  // Admin (Supabase Auth JWT): SELECT direto funciona — retorna resultado.
+  if (!error && data && data.length > 0) {
+    return data.map((r: any) => r.teacher_id);
+  }
+
+  // Modo B (coordenador/professor): RLS bloqueia o SELECT → usa RPC SECURITY DEFINER.
+  const staff = getModeBStaffSession();
+  if (!staff) {
+    // Sem sessão Mode B: retorna o que veio (pode ser [] vazio mas sem erro)
+    return !error && data ? data.map((r: any) => r.teacher_id) : [];
+  }
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_get_class_teachers", {
+    p_login: staff.login,
+    p_password: staff.password,
+    p_class_id: classId,
+  });
+
+  if (rpcErr) return [];
+  return (rpcData || []).map((r: any) => r.teacher_id);
 }
 
 export async function setClassTeacherIdsRemote(classId: string, teacherIds: string[]) {
