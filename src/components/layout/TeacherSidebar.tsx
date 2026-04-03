@@ -17,6 +17,7 @@ import {
   MessageSquarePlus,
   CalendarDays,
   ClipboardList,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -66,6 +67,7 @@ export default function TeacherSidebar({
   }, [projects]);
 
   const selectedProjectId = useMemo(() => getActiveProjectId(), [location.pathname]);
+  const [reportsOpen, setReportsOpen] = useState(() => location.pathname.startsWith('/professor/relatorios'));
 
   const onChangeProject = (projectId: string) => {
     setActiveProjectId(projectId);
@@ -80,9 +82,11 @@ export default function TeacherSidebar({
       { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: MessageSquarePlus, label: "Justificar", path: "/professor/justificativas" },
-      { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
-      { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
-      { icon: BarChart3, label: "Relatórios", path: "/professor/relatorios" },
+      { icon: BarChart3, label: "Relatórios", children: [
+        { icon: BarChart3, label: "Relatórios gerais", path: "/professor/relatorios" },
+        { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
+        { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
+      ]},
       { icon: ClipboardList, label: "Ata de Reunião", path: "/professor/ata-reuniao" },
       { icon: Link2, label: "Links de inscrição", path: "/professor/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/professor/conta" },
@@ -144,6 +148,50 @@ export default function TeacherSidebar({
 
       <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
+          if ('children' in item && item.children) {
+            const isGroupActive = item.children.some((c) => location.pathname === c.path);
+            return (
+              <div key={item.label}>
+                <button
+                  type="button"
+                  onClick={() => setReportsOpen((v) => !v)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black transition-colors",
+                    isGroupActive
+                      ? "bg-white shadow-sm border border-slate-200 text-primary"
+                      : "text-slate-700 hover:bg-white/60 hover:text-primary",
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5", isGroupActive ? "text-primary" : "text-slate-500")} />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", reportsOpen ? "rotate-180" : "")} />
+                </button>
+                {reportsOpen && (
+                  <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-slate-200 pl-2">
+                    {item.children.map((child) => {
+                      const isActive = location.pathname === child.path;
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          onClick={() => onNavigate?.()}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                            isActive
+                              ? "bg-white shadow-sm border border-slate-200 text-primary"
+                              : "text-slate-600 hover:bg-white/60 hover:text-primary",
+                          )}
+                        >
+                          <child.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
+                          {child.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
           const isActive = location.pathname === item.path;
           return (
             <Link

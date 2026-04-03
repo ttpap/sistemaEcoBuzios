@@ -34,6 +34,9 @@ import {
   FileCheck2,
   ExternalLink,
   MessageSquarePlus,
+  FolderOpen,
+  UserCheck,
+  AlertCircle,
 } from "lucide-react";
 import { SchoolClass } from "@/types/class";
 import { TeacherRegistration } from "@/types/teacher";
@@ -179,6 +182,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [adminProjectCounts, setAdminProjectCounts] = useState<{ name: string; value: number }[]>([]);
   const [adminProjects, setAdminProjects] = useState<{ id: string; name: string }[]>([]);
   const [adminStudentIdsByProject, setAdminStudentIdsByProject] = useState<Record<string, string[]>>({});
+  const [adminStudentsByProject, setAdminStudentsByProject] = useState<Record<string, StudentRegistration[]>>({});
   const [adminChartProjectFilter, setAdminChartProjectFilter] = useState<"all" | string>("all");
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareSelectedProjects, setShareSelectedProjects] = useState<string[]>([]);
@@ -481,33 +485,30 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             // ignore
           }
 
-          // Alunos por projeto
+          // Alunos por projeto (usando fetchStudentsRemoteWithMeta — mesmo path que a tela de alunos)
           try {
             const projects = await fetchProjectsFromDb();
-            const { data: enrollData2 } = await supabase
-              .from("class_student_enrollments")
-              .select("student_id, classes!inner(project_id)");
 
-            const byProject = new Map<string, Set<string>>();
-            for (const e of (enrollData2 || []) as any[]) {
-              const pid = e.classes?.project_id;
-              if (!pid) continue;
-              if (!byProject.has(pid)) byProject.set(pid, new Set());
-              byProject.get(pid)!.add(e.student_id);
-            }
+            const perProjectStudents: Record<string, StudentRegistration[]> = {};
+            await Promise.all(
+              projects.map(async (p) => {
+                try {
+                  const res = await fetchStudentsRemoteWithMeta(p.id);
+                  perProjectStudents[p.id] = res.students;
+                } catch {
+                  perProjectStudents[p.id] = [];
+                }
+              }),
+            );
 
             const projectCountsList = projects
-              .map((p) => ({ name: p.name, value: byProject.get(p.id)?.size ?? 0 }))
+              .map((p) => ({ name: p.name, value: perProjectStudents[p.id]?.length ?? 0 }))
               .filter((p) => p.value > 0)
               .sort((a, b) => b.value - a.value);
 
             setAdminProjectCounts(projectCountsList);
             setAdminProjects(projects.map((p) => ({ id: p.id, name: p.name })));
-            setAdminStudentIdsByProject(
-              Object.fromEntries(
-                Array.from(byProject.entries()).map(([k, v]) => [k, Array.from(v)]),
-              ),
-            );
+            setAdminStudentsByProject(perProjectStudents);
           } catch {
             // ignore
           }
@@ -602,29 +603,39 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       });
   }, [attendanceThisMonth]);
 
-  const birthdaysThisMonth = useMemo(() => {
-    const m = today.getMonth() + 1;
-    const month = String(m).padStart(2, "0");
+  const birthdaysThisWeek = useMemo(() => {
     const currentYear = today.getFullYear();
+    const dayOfWeek = today.getDay();
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
 
     return activeStudentsInClasses
       .filter((s) => {
         const parts = (s.birthDate || "").split("-");
         if (parts.length !== 3) return false;
-        return parts[1] === month;
+        const [, mo, d] = parts;
+        const bday = new Date(currentYear, Number(mo) - 1, Number(d));
+        return bday >= monday && bday <= sunday;
       })
       .map((s) => {
         const [y, mo, d] = s.birthDate.split("-");
         const day = Number(d);
+        const bday = new Date(currentYear, Number(mo) - 1, day);
         const turning = Number.isFinite(Number(y)) ? currentYear - Number(y) : undefined;
-        return { student: s, day, month: mo, turning };
+        const weekdayName = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(bday);
+        return { student: s, day, month: mo, turning, weekdayName, date: bday };
       })
-      .sort((a, b) => a.day - b.day);
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [activeStudentsInClasses, today]);
 
   const birthdaysTodayCount = useMemo(
-    () => birthdaysThisMonth.filter((b) => b.day === today.getDate()).length,
-    [birthdaysThisMonth, today],
+    () => birthdaysThisWeek.filter((b) => b.day === today.getDate() && b.month === String(today.getMonth() + 1).padStart(2, "0")).length,
+    [birthdaysThisWeek, today],
   );
 
   const schoolTypeCounts = useMemo(() => {
@@ -681,9 +692,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   const adminChartStudents = useMemo(() => {
     if (adminChartProjectFilter === "all") return allAdminStudents;
-    const ids = new Set(adminStudentIdsByProject[adminChartProjectFilter] || []);
-    return allAdminStudents.filter((s) => ids.has(s.id));
-  }, [allAdminStudents, adminChartProjectFilter, adminStudentIdsByProject]);
+    return adminStudentsByProject[adminChartProjectFilter] || [];
+  }, [allAdminStudents, adminChartProjectFilter, adminStudentsByProject]);
 
   const globalNeighborhoodsData = useMemo(() => {
     const map = new Map<string, number>();
@@ -964,36 +974,36 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         </div>
       </div>
 
-      {/* Aniversariantes do mês — professor, coordenador e admin */}
-      {birthdaysThisMonth.length > 0 && (
-        <Card className="border-none shadow-xl shadow-pink-100/60 bg-gradient-to-br from-pink-50 to-rose-50 rounded-[2rem] overflow-hidden">
+      {/* Aniversariantes da semana */}
+      {birthdaysThisWeek.length > 0 && (
+        <Card className="border-none shadow-xl shadow-amber-100/60 bg-gradient-to-br from-amber-50 to-yellow-50 rounded-[2rem] overflow-hidden">
           <CardHeader className="p-6 pb-3 flex flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-pink-500/15 border border-pink-500/20 flex items-center justify-center">
-                <Gift className="h-5 w-5 text-pink-600" />
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                <Gift className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <CardTitle className="text-base font-black text-pink-900">
-                  Aniversariantes de {new Date(thisMonth + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "long" })}
+                <CardTitle className="text-base font-black text-amber-900">
+                  Aniversariantes desta semana
                 </CardTitle>
-                <p className="text-xs font-bold text-pink-700/80 mt-0.5">
-                  {birthdaysThisMonth.length} aluno(s) fazem aniversário este mês
+                <p className="text-xs font-bold text-amber-700/80 mt-0.5">
+                  {birthdaysThisWeek.length} aluno(s) fazem aniversário esta semana
                   {birthdaysTodayCount > 0 && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-pink-500 text-white px-2 py-0.5 text-[10px] font-black">
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-400 text-white px-2 py-0.5 text-[10px] font-black">
                       🎂 {birthdaysTodayCount} hoje!
                     </span>
                   )}
                 </p>
               </div>
             </div>
-            <Badge className="rounded-full bg-pink-500 text-white border-none font-black shrink-0">
-              {birthdaysThisMonth.length}
+            <Badge className="rounded-full bg-amber-400 text-white border-none font-black shrink-0">
+              {birthdaysThisWeek.length}
             </Badge>
           </CardHeader>
           <CardContent className="p-6 pt-2">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {birthdaysThisMonth.map(({ student, day, turning }) => {
-                const isToday = day === today.getDate();
+              {birthdaysThisWeek.map(({ student, day, month, turning, weekdayName }) => {
+                const isToday = day === today.getDate() && month === String(today.getMonth() + 1).padStart(2, "0");
                 const name = student.socialName || student.preferredName || student.fullName;
                 return (
                   <button
@@ -1003,31 +1013,47 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                     className={[
                       "flex items-center gap-3 rounded-[1.25rem] px-4 py-2.5 text-left transition-colors",
                       isToday
-                        ? "bg-pink-500 text-white shadow-md shadow-pink-300/40"
-                        : "bg-white border border-pink-100 hover:bg-pink-50",
+                        ? "bg-amber-400 text-white shadow-md shadow-amber-300/50"
+                        : "bg-white border border-amber-100 hover:bg-amber-50",
                     ].join(" ")}
                   >
+                    {/* Foto / avatar */}
                     <div className={[
-                      "w-9 h-9 rounded-xl flex flex-col items-center justify-center shrink-0 text-center",
-                      isToday ? "bg-white/20" : "bg-pink-100",
+                      "w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-black text-sm",
+                      isToday ? "ring-2 ring-white/50" : "ring-1 ring-amber-100",
                     ].join(" ")}>
-                      <span className={["text-[10px] font-black leading-none", isToday ? "text-white" : "text-pink-600"].join(" ")}>
-                        {String(day).padStart(2, "0")}
-                      </span>
-                      <span className={["text-[8px] font-bold leading-none mt-0.5", isToday ? "text-white/80" : "text-pink-400"].join(" ")}>
-                        {new Date(thisMonth + "-01T00:00:00").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}
-                      </span>
+                      {student.photo ? (
+                        <img src={student.photo} alt={name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className={["w-full h-full flex items-center justify-center font-black text-sm", isToday ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"].join(" ")}>
+                          {(name || "A").charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
-                    <div className="min-w-0">
+
+                    <div className="min-w-0 flex-1">
                       <p className={["text-sm font-black truncate", isToday ? "text-white" : "text-slate-800"].join(" ")}>
                         {name}
                         {isToday && " 🎉"}
                       </p>
                       {turning !== undefined && (
-                        <p className={["text-[10px] font-bold", isToday ? "text-white/80" : "text-pink-500"].join(" ")}>
+                        <p className={["text-[10px] font-bold", isToday ? "text-white/80" : "text-amber-600"].join(" ")}>
                           completa {turning} anos
                         </p>
                       )}
+                    </div>
+
+                    {/* Dia + dia da semana */}
+                    <div className={[
+                      "flex flex-col items-center justify-center w-9 h-9 rounded-xl shrink-0",
+                      isToday ? "bg-white/20" : "bg-amber-100",
+                    ].join(" ")}>
+                      <span className={["text-[10px] font-black leading-none", isToday ? "text-white" : "text-amber-700"].join(" ")}>
+                        {String(day).padStart(2, "0")}
+                      </span>
+                      <span className={["text-[8px] font-bold leading-none mt-0.5", isToday ? "text-white/80" : "text-amber-500"].join(" ")}>
+                        {weekdayName.slice(0, 3).toUpperCase()}
+                      </span>
                     </div>
                   </button>
                 );
@@ -1037,7 +1063,67 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         </Card>
       )}
 
-      {/* KPIs */}
+      {/* KPIs globais — apenas admin */}
+      {base === "" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
+              <FolderOpen className="h-3.5 w-3.5 text-teal-600" />
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 whitespace-nowrap">Visão geral do sistema</span>
+            <div className="flex-1 h-px bg-teal-100" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Projetos",
+                value: adminStats?.projects ?? 0,
+                icon: <FolderOpen className="h-5 w-5" />,
+                bg: "bg-teal-500/10 text-teal-700 border-teal-500/15",
+              },
+              {
+                label: "Turmas ativas",
+                value: adminStats?.activeClasses ?? 0,
+                icon: <BookOpen className="h-5 w-5" />,
+                bg: "bg-primary/10 text-primary border-primary/15",
+              },
+              {
+                label: "Alunos matriculados",
+                value: adminStats?.enrolledStudents ?? 0,
+                icon: <UserCheck className="h-5 w-5" />,
+                bg: "bg-sky-500/10 text-sky-700 border-sky-500/15",
+              },
+              {
+                label: "Justificativas este mês",
+                value: adminStats?.justificationsThisMonth ?? 0,
+                icon: <AlertCircle className="h-5 w-5" />,
+                bg: "bg-amber-500/10 text-amber-700 border-amber-500/15",
+              },
+            ].map((k) => (
+              <Card key={k.label} className="border-none shadow-md shadow-slate-100/60 bg-white rounded-[2rem]">
+                <CardContent className="p-5">
+                  <div className={"w-11 h-11 rounded-2xl flex items-center justify-center mb-3 border " + k.bg}>
+                    {k.icon}
+                  </div>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{k.label}</p>
+                  <div className="text-3xl font-black text-primary tracking-tight">{k.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* KPIs do projeto ativo */}
+      {base === "" && (
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <BookOpen className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-primary whitespace-nowrap">Projeto ativo</span>
+          <div className="flex-1 h-px bg-primary/15" />
+        </div>
+      )}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => {
           const tone =
@@ -1071,6 +1157,15 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       </div>
 
       {/* Equipe do projeto — professores e coordenadores */}
+      {(teachers.length > 0 || coordinators.length > 0) && (
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+            <Users className="h-3.5 w-3.5 text-slate-500" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Equipe do projeto</span>
+          <div className="flex-1 h-px bg-slate-200" />
+        </div>
+      )}
       {(teachers.length > 0 || coordinators.length > 0) && (
         <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2rem] overflow-hidden">
           <CardHeader className="p-6 pb-3 flex flex-row items-center gap-3">
@@ -1179,6 +1274,15 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       )}
 
       {/* Gráficos do projeto */}
+      {activeStudentsInClasses.length > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="w-7 h-7 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+            <GraduationCap className="h-3.5 w-3.5 text-sky-600" />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 whitespace-nowrap">Análise do projeto</span>
+          <div className="flex-1 h-px bg-sky-100" />
+        </div>
+      )}
       {activeStudentsInClasses.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
 
@@ -1334,10 +1438,15 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
       {/* Gráficos globais — apenas admin */}
       {base === "" && allAdminStudents.length > 0 && (
-        <div className="space-y-4">
+        <div className="rounded-[2.5rem] border border-secondary/15 bg-secondary/5 p-6 space-y-4">
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400">Indicadores globais</p>
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
+                <Layers className="h-3.5 w-3.5 text-secondary" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-secondary whitespace-nowrap">Indicadores globais</span>
+              <div className="flex-1 h-px bg-secondary/20" />
+              <div className="flex items-center gap-2 shrink-0">
               <Button
                 type="button"
                 variant="outline"
@@ -1425,6 +1534,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                   </div>
                 </DialogContent>
               </Dialog>
+              </div>
             </div>
             {/* Filtro por projeto */}
             {adminProjects.length > 1 && (
@@ -1634,120 +1744,6 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
         </div>
         </div>
       )}
-
-      {/* BIRTHDAYS (HIGHLIGHT) */}
-      <Card className="border-none shadow-2xl shadow-primary/10 bg-white rounded-[2.75rem] overflow-hidden">
-        <CardHeader className="p-6 md:p-8 pb-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <CardTitle className="text-2xl md:text-3xl font-black text-primary flex items-center gap-3">
-                <span className="h-12 w-12 rounded-[1.6rem] bg-secondary/15 border border-secondary/25 text-primary flex items-center justify-center">
-                  <Gift className="h-6 w-6" />
-                </span>
-                Aniversariantes do mês
-              </CardTitle>
-              <p className="text-slate-500 font-medium mt-2">
-                Clique no nome para abrir a ficha do aluno.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary border border-primary/15 px-4 py-2 text-xs font-black">
-                Total: {birthdaysThisMonth.length}
-              </span>
-              <span
-                className={
-                  "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-black " +
-                  (birthdaysTodayCount > 0
-                    ? "bg-secondary/15 text-primary border-secondary/25"
-                    : "bg-slate-50 text-slate-600 border-slate-200")
-                }
-              >
-                Hoje: {birthdaysTodayCount}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-6 md:p-8 pt-0">
-          <div className="rounded-[2.25rem] border border-slate-100 bg-slate-50/50 p-4 md:p-5">
-            {birthdaysThisMonth.length === 0 ? (
-              <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white p-10 text-center">
-                <p className="text-sm font-bold text-slate-500">Nenhum aniversariante neste mês.</p>
-              </div>
-            ) : (
-              <ScrollArea className="max-h-[360px] pr-3">
-                <div className="grid gap-3 md:grid-cols-2">
-                  {birthdaysThisMonth.map(({ student: s, day, turning }) => {
-                    const isToday = day === today.getDate();
-                    const displayName = s.socialName || s.preferredName || s.fullName;
-
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => openStudent(s)}
-                        className={
-                          "group w-full text-left flex items-center justify-between gap-3 rounded-[1.75rem] border p-4 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30 " +
-                          (isToday
-                            ? "border-primary/30 bg-white"
-                            : "border-white/60 bg-white hover:bg-slate-50")
-                        }
-                        title="Abrir ficha do aluno"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className={
-                              "h-12 w-12 rounded-2xl overflow-hidden ring-1 flex items-center justify-center font-black shrink-0 " +
-                              (isToday
-                                ? "bg-primary text-white ring-primary/20"
-                                : "bg-white text-primary ring-slate-200")
-                            }
-                          >
-                            {s.photo ? (
-                              <img
-                                src={s.photo}
-                                alt={s.fullName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              (displayName || "A").charAt(0)
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-black text-primary truncate group-hover:underline">
-                              {displayName}
-                            </p>
-                            <p className="text-xs font-bold text-slate-500 truncate">{s.fullName}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {typeof turning === "number" && (
-                            <span className="hidden sm:inline-flex rounded-full bg-secondary/15 text-primary border border-secondary/25 px-3 py-1 text-xs font-black">
-                              {turning} anos
-                            </span>
-                          )}
-                          <span
-                            className={
-                              "rounded-2xl px-3 py-2 text-sm font-black border " +
-                              (isToday
-                                ? "bg-primary text-white border-primary"
-                                : "bg-white text-slate-700 border-slate-200")
-                            }
-                          >
-                            {String(day).padStart(2, "0")}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Insights */}
       <div className={base === "" ? "grid gap-6 lg:grid-cols-[420px_1fr]" : ""}>
