@@ -110,16 +110,40 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   const navigate = useNavigate();
   const location = useLocation();
 
-  const classesForStudent = useMemo(() => {
-    if (!student) return [] as SchoolClass[];
-    try {
-      // Turmas são SEMPRE do projeto ativo
-      const raw = readScoped<SchoolClass[]>("classes", []);
-      return raw.filter((c) => (c.studentIds || []).includes(student.id));
-    } catch {
-      return [];
+  const [classesForStudent, setClassesForStudent] = useState<SchoolClass[]>([]);
+
+  useEffect(() => {
+    if (!student || !isOpen) {
+      setClassesForStudent([]);
+      return;
     }
-  }, [student, isOpen]);
+    // Tenta via enrollments remotos primeiro; cai para localStorage
+    const run = async () => {
+      try {
+        const projectId = getActiveProjectId();
+        if (projectId) {
+          const { fetchProjectEnrollmentsRemoteWithMeta } = await import("@/services/classesService");
+          const enrRes = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+          const classIds = new Set(
+            enrRes.enrollments
+              .filter((e) => String(e.student_id) === String(student.id))
+              .map((e) => e.class_id)
+          );
+          if (classIds.size > 0) {
+            const allClasses = readScoped<SchoolClass[]>("classes", []);
+            setClassesForStudent(allClasses.filter((c) => classIds.has(c.id)));
+            return;
+          }
+        }
+      } catch {
+        // fallback abaixo
+      }
+      // Fallback: campo legado studentIds no localStorage
+      const raw = readScoped<SchoolClass[]>("classes", []);
+      setClassesForStudent(raw.filter((c) => (c.studentIds || []).includes(student.id)));
+    };
+    void run();
+  }, [student?.id, isOpen]);
 
   const maps = useMemo(() => {
     if (!student) return null;

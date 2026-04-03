@@ -2,8 +2,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { getActiveProjectId } from "@/utils/projects";
 
 const STUDENT_SESSION_KEY = "ecobuzios_student_session"; // stores { studentId, projectId? }
+const STUDENT_PASSWORD_KEY = "ecobuzios_student_password";
 
 export const DEFAULT_STUDENT_PASSWORD = "EcoBuzios123";
+
+export function getStudentSessionPassword(): string | null {
+  return sessionStorage.getItem(STUDENT_PASSWORD_KEY) || localStorage.getItem(STUDENT_PASSWORD_KEY);
+}
+
+export function setStudentSessionPassword(password: string) {
+  sessionStorage.setItem(STUDENT_PASSWORD_KEY, password);
+}
 
 export function getStudentLoginFromRegistration(registration: string) {
   const reg = (registration || "").trim();
@@ -123,11 +132,13 @@ export async function loginStudent(input: { registration: string; password: stri
     : { studentId, projectIds, login: registration };
 
   localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(session));
+  setStudentSessionPassword(password);
   return { ok: true, studentId, projectIds, ...(projectId ? { projectId } : {}) };
 }
 
 export function logoutStudent() {
   localStorage.removeItem(STUDENT_SESSION_KEY);
+  sessionStorage.removeItem(STUDENT_PASSWORD_KEY);
 }
 
 export async function resetStudentPassword(studentId: string): Promise<boolean> {

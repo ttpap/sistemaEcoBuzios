@@ -47,6 +47,7 @@ const Students = () => {
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [allowedIds, setAllowedIds] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
@@ -55,80 +56,90 @@ const Students = () => {
 
   useEffect(() => {
     const run = async () => {
-      const projectId = getActiveProjectId();
+      setIsLoading(true);
+      try {
+        const projectId = getActiveProjectId();
 
-      // Admin: lista global (todos os alunos do sistema), independente de projeto.
-      if (effectiveRole === 'admin') {
-        try {
-          const remote = await fetchStudents();
-          if (remote.length > 0) {
-            const normalized = normalizeStudentRegistrations(remote);
-            const finalList = normalized.changed ? normalized.students : remote;
-            writeGlobalStudents(finalList);
-            setStudents(finalList);
-          } else {
+        // Admin: lista global (todos os alunos do sistema), independente de projeto.
+        if (effectiveRole === 'admin') {
+          try {
+            const remote = await fetchStudents();
+            if (remote.length > 0) {
+              const normalized = normalizeStudentRegistrations(remote);
+              const finalList = normalized.changed ? normalized.students : remote;
+              writeGlobalStudents(finalList);
+              setStudents(finalList);
+            } else {
+              setStudents(readGlobalStudents<StudentRegistration[]>([]));
+            }
+          } catch {
             setStudents(readGlobalStudents<StudentRegistration[]>([]));
           }
-        } catch {
-          setStudents(readGlobalStudents<StudentRegistration[]>([]));
+          setClasses(projectId ? readScoped<SchoolClass[]>('classes', []) : []);
+          setAllowedIds(new Set());
+          return;
         }
-        setClasses(projectId ? readScoped<SchoolClass[]>('classes', []) : []);
-        setAllowedIds(new Set());
-        return;
-      }
 
-      if (!projectId) {
-        setClasses(readScoped<SchoolClass[]>('classes', []));
-        setStudents(readGlobalStudents<StudentRegistration[]>([]));
-        setAllowedIds(new Set());
-        return;
-      }
+        if (!projectId) {
+          setClasses(readScoped<SchoolClass[]>('classes', []));
+          setStudents(readGlobalStudents<StudentRegistration[]>([]));
+          setAllowedIds(new Set());
+          return;
+        }
 
-      // 1) Classes (RPC quando existir; senão SELECT)
-      const classRes = await fetchClassesRemoteWithMeta(projectId);
-      const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>('classes', []);
-      writeScoped('classes', baseClasses);
-      setClasses(baseClasses);
+        // 1) Classes (RPC quando existir; senão SELECT)
+        const classRes = await fetchClassesRemoteWithMeta(projectId);
+        const baseClasses = classRes.classes.length ? classRes.classes : readScoped<SchoolClass[]>('classes', []);
+        writeScoped('classes', baseClasses);
+        setClasses(baseClasses);
 
-      // 2) Vínculos aluno<->turma — restritos às turmas visíveis ao usuário
-      // (professor vê só suas turmas; coordenador vê todas do projeto)
-      const myClassIds = new Set(baseClasses.map((c) => c.id));
-      const enrRes = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
-      const ids = new Set<string>();
-      for (const e of enrRes.enrollments) {
-        if (myClassIds.has(e.class_id)) ids.add(String(e.student_id));
-      }
-      setAllowedIds(ids);
+        // 2) Vínculos aluno<->turma
+        // Professor: só alunos das suas próprias turmas
+        // Coordenador: todos os alunos do projeto
+        const enrRes = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+        if (enrRes.issue === 'not_allowed') {
+          showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
+        }
+        const ids = new Set<string>();
+        if (effectiveRole === 'teacher') {
+          const myClassIds = new Set(baseClasses.map((c) => c.id));
+          for (const e of enrRes.enrollments) {
+            if (myClassIds.has(e.class_id)) ids.add(String(e.student_id));
+          }
+        } else {
+          for (const e of enrRes.enrollments) ids.add(String(e.student_id));
+        }
+        setAllowedIds(ids);
 
-      // 3) Students
-      const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
-      if (studentsRes.issue === 'rpc_missing') {
-        // não bloqueia a UI
-      }
-      if (studentsRes.issue === 'not_allowed') {
-        showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
-      }
+        // 3) Students
+        const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
+        if (studentsRes.issue === 'not_allowed') {
+          showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
+        }
 
-      const remote = studentsRes.students;
-      if (remote.length > 0) {
-        const normalized = normalizeStudentRegistrations(remote);
+        const remote = studentsRes.students;
+        if (remote.length > 0) {
+          const normalized = normalizeStudentRegistrations(remote);
+          if (normalized.changed) {
+            writeGlobalStudents(normalized.students);
+            setStudents(normalized.students);
+          } else {
+            writeGlobalStudents(remote);
+            setStudents(remote);
+          }
+          return;
+        }
+
+        const saved = readGlobalStudents<StudentRegistration[]>([]);
+        const normalized = normalizeStudentRegistrations(saved);
         if (normalized.changed) {
           writeGlobalStudents(normalized.students);
           setStudents(normalized.students);
         } else {
-          writeGlobalStudents(remote);
-          setStudents(remote);
+          setStudents(saved);
         }
-        return;
-      }
-
-      const saved = readGlobalStudents<StudentRegistration[]>([]);
-      const normalized = normalizeStudentRegistrations(saved);
-      if (normalized.changed) {
-        writeGlobalStudents(normalized.students);
-        setStudents(normalized.students);
-      } else {
-        setStudents(saved);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -159,14 +170,17 @@ const Students = () => {
   const visibleStudents = useMemo(() => {
     if (effectiveRole === 'admin') return students;
 
-    // teacher/coordinator/student: se já temos vínculos do projeto, filtra por eles.
-    if (effectiveRole && allowedIds.size > 0) {
+    // Enquanto ainda carregando, não filtra (evita piscar lista vazia)
+    if (isLoading) return [];
+
+    // Após carregar: filtra sempre por allowedIds para coord/professor
+    // Se allowedIds vazio após carga = nenhum vínculo real → lista vazia (correto)
+    if (effectiveRole) {
       return students.filter((s) => allowedIds.has(s.id));
     }
 
-    // fallback: não deixar a tela zerada se ainda não carregou vínculos
     return students;
-  }, [students, allowedIds, effectiveRole]);
+  }, [students, allowedIds, effectiveRole, isLoading]);
 
   const visibleStudentsSorted = useMemo(() => {
     return [...visibleStudents].sort((a, b) =>
@@ -234,7 +248,16 @@ const Students = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Carregando alunos…
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
                   Nenhum aluno encontrado.
@@ -301,14 +324,16 @@ const Students = () => {
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => handleDelete(student.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {effectiveRole === 'admin' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => handleDelete(student.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

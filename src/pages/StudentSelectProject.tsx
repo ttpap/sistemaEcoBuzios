@@ -12,6 +12,7 @@ import { getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/pr
 import {
   DEFAULT_STUDENT_PASSWORD,
   getStudentSessionLogin,
+  getStudentSessionPassword,
   getStudentSessionProjectIds,
   getStudentSessionStudentId,
   setStudentSessionProjectId,
@@ -35,9 +36,10 @@ export default function StudentSelectProject() {
       }
 
       try {
+        const password = getStudentSessionPassword() || DEFAULT_STUDENT_PASSWORD;
         const rows = await fetchModeBStudentProjects({
           registrationOrLast4: login,
-          password: DEFAULT_STUDENT_PASSWORD,
+          password,
         });
         setProjects(rows);
         if (rows.length) saveProjects(rows);
