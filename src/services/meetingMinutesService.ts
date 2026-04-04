@@ -110,10 +110,14 @@ Com base nas informações abaixo, elabore uma ata de reunião completa, organiz
 ${params.raw_notes}
 
 **Instruções:**
-- Organize a ata com os seguintes campos: Cabeçalho, Participantes, Pauta, Desenvolvimento (o que foi discutido), Deliberações e Encaminhamentos, Encerramento
-- Use linguagem formal
-- Destaque as metas e compromissos assumidos
-- Formate de forma clara e estruturada
+- Organize a ata com exatamente os seguintes campos, nesta ordem:
+  1. **Cabeçalho** — título, data, local e lista de participantes
+  2. **Resumo da Reunião** — parágrafo conciso com o contexto geral e os principais assuntos tratados
+  3. **Tópicos Mais Importantes** — lista dos pontos-chave discutidos, com destaque para decisões tomadas
+  4. **Conclusão e Encerramento** — síntese dos resultados alcançados e considerações finais
+  5. **Tarefas e Responsáveis** — lista das ações definidas, com nome do responsável e prazo (quando informado)
+- Use linguagem formal em português brasileiro
+- Seja objetivo e claro em cada seção
 - Use markdown para formatação`;
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
