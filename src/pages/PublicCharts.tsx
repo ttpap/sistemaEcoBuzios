@@ -3,8 +3,11 @@
 import React, { useEffect, useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, PieChart, Pie,
+  ResponsiveContainer, Cell, PieChart, Pie, LabelList,
 } from "recharts";
+
+const pct = (v: number, total: number) => total > 0 ? `${Math.round((v / total) * 1000) / 10}%` : "0%";
+const fmtCountPct = (total: number) => (v: any, n: any) => [`${v} (${pct(Number(v), total)})`, n ?? "Alunos"];
 import { supabase } from "@/integrations/supabase/client";
 import { Layers, MapPinned, School, Users } from "lucide-react";
 
@@ -102,7 +105,12 @@ export default function PublicCharts() {
           </div>
         )}
 
-        {data && (
+        {data && (() => {
+          const totalProjects = data.projectCounts.reduce((s, x) => s + x.value, 0);
+          const totalNeighborhoods = data.neighborhoods.reduce((s, x) => s + x.value, 0);
+          const totalSchools = data.schoolTypes.reduce((s, x) => s + x.value, 0);
+          const totalAges = data.ageRanges.reduce((s, x) => s + x.value, 0);
+          return (
           <div className="grid gap-6 lg:grid-cols-2">
 
             {/* Alunos por projeto */}
@@ -123,11 +131,12 @@ export default function PublicCharts() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 14) + "…" : v} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtCountPct(totalProjects)} />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {data.projectCounts.map((_, i) => (
                           <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pct(Number(v), totalProjects)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -153,11 +162,12 @@ export default function PublicCharts() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 10 ? v.slice(0, 10) + "…" : v} interval={0} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtCountPct(totalNeighborhoods)} />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {data.neighborhoods.map((_, i) => (
                           <Cell key={i} fill={i % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pct(Number(v), totalNeighborhoods)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -180,12 +190,12 @@ export default function PublicCharts() {
                 <div className="h-[180px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={data.schoolTypes} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                      <Pie data={data.schoolTypes} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
                         {data.schoolTypes.map((entry, i) => (
                           <Cell key={i} fill={SCHOOL_COLORS[entry.name] || AGE_COLORS[i % AGE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [v, n]} />
+                      <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtCountPct(totalSchools)} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -224,11 +234,12 @@ export default function PublicCharts() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 900 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtCountPct(totalAges)} />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {data.ageRanges.map((_, i) => (
                           <Cell key={i} fill={AGE_COLORS[i % AGE_COLORS.length]} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pct(Number(v), totalAges)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -237,7 +248,8 @@ export default function PublicCharts() {
             )}
 
           </div>
-        )}
+          );
+        })()}
 
         <p className="text-center text-xs text-slate-400 font-medium pt-4">
           Dados atualizados em tempo real · EcoBúzios

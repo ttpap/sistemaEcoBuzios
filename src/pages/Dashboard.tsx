@@ -20,7 +20,11 @@ import {
   Cell,
   PieChart,
   Pie,
+  LabelList,
 } from "recharts";
+
+const pctLabel = (v: number, total: number) => total > 0 ? `${Math.round((v / total) * 1000) / 10}%` : "0%";
+const fmtPct = (total: number) => (v: any, n: any) => [`${v} (${pctLabel(Number(v), total)})`, n ?? "Alunos"];
 import {
   BookOpen,
   CalendarDays,
@@ -1296,21 +1300,24 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 <p className="text-slate-500 font-medium mt-1">Matrículas por turma do projeto.</p>
               </CardHeader>
               <CardContent className="p-6 md:p-8 pt-4">
+                {(() => { const _t = studentsByClassData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={studentsByClassData} margin={{ left: 0, right: 10 }}>
+                    <BarChart data={studentsByClassData} margin={{ left: 0, right: 10, top: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11, fontWeight: 900 }} tickFormatter={(v: string) => v.length > 14 ? v.slice(0, 14) + "…" : v} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtPct(_t)} />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {studentsByClassData.map((_, i) => (
                           <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+                ); })()}
               </CardContent>
             </Card>
           )}
@@ -1339,7 +1346,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                               <Cell key={i} fill={NBCOLORS[i % NBCOLORS.length]} opacity={0.92} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtPct(total)} />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -1373,16 +1380,18 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
               ) : (
                 <>
+                  {(() => { const _t = schoolTypeData.reduce((s, x) => s + x.value, 0); return (
                   <div className="h-[180px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={schoolTypeData} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                        <Pie data={schoolTypeData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
                           {schoolTypeData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                         </Pie>
-                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} />
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtPct(_t)} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
+                  ); })()}
                   <div className="mt-3 w-full space-y-1.5">
                     {schoolTypeData.map((d) => {
                       const total = schoolTypeData.reduce((s, x) => s + x.value, 0);
@@ -1413,23 +1422,24 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <CardContent className="p-6 md:p-8 pt-4">
               {localAgeRangeData.length === 0 ? (
                 <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
+              ) : (() => { const _t = localAgeRangeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={localAgeRangeData} margin={{ left: 0, right: 10 }}>
+                    <BarChart data={localAgeRangeData} margin={{ left: 0, right: 10, top: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 900 }} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 900 }} />
-                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any) => [v, "Alunos"]} />
+                      <Tooltip cursor={{ fill: "#f8fafc" }} contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtPct(_t)} />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {localAgeRangeData.map((_, i) => (
                           <Cell key={i} fill={["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"][i % 6]} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+                ); })()}
             </CardContent>
           </Card>
 
@@ -1583,10 +1593,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               <CardContent className="p-6 md:p-8 pt-4">
                 {adminProjectCounts.length === 0 ? (
                   <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-                ) : (
+                ) : (() => { const _t = adminProjectCounts.reduce((s, x) => s + x.value, 0); return (
                   <div className="h-[240px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={adminProjectCounts} margin={{ left: 0, right: 10 }}>
+                      <BarChart data={adminProjectCounts} margin={{ left: 0, right: 10, top: 16 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                         <XAxis
                           dataKey="name"
@@ -1599,17 +1609,18 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                         <Tooltip
                           cursor={{ fill: "#f8fafc" }}
                           contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
-                          formatter={(v: any) => [v, "Alunos"]}
+                          formatter={fmtPct(_t)}
                         />
                         <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                           {adminProjectCounts.map((_, i) => (
                             <Cell key={i} fill={i % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} opacity={0.9} />
                           ))}
+                          <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                )}
+                ); })()}
               </CardContent>
             </Card>
           )}
@@ -1625,10 +1636,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <CardContent className="p-6 md:p-8 pt-4">
               {globalNeighborhoodsData.length === 0 ? (
                 <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
+              ) : (() => { const _t = globalNeighborhoodsData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={globalNeighborhoodsData} margin={{ left: 0, right: 10 }}>
+                    <BarChart data={globalNeighborhoodsData} margin={{ left: 0, right: 10, top: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis
                         dataKey="name"
@@ -1642,17 +1653,18 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                       <Tooltip
                         cursor={{ fill: "#f8fafc" }}
                         contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
-                        formatter={(v: any) => [v, "Alunos"]}
+                        formatter={fmtPct(_t)}
                       />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {globalNeighborhoodsData.map((_, i) => (
                           <Cell key={i} fill={i % 2 === 0 ? "#60a5fa" : "hsl(var(--primary))"} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 9, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              ); })()}
               <p className="mt-2 text-xs font-bold text-slate-400">Total de bairros: {globalNeighborhoodsData.length}</p>
             </CardContent>
           </Card>
@@ -1673,12 +1685,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                   <div className="h-[200px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={globalSchoolTypeData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3} label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`} labelLine={false}>
+                        <Pie data={globalSchoolTypeData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
                           {globalSchoolTypeData.map((entry, i) => (
                             <Cell key={i} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [v, n]} />
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={fmtPct(globalSchoolTypeData.reduce((s, x) => s + x.value, 0))} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -1712,10 +1724,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <CardContent className="p-6 md:p-8 pt-4">
               {globalAgeRangeData.length === 0 ? (
                 <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
+              ) : (() => { const _t = globalAgeRangeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={globalAgeRangeData} margin={{ left: 0, right: 10 }}>
+                    <BarChart data={globalAgeRangeData} margin={{ left: 0, right: 10, top: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis
                         dataKey="name"
@@ -1727,17 +1739,18 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                       <Tooltip
                         cursor={{ fill: "#f8fafc" }}
                         contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
-                        formatter={(v: any) => [v, "Alunos"]}
+                        formatter={fmtPct(_t)}
                       />
                       <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                         {globalAgeRangeData.map((_, i) => (
                           <Cell key={i} fill={["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171"][i % 6]} opacity={0.9} />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 10, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              ); })()}
             </CardContent>
           </Card>
 
@@ -1835,7 +1848,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               </div>
               {schoolTypeData.length === 0 ? (
                 <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
+              ) : (() => { const _t = schoolTypeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
@@ -1857,13 +1870,16 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                           border: "1px solid #e2e8f0",
                           boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
                         }}
+                        formatter={fmtPct(_t)}
                       />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              ); })()}
               <div className="mt-3 space-y-2">
-                {schoolTypeData.map((s) => (
+                {schoolTypeData.map((s) => {
+                  const _t = schoolTypeData.reduce((acc, x) => acc + x.value, 0);
+                  return (
                   <div
                     key={s.name}
                     className="flex items-center justify-between text-sm font-bold text-slate-600"
@@ -1872,9 +1888,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
                       <span>{s.name}</span>
                     </div>
-                    <span className="text-slate-700 font-black">{s.value}</span>
+                    <span className="text-slate-700 font-black">{s.value} · {pctLabel(s.value, _t)}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </button>
 
@@ -1898,10 +1915,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               </div>
               {institutionsData.length === 0 ? (
                 <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-              ) : (
+              ) : (() => { const _t = institutionsData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[260px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={institutionsData} margin={{ left: 0, right: 8 }}>
+                    <BarChart data={institutionsData} margin={{ left: 0, right: 8, top: 16 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                       <XAxis
                         dataKey="name"
@@ -1923,6 +1940,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                           border: "1px solid #e2e8f0",
                           boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
                         }}
+                        formatter={fmtPct(_t)}
                       />
                       <Bar dataKey="value" radius={[12, 12, 4, 4]}>
                         {institutionsData.map((_, index) => (
@@ -1932,11 +1950,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                             opacity={0.9}
                           />
                         ))}
+                        <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 9, fontWeight: 900 }} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-              )}
+              ); })()}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-500">Total instituições: {institutionsFullData.length}</span>
                 <span className="text-xs font-black text-slate-700">Clique para ver a lista completa</span>
@@ -1973,10 +1992,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           <CardContent className="p-6 md:p-8 pt-4">
             {neighborhoodsData.length === 0 ? (
               <div className="py-12 text-center text-sm font-bold text-slate-400">Sem dados.</div>
-            ) : (
+            ) : (() => { const _t = neighborhoodsData.reduce((s, x) => s + x.value, 0); return (
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={neighborhoodsData} margin={{ left: 10, right: 10 }}>
+                  <BarChart data={neighborhoodsData} margin={{ left: 10, right: 10, top: 16 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                     <XAxis
                       dataKey="name"
@@ -1998,6 +2017,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                         border: "1px solid #e2e8f0",
                         boxShadow: "0 12px 24px rgba(15,23,42,0.08)",
                       }}
+                      formatter={fmtPct(_t)}
                     />
                     <Bar dataKey="value" radius={[14, 14, 8, 8]}>
                       {neighborhoodsData.map((_, index) => (
@@ -2007,11 +2027,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                           opacity={0.9}
                         />
                       ))}
+                      <LabelList dataKey="value" position="top" formatter={(v: any) => pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 9, fontWeight: 900 }} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            )}
+            ); })()}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold text-slate-500">Total bairros: {neighborhoodsFullData.length}</span>
               <span className="text-xs font-black text-slate-700">Clique para ver a lista completa</span>
@@ -2045,7 +2066,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={chartData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
                             {chartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                           </Pie>
                           <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [`${v} (${Math.round((v / attendanceStats.monthTotal) * 100)}%)`, n]} />
@@ -2087,7 +2108,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={chartData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={3}>
+                          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={3}>
                             {chartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                           </Pie>
                           <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} formatter={(v: any, n: any) => [`${v} (${annualTotal > 0 ? Math.round((v / annualTotal) * 100) : 0}%)`, n]} />

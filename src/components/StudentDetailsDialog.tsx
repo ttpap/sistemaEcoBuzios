@@ -766,7 +766,15 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
                           <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 11, fontWeight: 800 }} />
                           <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 800 }} />
-                          <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }} />
+                          <Tooltip
+                            contentStyle={{ borderRadius: 16, border: "1px solid #e2e8f0" }}
+                            formatter={(v: any, n: any, p: any) => {
+                              const row = p?.payload || {};
+                              const total = (row.Presente || 0) + (row.Atraso || 0) + (row.Justificada || 0) + (row.Falta || 0);
+                              const pct = total > 0 ? Math.round((Number(v) / total) * 1000) / 10 : 0;
+                              return [`${v} (${pct}%)`, n];
+                            }}
+                          />
                           <Bar dataKey="Presente" fill="#10b981" radius={[6, 6, 0, 0]} stackId="a" />
                           <Bar dataKey="Atraso" fill="#f59e0b" radius={[0, 0, 0, 0]} stackId="a" />
                           <Bar dataKey="Justificada" fill="#8b5cf6" radius={[0, 0, 0, 0]} stackId="a" />

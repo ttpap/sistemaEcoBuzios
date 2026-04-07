@@ -22,7 +22,11 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from "recharts";
+
+const _pctLabel = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 1000) / 10}%` : "0%";
+const _fmtPct = (t: number) => (v: any, n: any) => [`${v} (${_pctLabel(Number(v), t)})`, n ?? "Alunos"];
 import { showError, showSuccess } from "@/utils/toast";
 import {
   createProject,
@@ -960,21 +964,21 @@ export default function Projects() {
                   </div>
 
                   <div className="h-[240px] rounded-[2rem] border border-slate-100 bg-white p-4">
+                    {(() => {
+                      const _pieData = perProjectCounts.filter((pc) => pc.studentsCount > 0).map((pc) => ({ name: pc.project.name, value: pc.studentsCount }));
+                      const _t = _pieData.reduce((s, x) => s + x.value, 0);
+                      return (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={perProjectCounts
-                            .filter((pc) => pc.studentsCount > 0)
-                            .map((pc) => ({ name: pc.project.name, value: pc.studentsCount }))}
+                          data={_pieData}
                           dataKey="value"
                           nameKey="name"
                           innerRadius={55}
                           outerRadius={85}
                           paddingAngle={2}
                         >
-                          {perProjectCounts
-                            .filter((pc) => pc.studentsCount > 0)
-                            .map((_, idx) => {
+                          {_pieData.map((_, idx) => {
                               const colors = ["#008ca0", "#f59e0b", "#6366f1", "#10b981", "#ef4444", "#8b5cf6"];
                               return <Cell key={idx} fill={colors[idx % colors.length]} />;
                             })}
@@ -985,9 +989,12 @@ export default function Projects() {
                             border: "1px solid rgba(226,232,240,1)",
                             boxShadow: "0 20px 50px rgba(15,23,42,0.10)",
                           }}
+                          formatter={_fmtPct(_t)}
                         />
                       </PieChart>
                     </ResponsiveContainer>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
@@ -1008,9 +1015,9 @@ export default function Projects() {
                     <div className="h-full flex items-center justify-center text-sm font-bold text-slate-500">
                       Nenhum aluno vinculado a turmas ainda.
                     </div>
-                  ) : (
+                  ) : (() => { const _t = neighborhoodsData.reduce((s, x) => s + x.value, 0); return (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={neighborhoodsData} margin={{ left: 20, right: 12, top: 10, bottom: 0 }}>
+                      <BarChart data={neighborhoodsData} margin={{ left: 20, right: 12, top: 18, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis
                           dataKey="name"
@@ -1035,11 +1042,14 @@ export default function Projects() {
                             border: "1px solid rgba(226,232,240,1)",
                             boxShadow: "0 20px 50px rgba(15,23,42,0.10)",
                           }}
+                          formatter={_fmtPct(_t)}
                         />
-                        <Bar dataKey="value" radius={[14, 14, 0, 0]} fill="#ffa534" />
+                        <Bar dataKey="value" radius={[14, 14, 0, 0]} fill="#ffa534">
+                          <LabelList dataKey="value" position="top" formatter={(v: any) => _pctLabel(Number(v), _t)} style={{ fill: "#475569", fontSize: 9, fontWeight: 900 }} />
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                  )}
+                  ); })()}
                 </div>
               </CardContent>
             </Card>
@@ -1063,6 +1073,7 @@ export default function Projects() {
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 sm:items-center">
                   <div className="h-[200px] rounded-[2rem] border border-slate-100 bg-white p-4">
+                    {(() => { const _t = schoolTypeData.reduce((s, x) => s + x.value, 0); return (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie data={schoolTypeData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2}>
@@ -1070,9 +1081,10 @@ export default function Projects() {
                             <Cell key={idx} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid rgba(226,232,240,1)", boxShadow: "0 20px 50px rgba(15,23,42,0.10)" }} />
+                        <Tooltip contentStyle={{ borderRadius: 16, border: "1px solid rgba(226,232,240,1)", boxShadow: "0 20px 50px rgba(15,23,42,0.10)" }} formatter={_fmtPct(_t)} />
                       </PieChart>
                     </ResponsiveContainer>
+                    ); })()}
                   </div>
                   <div className="space-y-2">
                     {schoolTypeData.map((d) => {

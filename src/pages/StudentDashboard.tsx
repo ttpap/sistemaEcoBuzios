@@ -748,6 +748,12 @@ export default function StudentDashboard() {
                   <Tooltip
                     contentStyle={{ borderRadius: "1rem", border: "1px solid #e2e8f0", fontSize: 12, fontWeight: 700 }}
                     cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                    formatter={(v: any, n: any, p: any) => {
+                      const row = p?.payload || {};
+                      const total = (row.Presente || 0) + (row.Atraso || 0) + (row.Justificada || 0) + (row.Falta || 0);
+                      const pct = total > 0 ? Math.round((Number(v) / total) * 1000) / 10 : 0;
+                      return [`${v} (${pct}%)`, n];
+                    }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700, paddingTop: 8 }} />
                   <Bar dataKey="Presente" fill={CHART_COLORS.presente} radius={[4, 4, 0, 0]} />
