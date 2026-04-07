@@ -410,7 +410,7 @@ const ClassDetails = () => {
         </TabsList>
 
         <TabsContent value="geral" className="mt-8">
-          <div className="grid gap-8 lg:grid-cols-2">
+          <div className="grid gap-8 grid-cols-1 lg:grid-cols-2">
             {/* Gestão de Professores */}
             <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem]">
               <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 p-5 pb-3 sm:p-8 sm:pb-4">
