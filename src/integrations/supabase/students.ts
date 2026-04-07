@@ -28,13 +28,24 @@ function isRpcMissingErrorMessage(msgLower: string) {
 export async function fetchStudents(): Promise<StudentRegistration[]> {
   if (!supabase) return [];
 
-  const { data, error } = await supabase
-    .from("students")
-    .select("*")
-    .order("registration_date", { ascending: false });
+  const PAGE_SIZE = 1000;
+  const all: StudentRegistration[] = [];
+  let from = 0;
 
-  if (error || !data) return [];
-  return data.map(mapStudentRowToModel);
+  while (true) {
+    const { data, error } = await supabase
+      .from("students")
+      .select("*")
+      .order("registration_date", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error || !data || data.length === 0) break;
+    all.push(...data.map(mapStudentRowToModel));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return all;
 }
 
 export async function fetchStudentsByIds(ids: string[]): Promise<StudentRegistration[]> {
@@ -88,21 +99,34 @@ export async function fetchStudentsRemoteWithMeta(projectId: string): Promise<Fe
     return { students: (data || []).map(mapStudentRowToModel) };
   }
 
-  // Modo B — usa RPC SECURITY DEFINER (já filtra por projeto)
-  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_students", {
-    p_login: creds.login,
-    p_password: creds.password,
-    p_project_id: projectId,
-  });
+  // Modo B — usa RPC SECURITY DEFINER com paginação para buscar todos os alunos
+  const PAGE_SIZE = 1000;
+  const allStudents: StudentRegistration[] = [];
+  let from = 0;
 
-  if (rpcErr) {
-    const msg = String(rpcErr.message || "").toLowerCase();
-    if (isRpcMissingErrorMessage(msg)) return { students: [], issue: "rpc_missing" };
-    if (msg.includes("not_allowed")) return { students: [], issue: "not_allowed" };
-    return { students: [], issue: "unknown" };
+  while (true) {
+    const { data: rpcData, error: rpcErr } = await supabase
+      .rpc("mode_b_list_students", {
+        p_login: creds.login,
+        p_password: creds.password,
+        p_project_id: projectId,
+      })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (rpcErr) {
+      const msg = String(rpcErr.message || "").toLowerCase();
+      if (isRpcMissingErrorMessage(msg)) return { students: [], issue: "rpc_missing" };
+      if (msg.includes("not_allowed")) return { students: [], issue: "not_allowed" };
+      return { students: [], issue: "unknown" };
+    }
+
+    if (!rpcData || rpcData.length === 0) break;
+    allStudents.push(...(rpcData as any[]).map(mapStudentRowToModel));
+    if (rpcData.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  return { students: (rpcData || []).map(mapStudentRowToModel) };
+  return { students: allStudents };
 }
 
 export async function fetchStudentsRemote(projectId: string): Promise<StudentRegistration[]> {
