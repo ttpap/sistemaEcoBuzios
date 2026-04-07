@@ -28,7 +28,33 @@ type RpcAttendanceRow = {
 export async function fetchAttendanceSessionsRemote(projectId: string, classId?: string) {
   if (!supabase) return [] as AttendanceSession[];
 
-  // 1) Tentativa normal (RLS pode retornar vazio sem erro)
+  const staffCreds = getModeBStaffCreds();
+
+  // Modo B (professor/coordenador): vai direto pra RPC; o SELECT direto é
+  // bloqueado por RLS quando não há sessão Supabase Auth e voltaria vazio.
+  if (staffCreds) {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_attendance_sessions", {
+      p_login: staffCreds.login,
+      p_password: staffCreds.password,
+      p_project_id: projectId,
+      p_class_id: classId || null,
+    });
+
+    if (rpcErr || !rpcData) return [];
+
+    const rows = rpcData as unknown as RpcAttendanceRow[];
+    return rows.map((r) => ({
+      id: r.id,
+      classId: r.class_id,
+      date: r.date,
+      createdAt: r.created_at,
+      finalizedAt: r.finalized_at ?? undefined,
+      studentIds: r.student_ids || [],
+      records: (r.records || {}) as Record<string, AttendanceStatus>,
+    }));
+  }
+
+  // Admin / sessão Supabase Auth: SELECT direto via RLS.
   let q = supabase
     .from("attendance_sessions")
     .select("id,class_id,date,created_at,finalized_at")
