@@ -21,6 +21,7 @@ function isRpcMissingErrorMessage(msgLower: string) {
     msgLower.includes("does not exist") ||
     (msgLower.includes("function") && msgLower.includes("mode_b_")) ||
     msgLower.includes("mode_b_list_students") ||
+    msgLower.includes("mode_b_list_all_students") ||
     msgLower.includes("mode_b_list_class_students")
   );
 }
@@ -99,14 +100,15 @@ export async function fetchStudentsRemoteWithMeta(projectId: string): Promise<Fe
     return { students: (data || []).map(mapStudentRowToModel) };
   }
 
-  // Modo B — usa RPC SECURITY DEFINER com paginação para buscar todos os alunos
+  // Modo B — usa RPC SECURITY DEFINER com paginação para buscar TODOS os alunos
+  // (mode_b_list_all_students não filtra por projeto, ideal para o dialog de matrícula)
   const PAGE_SIZE = 1000;
   const allStudents: StudentRegistration[] = [];
   let from = 0;
 
   while (true) {
     const { data: rpcData, error: rpcErr } = await supabase
-      .rpc("mode_b_list_students", {
+      .rpc("mode_b_list_all_students", {
         p_login: creds.login,
         p_password: creds.password,
         p_project_id: projectId,
