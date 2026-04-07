@@ -301,7 +301,10 @@ export default function EnelReport() {
                   <div key={idx} className="rounded-2xl border border-slate-100 p-3 bg-white">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="font-bold text-slate-800 text-sm">{idx + 1}. {row.name}</p>
+                        <p className="font-bold text-slate-800 text-sm">{idx + 1}. {row.fullName}</p>
+                        {row.socialName && (
+                          <p className="text-[11px] text-slate-400 italic">({row.socialName})</p>
+                        )}
                         <p className="text-xs text-slate-500">{row.className || "—"}</p>
                       </div>
                       {row.age && <span className="text-xs font-bold text-slate-400 shrink-0">{row.age}a</span>}
@@ -336,7 +339,12 @@ export default function EnelReport() {
                     {rows.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
                         <td className="px-4 py-3 font-bold text-slate-400">{idx + 1}</td>
-                        <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{row.name}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="font-bold text-slate-800">{row.fullName}</div>
+                          {row.socialName && (
+                            <div className="text-[11px] text-slate-400 italic">({row.socialName})</div>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{row.className || "—"}</td>
                         <td className="px-4 py-3 font-mono text-slate-600">{row.cpf || "—"}</td>
                         {includeEnelNumber && (

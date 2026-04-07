@@ -67,7 +67,7 @@ export function printEnelReport(input: {
           ${input.rows
             .map((r) => {
               const baseCells = [
-                `<td>${escapeHtml(r.name)}</td>`,
+                `<td><strong>${escapeHtml(r.fullName)}</strong>${r.socialName ? `<br/><span style="font-size:10px;color:#94a3b8;font-style:italic">(${escapeHtml(r.socialName)})</span>` : ""}</td>`,
                 `<td class="center">${escapeHtml(r.cellPhone)}</td>`,
                 `<td class="center">${escapeHtml(formatBirthDate(r.birthDate))}</td>`,
                 `<td class="center">${escapeHtml(String(r.age ?? ""))}</td>`,

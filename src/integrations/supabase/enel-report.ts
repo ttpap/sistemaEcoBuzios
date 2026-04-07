@@ -14,7 +14,8 @@ export async function fetchEnelReportRows(
   if (error) throw error;
 
   return (data || []).map((r: any) => ({
-    name: String(r.name || ""),
+    fullName: String(r.full_name || ""),
+    socialName: r.social_name ? String(r.social_name) : undefined,
     cellPhone: String(r.cell_phone || ""),
     birthDate: r.birth_date ? String(r.birth_date) : "",
     age: Number(r.age || 0),

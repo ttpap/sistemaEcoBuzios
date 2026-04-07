@@ -79,7 +79,7 @@ export async function downloadEnelXls(input: { month: string; rows: EnelRow[] })
   const head = ["Nome", "Celular", "Data Nascimento", "Idade", "CPF", "Número ENEL"];
 
   const rows = input.rows.map((r) => [
-    escapeHtml(r.name),
+    escapeHtml(r.socialName ? `${r.fullName} (${r.socialName})` : r.fullName),
     escapeHtml(r.cellPhone),
     escapeHtml(formatBirthDate(r.birthDate)),
     escapeHtml(String(r.age ?? "")),

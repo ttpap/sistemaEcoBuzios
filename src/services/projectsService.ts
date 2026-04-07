@@ -3,6 +3,7 @@ import {
   fetchProjectsFromDb,
   insertProjectToDb,
   updateProjectInDb,
+  setProjectFinalizedInDb,
 } from "@/integrations/supabase/projects";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,4 +18,5 @@ export const projectsService = {
   insertProjectToDb,
   updateProjectInDb,
   deleteProjectRemote,
+  setProjectFinalizedInDb,
 };

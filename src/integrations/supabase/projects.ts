@@ -1,12 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Project } from "@/types/project";
 
+const SELECT_COLS = "id,name,image_url,created_at,finalized_at";
+
 function mapRow(row: any): Project {
   return {
     id: row.id,
     name: row.name,
     imageUrl: row.image_url ?? undefined,
     createdAt: row.created_at,
+    finalizedAt: row.finalized_at ?? null,
   };
 }
 
@@ -18,7 +21,8 @@ function mapRow(row: any): Project {
 export async function fetchProjectsRemote(): Promise<Project[]> {
   const { data, error } = await supabase
     .from("projects")
-    .select("id,name,image_url,created_at")
+    .select(SELECT_COLS)
+    .is("finalized_at", null)
     .order("created_at", { ascending: false });
 
   if (error || !data) return [];
@@ -35,7 +39,7 @@ export async function upsertProjectRemote(input: { id?: string; name: string; im
   const { data, error } = await supabase
     .from("projects")
     .upsert(row)
-    .select("id,name,image_url,created_at")
+    .select(SELECT_COLS)
     .single();
 
   if (error || !data) return null;
@@ -52,20 +56,20 @@ export async function deleteProjectRemote(projectId: string) {
 // These throw on error (so the UI can show meaningful messages).
 // ------------------------------------------------------------
 
-export async function fetchProjectsFromDb(): Promise<Project[]> {
-  const { data, error } = await supabase
+export async function fetchProjectsFromDb(options?: { includeFinalized?: boolean }): Promise<Project[]> {
+  let q = supabase
     .from("projects")
-    .select("id, name, image_url, created_at")
+    .select(SELECT_COLS)
     .order("created_at", { ascending: false });
 
+  if (!options?.includeFinalized) {
+    q = q.is("finalized_at", null);
+  }
+
+  const { data, error } = await q;
   if (error) throw error;
 
-  return (data || []).map((p) => ({
-    id: p.id,
-    name: p.name,
-    imageUrl: p.image_url || undefined,
-    createdAt: p.created_at,
-  }));
+  return (data || []).map(mapRow);
 }
 
 export async function insertProjectToDb(input: { name: string; imageUrl?: string }): Promise<Project> {
@@ -77,17 +81,11 @@ export async function insertProjectToDb(input: { name: string; imageUrl?: string
       image_url: (input.imageUrl || "").trim() || null,
       created_at: nowIso,
     })
-    .select("id, name, image_url, created_at")
+    .select(SELECT_COLS)
     .single();
 
   if (error) throw error;
-
-  return {
-    id: data.id,
-    name: data.name,
-    imageUrl: data.image_url || undefined,
-    createdAt: data.created_at,
-  };
+  return mapRow(data);
 }
 
 export async function updateProjectInDb(
@@ -106,15 +104,21 @@ export async function updateProjectInDb(
             : patch.imageUrl.trim() || null,
     })
     .eq("id", projectId)
-    .select("id, name, image_url, created_at")
+    .select(SELECT_COLS)
     .single();
 
   if (error) throw error;
+  return mapRow(data);
+}
 
-  return {
-    id: data.id,
-    name: data.name,
-    imageUrl: data.image_url || undefined,
-    createdAt: data.created_at,
-  };
+export async function setProjectFinalizedInDb(projectId: string, finalized: boolean): Promise<Project> {
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ finalized_at: finalized ? new Date().toISOString() : null })
+    .eq("id", projectId)
+    .select(SELECT_COLS)
+    .single();
+
+  if (error) throw error;
+  return mapRow(data);
 }

@@ -67,6 +67,8 @@ import {
   Copy,
   Check,
   ExternalLink,
+  CheckCircle2,
+  PlayCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -123,7 +125,7 @@ export default function Projects() {
 
   const refresh = React.useCallback(async () => {
     try {
-      const dbProjects = await projectsService.fetchProjectsFromDb();
+      const dbProjects = await projectsService.fetchProjectsFromDb({ includeFinalized: true });
       setProjects(dbProjects);
       // Mantém cache local porque outras partes do app (sidebar/tema) usam o localStorage.
       saveProjects(dbProjects);
@@ -350,6 +352,30 @@ export default function Projects() {
       showSuccess("Projeto excluído.");
     };
 
+    void run();
+  };
+
+  const onToggleFinalized = (p: Project) => {
+    const run = async () => {
+      const willFinalize = !p.finalizedAt;
+      if (willFinalize) {
+        const ok = window.confirm(
+          `Marcar "${p.name}" como FINALIZADO?\n\nO projeto vai sumir das listas usadas pelo sistema (relatórios, dashboard, seletores). Você pode reativar a qualquer momento aqui nesta tela.`,
+        );
+        if (!ok) return;
+      }
+      try {
+        await projectsService.setProjectFinalizedInDb(p.id, willFinalize);
+      } catch (e: any) {
+        showError(`Não foi possível atualizar: ${e?.message || "erro"}`);
+        return;
+      }
+      if (willFinalize && getActiveProjectId() === p.id) {
+        clearActiveProjectId();
+      }
+      await refresh();
+      showSuccess(willFinalize ? "Projeto finalizado." : "Projeto reativado.");
+    };
     void run();
   };
 
@@ -790,25 +816,37 @@ export default function Projects() {
                   {projects.map((p) => {
                     const isActive = p.id === activeId;
                     const isPdf = isPdfDataUrl(p.imageUrl);
+                    const isFinalized = !!p.finalizedAt;
 
                     return (
                       <div
                         key={p.id}
                         className={cn(
                           "w-full rounded-[2rem] border transition-colors",
-                          isActive ? "border-primary/25 bg-primary/5" : "border-slate-100 bg-white",
+                          isFinalized
+                            ? "border-slate-100 bg-slate-50/60 opacity-60"
+                            : isActive
+                              ? "border-primary/25 bg-primary/5"
+                              : "border-slate-100 bg-white",
                         )}
                       >
                         <div className="flex items-stretch">
                           <button
                             type="button"
-                            onClick={() => onSelect(p)}
-                            className="flex-1 text-left p-4 rounded-[2rem] hover:bg-slate-50/70 transition-colors"
-                            title="Selecionar projeto"
+                            onClick={() => !isFinalized && onSelect(p)}
+                            disabled={isFinalized}
+                            className={cn(
+                              "flex-1 text-left p-4 rounded-[2rem] transition-colors",
+                              isFinalized ? "cursor-not-allowed" : "hover:bg-slate-50/70",
+                            )}
+                            title={isFinalized ? "Projeto finalizado" : "Selecionar projeto"}
                           >
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0">
+                                <div className={cn(
+                                  "h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center shrink-0",
+                                  isFinalized && "grayscale",
+                                )}>
                                   {p.imageUrl && !isPdf ? (
                                     <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
                                   ) : p.imageUrl && isPdf ? (
@@ -818,7 +856,10 @@ export default function Projects() {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-sm font-black text-slate-900 truncate">{p.name}</p>
+                                  <p className={cn(
+                                    "text-sm font-black truncate",
+                                    isFinalized ? "text-slate-500 line-through decoration-slate-300" : "text-slate-900",
+                                  )}>{p.name}</p>
                                   <p className="text-xs font-bold text-slate-500 truncate">
                                     Criado em {new Date(p.createdAt).toLocaleDateString("pt-BR")}
                                   </p>
@@ -831,7 +872,11 @@ export default function Projects() {
                                     PDF
                                   </Badge>
                                 )}
-                                {isActive && (
+                                {isFinalized ? (
+                                  <Badge className="rounded-full bg-slate-100 text-slate-500 border border-slate-200 font-black">
+                                    Finalizado
+                                  </Badge>
+                                ) : isActive && (
                                   <Badge className="rounded-full bg-secondary/15 text-primary border border-secondary/25 font-black">
                                     Ativo
                                   </Badge>
@@ -841,6 +886,25 @@ export default function Projects() {
                           </button>
 
                           <div className="p-4 pr-4 flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className={cn(
+                                "h-11 w-11 rounded-2xl p-0 bg-white",
+                                isFinalized
+                                  ? "border-emerald-200 hover:bg-emerald-50"
+                                  : "border-amber-200 hover:bg-amber-50",
+                              )}
+                              onClick={() => onToggleFinalized(p)}
+                              title={isFinalized ? "Reativar projeto" : "Marcar como finalizado"}
+                            >
+                              {isFinalized ? (
+                                <PlayCircle className="h-4 w-4 text-emerald-600" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4 text-amber-600" />
+                              )}
+                            </Button>
+
                             <Button
                               type="button"
                               variant="outline"

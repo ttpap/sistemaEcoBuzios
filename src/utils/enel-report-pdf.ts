@@ -6,7 +6,8 @@ import { getSystemLogo } from "@/utils/system-settings";
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
 export type EnelRow = {
-  name: string;
+  fullName: string;
+  socialName?: string;
   cellPhone: string;
   birthDate: string;
   age: number;
@@ -111,7 +112,8 @@ export async function generateEnelPdf(input: {
     : [["Nome", "Celular", "Nascimento", "Idade", "CPF"]];
 
   const body = input.rows.map((r) => {
-    const base = [r.name, r.cellPhone, formatBirthDate(r.birthDate), String(r.age ?? ""), r.cpf];
+    const nameCell = r.socialName ? `${r.fullName}\n(${r.socialName})` : r.fullName;
+    const base = [nameCell, r.cellPhone, formatBirthDate(r.birthDate), String(r.age ?? ""), r.cpf];
     return includeEnel ? [...base, r.enelClientNumber] : base;
   });
 
