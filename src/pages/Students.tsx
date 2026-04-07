@@ -241,14 +241,100 @@ const Students = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
+      {/* Mobile: cards */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border border-slate-100">
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              Carregando alunos…
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border border-slate-100">
+            Nenhum aluno encontrado.
+          </div>
+        ) : (
+          filtered.map((student) => (
+            <div key={student.id} className="bg-white rounded-[1.75rem] border border-slate-100 shadow-sm p-4">
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0"
+                  onClick={student.photo ? () => setPhotoZoom({ src: student.photo!, name: student.fullName }) : () => openDetails(student)}
+                >
+                  {student.photo ? (
+                    <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
+                  ) : (
+                    <GraduationCap className="h-6 w-6" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="flex-1 min-w-0 text-left"
+                  onClick={() => openDetails(student)}
+                >
+                  <div className="font-bold text-slate-700 truncate">{student.fullName}</div>
+                  {(student.socialName || student.preferredName) && (
+                    <div className="text-xs font-bold text-slate-400 truncate">
+                      {student.socialName || student.preferredName}
+                    </div>
+                  )}
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-slate-500 font-medium">Mat: {student.registration}</span>
+                    <Badge className={cn(
+                      "rounded-full border-none font-black px-2 text-[10px]",
+                      student.status === 'Ativo'
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-slate-100 text-slate-500'
+                    )}>
+                      {student.status}
+                    </Badge>
+                  </div>
+                </button>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10 gap-1"
+                  onClick={() => openDetails(student)}
+                >
+                  <Eye className="h-4 w-4" /> Ver
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10 gap-1"
+                  onClick={() => navigate(`${base}/alunos/editar/${student.id}`)}
+                >
+                  <Edit2 className="h-4 w-4" /> Editar
+                </Button>
+                {effectiveRole === 'admin' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => handleDelete(student.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: tabela */}
+      <div className="hidden md:block bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/40 border border-slate-100 overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow className="hover:bg-transparent border-slate-100">
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Aluno</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Matrícula</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Status</TableHead>
-              <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Ações</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Aluno</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Matrícula</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Status</TableHead>
+              <TableHead className="text-right font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

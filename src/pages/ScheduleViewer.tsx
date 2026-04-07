@@ -306,7 +306,71 @@ export default function ScheduleViewer() {
         </h2>
       </div>
 
-      <div className="overflow-x-auto" ref={tableRef}>
+      {/* Mobile: por dia */}
+      <div className="md:hidden space-y-4 print:hidden">
+        {dates.map((date) => (
+          <div key={date} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-2 bg-slate-100 font-bold text-slate-700 text-sm">
+              {formatDate(date)}
+            </div>
+            <div className="divide-y divide-slate-100">
+              {turmaIds.map((turmaId) => {
+                const turma = allClasses.find((c) => c.id === turmaId);
+                const session = full.sessions.find((s) => s.turmaId === turmaId && s.date === date);
+                if (!session) return null;
+                const activities = session.isHoliday ? [] : full.activities
+                  .filter((a) => a.sessionId === session.id)
+                  .sort((a, b) => a.orderIndex - b.orderIndex);
+                const timeRanges = turma?.startTime ? calcTimeRange(turma.startTime, activities) : [];
+                return (
+                  <div key={turmaId} className="p-3">
+                    <div className="flex items-baseline justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold text-indigo-600 uppercase">{turma?.period ?? ""}</p>
+                        <p className="font-bold text-slate-800 text-sm truncate">{turma?.name ?? turmaId}</p>
+                      </div>
+                      {turma?.startTime && (
+                        <span className="text-xs text-slate-400 shrink-0">{turma.startTime}–{turma.endTime}</span>
+                      )}
+                    </div>
+                    {session.isHoliday ? (
+                      <div className="text-xs text-red-500 font-medium bg-red-50 rounded-lg px-2 py-1.5 text-center">Feriado</div>
+                    ) : activities.length === 0 ? (
+                      <div className="text-xs text-slate-300">Sem atividades</div>
+                    ) : (
+                      <div className="space-y-1">
+                        {activities.map((activity, idx) => {
+                          const teacherName = getTeacherName(activity.teacherId);
+                          const bgStyle = getActivityBg(activity.teacherId);
+                          const isGradient = bgStyle.startsWith("linear-gradient");
+                          return (
+                            <div
+                              key={activity.id}
+                              className="px-2 py-1.5 rounded-lg text-xs"
+                              style={isGradient ? { background: bgStyle } : { backgroundColor: bgStyle }}
+                            >
+                              {timeRanges[idx] && (
+                                <div className="text-slate-500 font-medium mb-0.5">
+                                  {timeRanges[idx]}
+                                  {activity.durationMinutes && <span className="ml-1 text-[10px]">({activity.durationMinutes}min)</span>}
+                                </div>
+                              )}
+                              <div className="font-semibold text-slate-800">{activity.name || "—"}</div>
+                              <div className="text-slate-600 mt-0.5 text-[11px]">{teacherName}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden md:block overflow-x-auto print:block" ref={tableRef}>
         <table className="text-sm border-collapse min-w-max w-full">
           <thead>
             <tr>

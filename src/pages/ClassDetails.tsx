@@ -494,7 +494,7 @@ const ClassDetails = () => {
                   <DialogTrigger asChild>
                     <Button size="sm" className="rounded-xl gap-2"><UserPlus className="h-4 w-4" /> Matricular</Button>
                   </DialogTrigger>
-                  <DialogContent className="rounded-[2rem] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+                  <DialogContent className="rounded-[2rem] h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[85vh] flex flex-col p-0 overflow-hidden">
                     <DialogHeader className="p-8 pb-4">
                       <DialogTitle className="text-xl font-black text-primary flex items-center justify-between">
                         Matricular Aluno

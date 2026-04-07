@@ -1187,13 +1187,13 @@ export default function Projects() {
                 <Table>
                   <TableHeader className="bg-slate-50/60">
                     <TableRow className="hover:bg-transparent border-slate-100">
-                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest px-6">
+                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest px-6">
                         Aluno
                       </TableHead>
-                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">
+                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest">
                         Matrícula
                       </TableHead>
-                      <TableHead className="font-black text-slate-400 uppercase text-[10px] tracking-widest">
+                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest">
                         Status
                       </TableHead>
                     </TableRow>

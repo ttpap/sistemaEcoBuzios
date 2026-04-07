@@ -80,10 +80,10 @@ const Teachers = () => {
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow className="hover:bg-transparent border-slate-100">
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Nome / Razão Social</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Documento</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Chave PIX</TableHead>
-              <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest px-8">Ações</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Nome / Razão Social</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Documento</TableHead>
+              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Chave PIX</TableHead>
+              <TableHead className="text-right font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

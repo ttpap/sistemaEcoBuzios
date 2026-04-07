@@ -295,7 +295,28 @@ export default function EnelReport() {
                   ? ` · ${classes.find(c => c.id === selectedClassId)!.name}`
                   : " · Todas as turmas"}
               </p>
-              <div className="overflow-x-auto rounded-2xl border border-slate-100">
+              {/* Mobile: cards */}
+              <div className="md:hidden space-y-2">
+                {rows.map((row, idx) => (
+                  <div key={idx} className="rounded-2xl border border-slate-100 p-3 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 text-sm">{idx + 1}. {row.name}</p>
+                        <p className="text-xs text-slate-500">{row.className || "—"}</p>
+                      </div>
+                      {row.age && <span className="text-xs font-bold text-slate-400 shrink-0">{row.age}a</span>}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                      <div><span className="text-slate-400">CPF:</span> <span className="font-mono text-slate-600">{row.cpf || "—"}</span></div>
+                      {includeEnelNumber && <div><span className="text-slate-400">ENEL:</span> <span className="font-mono text-slate-600">{row.enelClientNumber || "—"}</span></div>}
+                      <div><span className="text-slate-400">Tel:</span> <span className="text-slate-600">{row.cellPhone || "—"}</span></div>
+                      <div><span className="text-slate-400">Nasc:</span> <span className="text-slate-600">{row.birthDate || "—"}</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
                 <table className="min-w-full text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-100">

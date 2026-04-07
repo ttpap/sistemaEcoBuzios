@@ -47,7 +47,7 @@ export default function AppShell({ sidebar, title, children }: Props) {
               <Logo className="h-full w-auto" />
             </div>
             {title ? (
-              <p className="mt-1 text-xs font-black uppercase tracking-widest text-slate-500 truncate">
+              <p className="mt-1 text-sm font-black uppercase tracking-wide text-slate-500 truncate">
                 {title}
               </p>
             ) : null}

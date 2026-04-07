@@ -848,7 +848,42 @@ export default function Reports() {
                     </Button>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile: cards por turma */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {rows.map((row) => (
+                    <div key={row.classId} className="p-4">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 truncate">{row.name}</p>
+                          {row.period && <p className="text-xs text-slate-400">{row.period}</p>}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
+                          <p className="font-black text-slate-800">{row.total} <span className="text-xs text-emerald-600">/ {row.total * 2}h</span></p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {months.map((m) => {
+                          const v = row.byMonth[m] ?? 0;
+                          if (!v) return null;
+                          return (
+                            <span key={m} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-100 px-2 py-0.5 text-xs">
+                              <span className="text-slate-400 font-bold">{new Date(m + "-15").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
+                              <span className="font-bold text-slate-700">{v}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="p-4 bg-slate-50 flex items-center justify-between">
+                    <span className="font-black text-slate-700">TOTAL</span>
+                    <span className="font-black text-emerald-700">{grandTotal} aulas / {grandTotal * 2}h</span>
+                  </div>
+                </div>
+
+                {/* Desktop: tabela */}
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-100">
@@ -1175,7 +1210,32 @@ export default function Reports() {
 
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Pré-visualização</p>
-                    <div className="overflow-x-auto rounded-2xl border border-slate-100">
+
+                    {/* Mobile: cards por aluno */}
+                    <div className="md:hidden space-y-2">
+                      {matrix.students.map((st) => (
+                        <div key={st.id} className="rounded-2xl border border-slate-100 p-3 bg-white">
+                          <p className="font-bold text-slate-800 text-sm">{st.socialName || st.preferredName || st.fullName}</p>
+                          {(st.socialName || st.preferredName) && (
+                            <p className="text-[10px] text-slate-400 font-bold">{st.fullName}</p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {matrix.dates.map((d) => {
+                              const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
+                              if (!isMember) return null;
+                              return (
+                                <div key={d} className="flex flex-col items-center">
+                                  <span className="text-[9px] text-slate-400 font-bold">{formatDateCol(d)}</span>
+                                  {statusPill(matrix.statusByStudentByDate[st.id]?.[d])}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-100">
                       <table className="min-w-full text-xs">
                         <thead>
                           <tr className="bg-slate-50 border-b border-slate-100">

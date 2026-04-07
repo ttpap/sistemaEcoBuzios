@@ -358,9 +358,9 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
         </DialogHeader>
 
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
-          <div className="min-w-[720px] md:min-w-0 p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
+          <div className="p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full justify-start gap-2 rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100 overflow-x-auto">
+              <TabsList className="w-full grid grid-cols-2 sm:grid-cols-3 md:flex md:justify-start gap-2 h-auto rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">
                   <User className="h-4 w-4 mr-2" />
                   Dados pessoais
