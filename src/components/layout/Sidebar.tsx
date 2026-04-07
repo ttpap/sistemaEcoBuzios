@@ -135,17 +135,6 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                 );
               })}
 
-              {/* Dashboard API externo — somente admin */}
-              <a
-                href="https://a-pi-eco-buzios.vercel.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => onNavigate?.()}
-                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors text-slate-600 hover:bg-white/60 hover:text-primary"
-              >
-                <ExternalLink className="h-4 w-4 text-slate-400" />
-                Dashboard API
-              </a>
             </div>
           )}
         </div>
@@ -325,6 +314,16 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       </nav>
 
       <div className="p-4 border-t border-slate-200 space-y-1">
+        <a
+          href="https://a-pi-eco-buzios.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => onNavigate?.()}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black text-primary hover:bg-primary/10 transition-colors"
+        >
+          <ExternalLink className="h-5 w-5 text-primary" />
+          Dashboard API
+        </a>
         <a
           href="https://www.ecobuziosfinanceiro.com.br"
           target="_blank"
