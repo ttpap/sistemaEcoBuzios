@@ -202,7 +202,7 @@ const ClassForm = ({ initialData }: ClassFormProps) => {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="0" className="font-bold text-primary">Ilimitado</SelectItem>
-                      {[10, 15, 20, 25, 30, 35, 40, 50].map(n => (
+                      {[10, 15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100].map(n => (
                         <SelectItem key={n} value={n.toString()}>{n} vagas</SelectItem>
                       ))}
                     </SelectContent>

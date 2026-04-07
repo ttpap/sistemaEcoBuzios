@@ -263,6 +263,14 @@ const ClassDetails = () => {
     const run = async () => {
       if (!schoolClass) return;
 
+      // Verifica limite de vagas (capacity > 0 = limite ativo; 0 = ilimitado)
+      const currentCount = (schoolClass.studentIds || []).length;
+      const cap = schoolClass.capacity ?? 0;
+      if (cap > 0 && currentCount >= cap) {
+        showError(`Turma lotada! Limite de ${cap} aluno${cap > 1 ? "s" : ""} atingido.`);
+        return;
+      }
+
       try {
         await enrollStudentRemote(schoolClass.id, studentId);
       } catch (e: any) {
@@ -488,7 +496,18 @@ const ClassDetails = () => {
                   </DialogTrigger>
                   <DialogContent className="rounded-[2rem] max-h-[85vh] flex flex-col p-0 overflow-hidden">
                     <DialogHeader className="p-8 pb-4">
-                      <DialogTitle className="text-xl font-black text-primary">Matricular Aluno</DialogTitle>
+                      <DialogTitle className="text-xl font-black text-primary flex items-center justify-between">
+                        Matricular Aluno
+                        {schoolClass && schoolClass.capacity > 0 && (
+                          <span className={`text-sm font-black px-3 py-1 rounded-full ${
+                            classStudents.length >= schoolClass.capacity
+                              ? "bg-red-100 text-red-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            {classStudents.length}/{schoolClass.capacity} vagas
+                          </span>
+                        )}
+                      </DialogTitle>
                       <div className="relative mt-6">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                         <Input 
