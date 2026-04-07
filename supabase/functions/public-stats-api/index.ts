@@ -77,16 +77,27 @@ serve(async (req) => {
       ? projetosParam.split(",").map((s) => s.trim()).filter(Boolean)
       : null;
 
-    // Chama a RPC existente que já agrega todos os dados
+    // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
-    const { data: charts, error: rpcErr } = await client.rpc("public_dashboard_charts", rpcParams);
 
-    if (rpcErr || !charts) {
-      console.error("[public-stats-api] rpc error", rpcErr);
+    const [chartsResult, freqResult] = await Promise.all([
+      client.rpc("public_dashboard_charts", rpcParams),
+      client.rpc("public_attendance_stats", rpcParams),
+    ]);
+
+    if (chartsResult.error || !chartsResult.data) {
+      console.error("[public-stats-api] rpc error (charts)", chartsResult.error);
       return new Response(JSON.stringify({ ok: false, error: "query_failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const charts = chartsResult.data;
+    const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
+
+    if (freqResult.error) {
+      console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
     }
 
     // Busca total global de alunos matriculados em turmas
@@ -102,6 +113,7 @@ serve(async (req) => {
       bairros: charts.neighborhoods ?? [],
       instituicao: charts.schoolTypes ?? [],
       idades: charts.ageRanges ?? [],
+      frequencia: freq,
     };
 
     return new Response(JSON.stringify(response, null, 2), {
