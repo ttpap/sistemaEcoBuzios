@@ -26,9 +26,24 @@ export function readScoped<T>(baseKey: ProjectKey, fallback: T): T {
   return safeParse<T>(localStorage.getItem(key), fallback);
 }
 
+function safeSetItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    // Quota exceeded — drop cache and try once more without it
+    try {
+      localStorage.removeItem(key);
+      localStorage.setItem(key, value);
+    } catch {
+      // Give up silently — cache is best-effort
+      console.warn(`[storage] não foi possível salvar ${key}: cota excedida`);
+    }
+  }
+}
+
 export function writeScoped<T>(baseKey: ProjectKey, value: T) {
   const key = scopedKey(baseKey);
-  localStorage.setItem(key, JSON.stringify(value));
+  safeSetItem(key, JSON.stringify(value));
 }
 
 // Students are global
@@ -37,7 +52,7 @@ export function readGlobalStudents<T>(fallback: T): T {
 }
 
 export function writeGlobalStudents<T>(value: T) {
-  localStorage.setItem("ecobuzios_students", JSON.stringify(value));
+  safeSetItem("ecobuzios_students", JSON.stringify(value));
 }
 
 export function hasActiveProject() {
