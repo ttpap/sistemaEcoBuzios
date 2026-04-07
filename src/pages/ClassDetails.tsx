@@ -413,7 +413,7 @@ const ClassDetails = () => {
           <div className="grid gap-8 lg:grid-cols-2">
             {/* Gestão de Professores */}
             <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem]">
-              <CardHeader className="flex flex-row items-center justify-between p-8 pb-4">
+              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 p-5 pb-3 sm:p-8 sm:pb-4">
                 <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
                   <Users className="h-5 w-5" /> Professores
                 </CardTitle>
@@ -445,7 +445,7 @@ const ClassDetails = () => {
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent className="p-8 pt-0">
+              <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
                 <div className="space-y-3">
                   {classTeachers.length === 0 ? (
                     <p className="text-slate-400 text-sm italic">Nenhum professor vinculado.</p>
@@ -484,7 +484,7 @@ const ClassDetails = () => {
 
             {/* Gestão de Alunos */}
             <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem]">
-              <CardHeader className="flex flex-row items-center justify-between p-8 pb-4">
+              <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 p-5 pb-3 sm:p-8 sm:pb-4">
                 <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
                   <GraduationCap className="h-5 w-5" /> Alunos ({classStudents.length})
                 </CardTitle>
@@ -562,7 +562,7 @@ const ClassDetails = () => {
                   </DialogContent>
                 </Dialog>
               </CardHeader>
-              <CardContent className="p-8 pt-0">
+              <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
                 <div className="space-y-4">
                   {classStudents.length === 0 ? (
                     <p className="text-slate-400 text-sm italic">Nenhum aluno matriculado.</p>
