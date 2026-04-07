@@ -25,6 +25,7 @@ import {
   KeyRound,
   ChevronDown,
   Settings,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -133,6 +134,18 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                   </Link>
                 );
               })}
+
+              {/* Dashboard API externo — somente admin */}
+              <a
+                href="https://a-pi-eco-buzios.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => onNavigate?.()}
+                className="flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors text-slate-600 hover:bg-white/60 hover:text-primary"
+              >
+                <ExternalLink className="h-4 w-4 text-slate-400" />
+                Dashboard API
+              </a>
             </div>
           )}
         </div>
