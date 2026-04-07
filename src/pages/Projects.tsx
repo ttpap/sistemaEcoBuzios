@@ -1262,6 +1262,22 @@ export default function Projects() {
               </p>
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4 space-y-6">
+
+              {/* Autenticação */}
+              <div className="rounded-[1.75rem] border border-amber-200 bg-amber-50 p-5 space-y-3">
+                <p className="text-xs font-black uppercase tracking-widest text-amber-700">Autenticação obrigatória</p>
+                <p className="text-sm font-bold text-amber-900">
+                  Toda requisição precisa do header <code className="bg-amber-100 rounded px-1 py-0.5 font-mono text-xs">x-api-key: &lt;sua-chave&gt;</code>.
+                  Gere e gerencie suas chaves em{" "}
+                  <a href="/api-keys" className="underline font-black">Sistema → Chaves de API</a>.
+                </p>
+                <div className="rounded-[1.25rem] bg-amber-100 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-2">Exemplo cURL</p>
+                  <code className="text-xs font-mono text-amber-900 break-all whitespace-pre-wrap">{`curl -H "x-api-key: SUA_CHAVE" \\
+  https://ixgujnhdjrgoakqzdkgx.supabase.co/functions/v1/public-stats-api`}</code>
+                </div>
+              </div>
+
               {/* Filtro de projeto */}
               <div className="space-y-2">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-500">Filtrar por projeto (opcional)</p>
@@ -1344,7 +1360,30 @@ export default function Projects() {
   "por_projeto": [{ "name": "EcoBúzios", "value": 11 }, ...],
   "bairros":     [{ "name": "Centro",    "value": 8  }, ...],
   "instituicao": [{ "name": "Pública",   "value": 20 }, ...],
-  "idades":      [{ "name": "14-17",     "value": 15 }, ...]
+  "idades":      [{ "name": "14-17",     "value": 15 }, ...],
+  "frequencia": {
+    "ano": 2026,
+    "mensal": [
+      {
+        "mes": "2026-03",
+        "total_registros": 400,
+        "total_presencas": 340,
+        "total_faltas": 45,
+        "total_atrasos": 10,
+        "total_justificadas": 5,
+        "percentual_presenca": 85.0
+      },
+      ...
+    ],
+    "anual": {
+      "total_registros": 1200,
+      "total_presencas": 1020,
+      "total_faltas": 130,
+      "total_atrasos": 30,
+      "total_justificadas": 20,
+      "percentual_presenca": 85.0
+    }
+  }
 }`}</pre>
               </div>
             </CardContent>
