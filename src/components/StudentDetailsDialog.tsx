@@ -273,6 +273,8 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   };
   // ─────────────────────────────────────────────────────────────────────────
 
+  const [photoOpen, setPhotoOpen] = useState(false);
+
   if (!student) return null;
 
   const onEdit = () => {
@@ -302,7 +304,12 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
         <DialogHeader className="p-6 sm:p-8 bg-primary text-white shrink-0">
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-5 sm:gap-6">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center">
+              <button
+                className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center shrink-0 cursor-zoom-in"
+                onClick={() => student.photo && setPhotoOpen(true)}
+                title="Ampliar foto"
+                type="button"
+              >
                 {student.photo ? (
                   <img
                     src={student.photo}
@@ -312,7 +319,22 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 ) : (
                   <User className="h-10 w-10 text-white/50" />
                 )}
-              </div>
+              </button>
+
+              {/* Lightbox */}
+              {photoOpen && student.photo && (
+                <div
+                  className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+                  onClick={() => setPhotoOpen(false)}
+                >
+                  <img
+                    src={student.photo}
+                    alt={student.fullName}
+                    className="max-h-[90dvh] max-w-[90dvw] rounded-[2rem] shadow-2xl object-contain"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
               <div className="space-y-2 min-w-0">
                 <DialogTitle className="text-2xl font-black tracking-tight truncate">
                   {student.fullName}

@@ -162,6 +162,7 @@ export default function ClassAttendance({
   // Student justification viewer
   const [justificationOpen, setJustificationOpen] = useState(false);
   const [justificationText, setJustificationText] = useState("");
+  const [photoLightbox, setPhotoLightbox] = useState<{ src: string; name: string } | null>(null);
 
 
   const openSession = useCallback((sessionId: string, opts?: { scroll?: boolean }) => {
@@ -513,47 +514,13 @@ export default function ClassAttendance({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cabeçalho: seletor de chamada + botão nova chamada */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-primary tracking-tight">Chamada</h2>
-          <p className="text-slate-500 font-medium">Registre presença, falta e atrasos por dia.</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2 sm:items-center">
-          {/* Seletor de chamada por data */}
-          {sessions.length > 0 && (
-            <Select
-              value={selectedId || ""}
-              onValueChange={(v) => openSession(v, { scroll: false })}
-            >
-              <SelectTrigger className="rounded-2xl h-12 px-5 font-black border-slate-200 bg-white min-w-[200px] gap-2">
-                <CalendarDays className="h-4 w-4 text-slate-400 shrink-0" />
-                <SelectValue placeholder="Selecionar chamada..." />
-              </SelectTrigger>
-              <SelectContent className="rounded-[1.5rem]">
-                {sessions.map((s) => {
-                  const d = parseYMD(s.date);
-                  const label = d ? d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : s.date;
-                  const isToday = s.date === todayYmd;
-                  const justCount = justificationCountByDate.get(s.date) || 0;
-                  return (
-                    <SelectItem key={s.id} value={s.id} className="rounded-xl font-bold cursor-pointer">
-                      <span className="flex items-center gap-2">
-                        <span>{label}</span>
-                        {isToday && <span className="text-[10px] font-black text-primary bg-primary/10 rounded-full px-2 py-0.5">Hoje</span>}
-                        {!s.finalizedAt
-                          ? <span className="text-[10px] font-black text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">Rascunho</span>
-                          : <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">Salva</span>
-                        }
-                        {justCount > 0 && <span className="text-[10px] font-black text-sky-700">{justCount} just.</span>}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
+      {/* Cabeçalho: título + botão nova chamada */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-primary tracking-tight">Chamada</h2>
+            <p className="text-slate-500 font-medium">Registre presença, falta e atrasos por dia.</p>
+          </div>
 
           {/* Botão Nova chamada */}
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -591,6 +558,40 @@ export default function ClassAttendance({
             </DialogContent>
           </Dialog>
         </div>
+
+        {/* Seletor de chamada por data */}
+        {sessions.length > 0 && (
+          <Select
+            value={selectedId || ""}
+            onValueChange={(v) => openSession(v, { scroll: false })}
+          >
+            <SelectTrigger className="rounded-2xl h-12 px-5 font-black border-slate-200 bg-white gap-2">
+              <CalendarDays className="h-4 w-4 text-slate-400 shrink-0" />
+              <SelectValue placeholder="Selecionar chamada..." />
+            </SelectTrigger>
+            <SelectContent className="rounded-[1.5rem]">
+              {sessions.map((s) => {
+                const d = parseYMD(s.date);
+                const label = d ? d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : s.date;
+                const isToday = s.date === todayYmd;
+                const justCount = justificationCountByDate.get(s.date) || 0;
+                return (
+                  <SelectItem key={s.id} value={s.id} className="rounded-xl font-bold cursor-pointer">
+                    <span className="flex items-center gap-2">
+                      <span>{label}</span>
+                      {isToday && <span className="text-[10px] font-black text-primary bg-primary/10 rounded-full px-2 py-0.5">Hoje</span>}
+                      {!s.finalizedAt
+                        ? <span className="text-[10px] font-black text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">Rascunho</span>
+                        : <span className="text-[10px] font-black text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">Salva</span>
+                      }
+                      {justCount > 0 && <span className="text-[10px] font-black text-sky-700">{justCount} just.</span>}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div ref={attendancePanelRef} />
@@ -628,27 +629,17 @@ export default function ClassAttendance({
 
             <div className="flex flex-col gap-2 md:items-end">
               {selectedSession && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    className="rounded-2xl font-black gap-2"
-                    onClick={saveSession}
-                    disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
-                  >
-                    <Save className="h-4 w-4" />
-                    Salvar chamada
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-2xl text-slate-400 hover:text-rose-700 hover:bg-rose-600/10"
-                    onClick={() => setDeleteTarget(selectedSession)}
-                    title="Apagar chamada"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-2xl font-bold gap-2 text-slate-600 border-slate-200 hover:bg-slate-50"
+                  onClick={saveSession}
+                  disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Salvar chamada
+                </Button>
               )}
-
               {selectedSession && summary && (
                 <div className="flex flex-wrap gap-2 justify-start md:justify-end">
                   <Badge className="rounded-full border-none bg-emerald-600 text-white font-black">
@@ -747,9 +738,9 @@ export default function ClassAttendance({
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-4 min-w-0">
                           <button
-                            className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0"
-                            onClick={() => openStudentDetails(st)}
-                            title="Abrir ficha do aluno"
+                            className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0 cursor-zoom-in"
+                            onClick={() => st.photo ? setPhotoLightbox({ src: st.photo, name: st.fullName }) : openStudentDetails(st)}
+                            title={st.photo ? "Ampliar foto" : "Abrir ficha do aluno"}
                           >
                             {st.photo ? (
                               <img src={st.photo} alt={st.fullName} className="w-full h-full object-cover" />
@@ -866,6 +857,30 @@ export default function ClassAttendance({
             </div>
           </ScrollArea>
         )}
+
+        {selectedSession && (
+          <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-2xl text-slate-300 hover:text-rose-700 hover:bg-rose-600/10"
+              onClick={() => setDeleteTarget(selectedSession)}
+              title="Apagar chamada"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-2xl font-bold gap-2 text-slate-600 border-slate-200 hover:bg-slate-50"
+              onClick={saveSession}
+              disabled={Boolean(selectedSession.finalizedAt) && !isDirty}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Salvar chamada
+            </Button>
+          </div>
+        )}
       </Card>
 
 
@@ -890,6 +905,21 @@ export default function ClassAttendance({
         isOpen={isStudentDetailsOpen}
         onClose={() => setIsStudentDetailsOpen(false)}
       />
+
+      {/* Lightbox de foto */}
+      {photoLightbox && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/85 backdrop-blur-sm"
+          onClick={() => setPhotoLightbox(null)}
+        >
+          <img
+            src={photoLightbox.src}
+            alt={photoLightbox.name}
+            className="max-h-[88dvh] max-w-[88dvw] rounded-[2rem] shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
