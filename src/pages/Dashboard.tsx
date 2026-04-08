@@ -805,10 +805,9 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       }
     }
 
-    // Por mês no ano corrente
-    const year = new Date().getFullYear();
-    const perMonth = Array.from({ length: 12 }, (_, i) => {
-      const mk = `${year}-${String(i + 1).padStart(2, "0")}`;
+    // Todos os meses únicos de toda a história do projeto
+    const allMonthKeys = Array.from(new Set(finalized.map((s) => s.date.slice(0, 7)))).sort();
+    const perMonth = allMonthKeys.map((mk) => {
       const mSess = finalized.filter((s) => s.date.startsWith(mk));
       const c = { presente: 0, falta: 0, atrasado: 0, justificada: 0 };
       for (const s of mSess) {
@@ -828,7 +827,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       justificada: Math.round(activeMonths.reduce((a, m) => a + m.justificada, 0) / n),
     };
 
-    return { mc, monthTotal, perMonth, annualAvg, hasData: finalized.length > 0, activeMonths: activeMonths.length };
+    const projectStart = allMonthKeys[0] || null;
+    const projectEnd = allMonthKeys[allMonthKeys.length - 1] || null;
+
+    return { mc, monthTotal, perMonth, annualAvg, hasData: finalized.length > 0, activeMonths: activeMonths.length, projectStart, projectEnd };
   }, [attendanceSessions, thisMonth]);
 
   const openStudent = (s: StudentRegistration) => {
@@ -2103,7 +2105,14 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 return (
                   <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
-                      Acumulado {new Date().getFullYear()} ({attendanceStats.activeMonths} mes{attendanceStats.activeMonths !== 1 ? "es" : ""})
+                      {(() => {
+                        const fmt = (mk: string) => new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" }).format(new Date(`${mk}-01T00:00:00`));
+                        const { projectStart, projectEnd, activeMonths } = attendanceStats;
+                        const range = projectStart && projectEnd && projectStart !== projectEnd
+                          ? `${fmt(projectStart)} – ${fmt(projectEnd)}`
+                          : projectStart ? fmt(projectStart) : "";
+                        return `Acumulado do projeto${range ? ` (${range})` : ""} · ${activeMonths} ${activeMonths !== 1 ? "meses" : "mês"}`;
+                      })()}
                     </p>
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
