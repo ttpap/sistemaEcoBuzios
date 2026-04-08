@@ -588,6 +588,68 @@ export default function StudentDashboard() {
         </div>
       </div>
 
+      {/* Annual stats — topo */}
+      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="p-6 sm:p-8 bg-white">
+          <CardTitle className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2">
+            <BarChart2 className="h-5 w-5 text-primary" /> Frequência anual — {new Date().getFullYear()}
+          </CardTitle>
+          <p className="mt-1 text-sm font-bold text-slate-500">Totais e distribuição mensal</p>
+        </CardHeader>
+        <CardContent className="p-6 sm:p-8 pt-0 space-y-6">
+          {/* Totals row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Presenças", count: annualTotals.presente, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+              { label: "Atrasos", count: annualTotals.atrasado, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+              { label: "Justificadas", count: annualTotals.justificada, bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
+              { label: "Faltas", count: annualTotals.falta, bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
+            ].map(({ label, count, bg, text, border }) => (
+              <div key={label} className={`rounded-[1.5rem] border ${border} ${bg} p-4`}>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${text}`}>{label}</p>
+                <p className={`mt-1 text-3xl font-black ${text}`}>{yearLoading ? "…" : count}</p>
+                {annualTotals.total > 0 && !yearLoading ? (
+                  <p className={`mt-1 text-xs font-bold ${text} opacity-70`}>
+                    {Math.round((count / annualTotals.total) * 100)}%
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          {/* Monthly bar chart */}
+          <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/50 p-4">
+            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Por mês</p>
+            {yearLoading ? (
+              <div className="flex items-center justify-center h-[220px] text-sm font-bold text-slate-400">Carregando…</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={monthlyStats} margin={{ top: 0, right: 8, left: -20, bottom: 0 }} barSize={6}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "1rem", border: "1px solid #e2e8f0", fontSize: 12, fontWeight: 700 }}
+                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                    formatter={(v: any, n: any, p: any) => {
+                      const row = p?.payload || {};
+                      const total = (row.Presente || 0) + (row.Atraso || 0) + (row.Justificada || 0) + (row.Falta || 0);
+                      const pct = total > 0 ? Math.round((Number(v) / total) * 1000) / 10 : 0;
+                      return [`${v} (${pct}%)`, n];
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700, paddingTop: 8 }} />
+                  <Bar dataKey="Presente" fill={CHART_COLORS.presente} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Atraso" fill={CHART_COLORS.atrasado} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Justificada" fill={CHART_COLORS.justificada} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Falta" fill={CHART_COLORS.falta} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Credentials */}
       <Card className="border-none shadow-2xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden">
         <CardHeader className="p-6 sm:p-8 bg-white">
@@ -705,67 +767,6 @@ export default function StudentDashboard() {
         </div>
       </div>
 
-      {/* Annual stats */}
-      <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="p-6 sm:p-8 bg-white">
-          <CardTitle className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2">
-            <BarChart2 className="h-5 w-5 text-primary" /> Frequência anual — {new Date().getFullYear()}
-          </CardTitle>
-          <p className="mt-1 text-sm font-bold text-slate-500">Totais e distribuição mensal</p>
-        </CardHeader>
-        <CardContent className="p-6 sm:p-8 pt-0 space-y-6">
-          {/* Totals row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: "Presenças", count: annualTotals.presente, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-              { label: "Atrasos", count: annualTotals.atrasado, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-              { label: "Justificadas", count: annualTotals.justificada, bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
-              { label: "Faltas", count: annualTotals.falta, bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
-            ].map(({ label, count, bg, text, border }) => (
-              <div key={label} className={`rounded-[1.5rem] border ${border} ${bg} p-4`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest ${text}`}>{label}</p>
-                <p className={`mt-1 text-3xl font-black ${text}`}>{yearLoading ? "…" : count}</p>
-                {annualTotals.total > 0 && !yearLoading ? (
-                  <p className={`mt-1 text-xs font-bold ${text} opacity-70`}>
-                    {Math.round((count / annualTotals.total) * 100)}%
-                  </p>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          {/* Monthly bar chart */}
-          <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/50 p-4">
-            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Por mês</p>
-            {yearLoading ? (
-              <div className="flex items-center justify-center h-[220px] text-sm font-bold text-slate-400">Carregando…</div>
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={monthlyStats} margin={{ top: 0, right: 8, left: -20, bottom: 0 }} barSize={6}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fontWeight: 700, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ borderRadius: "1rem", border: "1px solid #e2e8f0", fontSize: 12, fontWeight: 700 }}
-                    cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                    formatter={(v: any, n: any, p: any) => {
-                      const row = p?.payload || {};
-                      const total = (row.Presente || 0) + (row.Atraso || 0) + (row.Justificada || 0) + (row.Falta || 0);
-                      const pct = total > 0 ? Math.round((Number(v) / total) * 1000) / 10 : 0;
-                      return [`${v} (${pct}%)`, n];
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12, fontWeight: 700, paddingTop: 8 }} />
-                  <Bar dataKey="Presente" fill={CHART_COLORS.presente} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Atraso" fill={CHART_COLORS.atrasado} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Justificada" fill={CHART_COLORS.justificada} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="Falta" fill={CHART_COLORS.falta} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

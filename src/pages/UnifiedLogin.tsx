@@ -91,7 +91,7 @@ export default function UnifiedLogin() {
       }
 
       if (reason === "ambiguous_login") {
-        showError("Existem alunos com os mesmos 4 últimos dígitos. Use a matrícula completa (AAAA-XXXX). ");
+        showError("Use a matrícula completa no formato AAAA-XXXX (ex: 2026-0096).");
         return;
       }
 
@@ -123,7 +123,7 @@ export default function UnifiedLogin() {
                 <Input
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Email (admin) ou login/matrícula"
+                  placeholder="Email (admin/prof) ou matrícula (ex: 2026-0096)"
                   className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
                   autoComplete="username"
                 />
@@ -158,7 +158,7 @@ export default function UnifiedLogin() {
                   <span className="font-black">Professor/Coordenador:</span> login + senha gerados no cadastro.
                 </p>
                 <p className="mt-2">
-                  <span className="font-black">Aluno:</span> matrícula (AAAA-XXXX) ou 4 últimos dígitos + senha padrão.
+                  <span className="font-black">Aluno:</span> matrícula completa (ex: 2026-0096) + senha <span className="font-black">EcoBuzios123</span>.
                 </p>
               </div>
             </form>

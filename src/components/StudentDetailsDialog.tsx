@@ -39,6 +39,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 import { fetchModeBStudentMonthSchedule } from "@/services/modeBService";
 import type { ModeBStudentMonthRow } from "@/integrations/supabase/mode-b";
@@ -177,9 +180,9 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     }
   }, [isOpen]);
 
-  // Load month data
+  // Load month data (eager — não depende da aba ativa)
   useEffect(() => {
-    if (activeTab !== "frequencia" || !student || !isOpen) return;
+    if (!student || !isOpen) return;
     const projectId = getActiveProjectId();
     if (!projectId) return;
     let cancelled = false;
@@ -189,11 +192,11 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
       .catch(() => { if (!cancelled) setFreqRows([]); })
       .finally(() => { if (!cancelled) setFreqLoading(false); });
     return () => { cancelled = true; };
-  }, [activeTab, student?.id, freqMonth, isOpen]);
+  }, [student?.id, freqMonth, isOpen]);
 
-  // Load year data (once per dialog open + tab activation)
+  // Load year data (eager — não depende da aba ativa)
   useEffect(() => {
-    if (activeTab !== "frequencia" || !student || !isOpen) return;
+    if (!student || !isOpen) return;
     const projectId = getActiveProjectId();
     if (!projectId) return;
     let cancelled = false;
@@ -203,7 +206,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
       .then((results) => { if (!cancelled) setFreqYearRows(results.flat()); })
       .catch(() => { if (!cancelled) setFreqYearRows([]); });
     return () => { cancelled = true; };
-  }, [activeTab, student?.id, isOpen]);
+  }, [student?.id, isOpen]);
 
   const freqCalendarModifiers = useMemo(() => {
     const presente: Date[] = [], falta: Date[] = [], atrasado: Date[] = [];
@@ -359,6 +362,102 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
         <div className="flex-1 min-h-0 overflow-auto overscroll-contain">
           <div className="p-5 pb-10 sm:p-6 sm:pb-12 md:p-8">
+
+            {/* ── Gráficos de frequência (topo) ──────────────────────────── */}
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Mensal */}
+              {(() => {
+                const donutData = [
+                  { name: "Presente", value: freqMonthTotals.presente, color: "#10b981" },
+                  { name: "Falta", value: freqMonthTotals.falta, color: "#f43f5e" },
+                  { name: "Atraso", value: freqMonthTotals.atrasado, color: "#f59e0b" },
+                  { name: "Justificada", value: freqMonthTotals.justificada, color: "#8b5cf6" },
+                ].filter((d) => d.value > 0);
+                return (
+                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mensal</p>
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => navFreqMonth(-1)} className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100">
+                          <ChevronLeft className="h-3 w-3 text-slate-600" />
+                        </button>
+                        <p className="text-[10px] font-black text-primary capitalize px-1">{freqMonthLabel}</p>
+                        <button type="button" onClick={() => navFreqMonth(1)} className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100">
+                          <ChevronRight className="h-3 w-3 text-slate-600" />
+                        </button>
+                      </div>
+                    </div>
+                    {freqLoading ? (
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Carregando…</div>
+                    ) : donutData.length === 0 ? (
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Sem dados</div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height={140}>
+                          <PieChart>
+                            <Pie data={donutData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} dataKey="value" strokeWidth={2}>
+                              {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip formatter={(v: any, n: any) => [`${v} aula(s)`, n]} contentStyle={{ borderRadius: "0.75rem", border: "1px solid #e2e8f0", fontSize: 12, fontWeight: 700 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                          {donutData.map((d) => (
+                            <span key={d.name} className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: d.color }} />
+                              {d.name} ({d.value})
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Anual */}
+              {(() => {
+                const donutData = [
+                  { name: "Presente", value: freqAnnualTotals.presente, color: "#10b981" },
+                  { name: "Falta", value: freqAnnualTotals.falta, color: "#f43f5e" },
+                  { name: "Atraso", value: freqAnnualTotals.atrasado, color: "#f59e0b" },
+                  { name: "Justificada", value: freqAnnualTotals.justificada, color: "#8b5cf6" },
+                ].filter((d) => d.value > 0);
+                return (
+                  <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                      Anual — {new Date().getFullYear()}
+                    </p>
+                    {freqAnnualTotals.total === 0 ? (
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Carregando…</div>
+                    ) : donutData.length === 0 ? (
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Sem dados</div>
+                    ) : (
+                      <>
+                        <ResponsiveContainer width="100%" height={140}>
+                          <PieChart>
+                            <Pie data={donutData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} dataKey="value" strokeWidth={2}>
+                              {donutData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip formatter={(v: any, n: any) => [`${v} aula(s)`, n]} contentStyle={{ borderRadius: "0.75rem", border: "1px solid #e2e8f0", fontSize: 12, fontWeight: 700 }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
+                          {donutData.map((d) => (
+                            <span key={d.name} className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: d.color }} />
+                              {d.name} ({d.value})
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            {/* ──────────────────────────────────────────────────────────── */}
+
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full grid grid-cols-2 sm:grid-cols-3 md:flex md:justify-start gap-2 h-auto rounded-[1.5rem] bg-slate-50 p-2 border border-slate-100">
                 <TabsTrigger value="pessoais" className="rounded-xl font-black">

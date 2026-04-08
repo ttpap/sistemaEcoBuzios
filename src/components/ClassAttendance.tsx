@@ -95,6 +95,8 @@ function displaySocialName(s: StudentRegistration) {
   return s.socialName || s.preferredName || s.fullName;
 }
 
+const MAX_MONTHLY_ABSENCES = 3;
+
 const statusMeta: Array<{ value: AttendanceStatus; label: string; icon: React.ReactNode; className: string }> = [
   {
     value: "presente",
@@ -778,6 +780,11 @@ export default function ClassAttendance({
                               >
                                 {abs} falta(s) em {monthLabel}
                               </Badge>
+                              {abs >= MAX_MONTHLY_ABSENCES && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 px-2 py-0.5 text-[10px] font-black">
+                                  ⚠ cota atingida
+                                </span>
+                              )}
                               <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
                                 Matrícula {st.registration}
                               </Badge>
