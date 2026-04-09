@@ -280,19 +280,19 @@ export async function upsertClassRemote(projectId: string, input: SchoolClass) {
 export async function deleteClassRemote(classId: string) {
   if (!supabase) return;
 
-  const { error } = await supabase.from("classes").delete().eq("id", classId);
-  if (!error) return;
-
   const staff = getModeBStaffSession();
-  if (!staff) throw error;
+  if (staff) {
+    const { error: rpcErr } = await supabase.rpc("mode_b_delete_class", {
+      p_login: staff.login,
+      p_password: staff.password,
+      p_class_id: classId,
+    });
+    if (rpcErr) throw rpcErr;
+    return;
+  }
 
-  const { error: rpcErr } = await supabase.rpc("mode_b_delete_class", {
-    p_login: staff.login,
-    p_password: staff.password,
-    p_class_id: classId,
-  });
-
-  if (rpcErr) throw rpcErr;
+  const { error } = await supabase.from("classes").delete().eq("id", classId);
+  if (error) throw error;
 }
 
 export type ClassTeacherRow = { class_id: string; teacher_id: string };
