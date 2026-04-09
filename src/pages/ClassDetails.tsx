@@ -694,7 +694,7 @@ const ClassDetails = () => {
               allTeachers={allTeachers}
               parentStudents={classStudents}
               projectStudents={allStudents}
-              isTeacherArea={isTeacherArea}
+              isTeacherArea={false}
             />
           ) : (
             <p className="text-slate-400 text-sm italic">Projeto ativo não encontrado.</p>
