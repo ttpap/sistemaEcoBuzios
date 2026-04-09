@@ -306,7 +306,7 @@ const Students = () => {
                   variant="ghost"
                   size="sm"
                   className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10 gap-1"
-                  onClick={() => navigate(`${base}/alunos/editar/${student.id}`)}
+                  onClick={() => navigate(`${base}/alunos/editar/${student.id}`, { state: { student, returnTo: location.pathname } })}
                 >
                   <Edit2 className="h-4 w-4" /> Editar
                 </Button>
@@ -410,7 +410,7 @@ const Students = () => {
                         variant="ghost"
                         size="icon"
                         className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10"
-                        onClick={() => navigate(`${base}/alunos/editar/${student.id}`)}
+                        onClick={() => navigate(`${base}/alunos/editar/${student.id}`, { state: { student, returnTo: location.pathname } })}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
