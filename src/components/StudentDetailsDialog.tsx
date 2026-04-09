@@ -281,7 +281,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     onClose();
     const base = getAreaBaseFromPathname(location.pathname);
     navigate(`${base}/alunos/editar/${student.id}`, {
-      state: { returnTo: location.pathname },
+      state: { returnTo: location.pathname, student },
     });
   };
 

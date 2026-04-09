@@ -16,12 +16,16 @@ const EditStudent = () => {
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
 
-  const returnTo: string | undefined = (location.state as any)?.returnTo;
+  const state = location.state as any;
+  const returnTo: string | undefined = state?.returnTo;
   const backTarget = returnTo ?? `${base}/alunos`;
 
-  const [student, setStudent] = useState<StudentRegistration | null>(null);
+  const [student, setStudent] = useState<StudentRegistration | null>(
+    state?.student ?? null
+  );
 
   useEffect(() => {
+    if (student) return; // já veio pelo state da navegação
     const saved = readGlobalStudents<StudentRegistration[]>([]);
     const found = saved.find((s: any) => s.id === id);
     if (found) {
