@@ -280,7 +280,9 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   const onEdit = () => {
     onClose();
     const base = getAreaBaseFromPathname(location.pathname);
-    navigate(`${base}/alunos/editar/${student.id}`);
+    navigate(`${base}/alunos/editar/${student.id}`, {
+      state: { returnTo: location.pathname },
+    });
   };
 
   const onResetPassword = async () => {

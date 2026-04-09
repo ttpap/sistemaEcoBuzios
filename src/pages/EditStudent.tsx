@@ -16,6 +16,9 @@ const EditStudent = () => {
   const location = useLocation();
   const base = getAreaBaseFromPathname(location.pathname);
 
+  const returnTo: string | undefined = (location.state as any)?.returnTo;
+  const backTarget = returnTo ?? `${base}/alunos`;
+
   const [student, setStudent] = useState<StudentRegistration | null>(null);
 
   useEffect(() => {
@@ -25,7 +28,6 @@ const EditStudent = () => {
       setStudent(found);
     } else {
       navigate(`${base}/alunos`);
-
     }
   }, [id, navigate, base]);
 
@@ -40,11 +42,11 @@ const EditStudent = () => {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
-          onClick={() => navigate(`${base}/alunos`)}
+          onClick={() => navigate(backTarget)}
         >
           <ArrowLeft className="h-5 w-5 text-slate-600" />
         </Button>
@@ -54,7 +56,7 @@ const EditStudent = () => {
         </div>
       </div>
 
-      <StudentForm initialData={student} />
+      <StudentForm initialData={student} redirectTo={backTarget} />
     </div>
   );
 };
