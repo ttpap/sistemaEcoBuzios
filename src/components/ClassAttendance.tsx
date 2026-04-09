@@ -127,10 +127,14 @@ const statusMeta: Array<{ value: AttendanceStatus; label: string; icon: React.Re
 export default function ClassAttendance({
   classId,
   students,
+  childClasses,
 }: {
   classId: string;
   students: StudentRegistration[];
+  /** Quando informado, habilita toggle para incluir chamadas dos núcleos no inventário. */
+  childClasses?: Array<{ id: string; name: string }>;
 }) {
+  const [includeNucleos, setIncludeNucleos] = useState(false);
   const studentsSorted = useMemo(
     () =>
       [...students].sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR")),
@@ -186,18 +190,30 @@ export default function ClassAttendance({
         return;
       }
 
-      const sess = await fetchAttendanceSessionsRemote(activeProjectId, classId);
+      const parentSess = await fetchAttendanceSessionsRemote(activeProjectId, classId);
 
-      setSessions(sess);
+      let merged = parentSess;
+      if (includeNucleos && childClasses && childClasses.length > 0) {
+        const childResults = await Promise.all(
+          childClasses.map((c) => fetchAttendanceSessionsRemote(activeProjectId, c.id)),
+        );
+        merged = parentSess.concat(...childResults).sort((a, b) => {
+          const byDate = b.date.localeCompare(a.date);
+          if (byDate !== 0) return byDate;
+          return b.createdAt.localeCompare(a.createdAt);
+        });
+      }
+
+      setSessions(merged);
       setSelectedId((prev) => {
-        if (prev && sess.some((s) => s.id === prev)) return prev;
-        const today = sess.find((s) => s.date === todayYmd);
-        return today?.id || sess[0]?.id || null;
+        if (prev && merged.some((s) => s.id === prev)) return prev;
+        const today = merged.find((s) => s.date === todayYmd);
+        return today?.id || merged[0]?.id || null;
       });
     };
 
     void run();
-  }, [activeProjectId, classId, todayYmd]);
+  }, [activeProjectId, classId, todayYmd, includeNucleos, childClasses]);
 
   const monthKeysStr = useMemo(() => {
     const keys = new Set<string>();
@@ -228,7 +244,15 @@ export default function ClassAttendance({
         ),
       );
 
-      setJustifications(parts.flat());
+      const flat = parts.flat();
+      const seen = new Set<string>();
+      const deduped: StudentJustification[] = [];
+      for (const j of flat) {
+        if (seen.has(j.id)) continue;
+        seen.add(j.id);
+        deduped.push(j);
+      }
+      setJustifications(deduped);
     };
 
     void run();
@@ -560,6 +584,18 @@ export default function ClassAttendance({
         </div>
 
         {/* Seletor de chamada por data */}
+        {childClasses && childClasses.length > 0 && (
+          <label className="inline-flex items-center gap-2 text-xs font-black text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeNucleos}
+              onChange={(e) => setIncludeNucleos(e.target.checked)}
+              className="h-4 w-4 rounded accent-primary"
+            />
+            Incluir chamadas dos núcleos ({childClasses.length})
+          </label>
+        )}
+
         {sessions.length > 0 && (
           <Select
             value={selectedId || ""}
@@ -575,10 +611,16 @@ export default function ClassAttendance({
                 const label = d ? d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }) : s.date;
                 const isToday = s.date === todayYmd;
                 const justCount = justificationCountByDate.get(s.date) || 0;
+                const childName = childClasses?.find((c) => c.id === s.classId)?.name;
                 return (
                   <SelectItem key={s.id} value={s.id} className="rounded-xl font-bold cursor-pointer">
                     <span className="flex items-center gap-2">
                       <span>{label}</span>
+                      {childName && (
+                        <span className="text-[10px] font-black text-violet-700 bg-violet-100 rounded-full px-2 py-0.5">
+                          Núcleo: {childName}
+                        </span>
+                      )}
                       {isToday && <span className="text-[10px] font-black text-primary bg-primary/10 rounded-full px-2 py-0.5">Hoje</span>}
                       {!s.finalizedAt
                         ? <span className="text-[10px] font-black text-sky-700 bg-sky-100 rounded-full px-2 py-0.5">Rascunho</span>
@@ -861,13 +903,14 @@ export default function ClassAttendance({
         {selectedSession && (
           <div className="px-4 py-3 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
             <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-2xl text-slate-300 hover:text-rose-700 hover:bg-rose-600/10"
+              variant="outline"
+              size="sm"
+              className="rounded-2xl font-bold gap-2 text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700"
               onClick={() => setDeleteTarget(selectedSession)}
-              title="Apagar chamada"
+              title="Apagar este dia de chamada"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
+              Apagar dia
             </Button>
             <Button
               variant="outline"

@@ -1,6 +1,8 @@
 export {
   deleteClassRemote,
   fetchClassesRemoteWithMeta,
+  fetchNucleosRemote,
+  fetchProjectNucleosRemote,
   fetchEnrollmentsRemoteWithMeta,
   fetchProjectEnrollmentsRemoteWithMeta,
   upsertClassRemote,

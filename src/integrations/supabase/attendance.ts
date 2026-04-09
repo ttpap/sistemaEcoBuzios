@@ -40,7 +40,11 @@ export async function fetchAttendanceSessionsRemote(projectId: string, classId?:
       p_class_id: classId || null,
     });
 
-    if (rpcErr || !rpcData) return [];
+    if (rpcErr) {
+      console.error("[fetchAttendanceSessionsRemote] RPC error", rpcErr);
+      return [];
+    }
+    if (!rpcData) return [];
 
     const rows = rpcData as unknown as RpcAttendanceRow[];
     return rows.map((r) => ({

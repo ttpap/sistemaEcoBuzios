@@ -15,6 +15,7 @@ function mapRow(row: any): SchoolClass {
     registrationDate: row.registration_date,
     status: row.status,
     complementaryInfo: row.complementary_info ?? undefined,
+    parentClassId: row.parent_class_id ?? null,
   };
 }
 
@@ -56,9 +57,58 @@ async function selectClassesByProject(projectId: string): Promise<SchoolClass[]>
     .from("classes")
     .select("*")
     .eq("project_id", projectId)
+    .is("parent_class_id", null)
     .order("registration_date", { ascending: false });
   if (error || !data) return [];
   return data.map(mapRow);
+}
+
+export async function fetchProjectNucleosRemote(projectId: string): Promise<SchoolClass[]> {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("project_id", projectId)
+    .not("parent_class_id", "is", null)
+    .order("registration_date", { ascending: false });
+  if (!error && data && data.length > 0) return data.map(mapRow);
+
+  const staff = getModeBStaffSession();
+  if (!staff) return !error && data ? data.map(mapRow) : [];
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_project_nucleos", {
+    p_login: staff.login,
+    p_password: staff.password,
+    p_project_id: projectId,
+  });
+  if (rpcErr) return [];
+  return (rpcData || []).map(mapRow);
+}
+
+export async function fetchNucleosRemote(parentClassId: string): Promise<SchoolClass[]> {
+  if (!supabase) return [];
+
+  // 1) SELECT direto (admin / quando RLS permite)
+  const { data, error } = await supabase
+    .from("classes")
+    .select("*")
+    .eq("parent_class_id", parentClassId)
+    .order("registration_date", { ascending: false });
+
+  if (!error && data && data.length > 0) return data.map(mapRow);
+
+  // 2) Fallback modo B
+  const staff = getModeBStaffSession();
+  if (!staff) return !error && data ? data.map(mapRow) : [];
+
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("mode_b_list_nucleos", {
+    p_login: staff.login,
+    p_password: staff.password,
+    p_parent_class_id: parentClassId,
+  });
+  if (rpcErr) return [];
+  return (rpcData || []).map(mapRow);
 }
 
 export async function fetchClassesRemoteWithMeta(projectId: string): Promise<FetchClassesResult> {
@@ -197,6 +247,7 @@ export async function upsertClassRemote(projectId: string, input: SchoolClass) {
     registration_date: input.registrationDate,
     status: input.status,
     complementary_info: input.complementaryInfo ?? null,
+    parent_class_id: input.parentClassId ?? null,
   };
 
   const { error } = await supabase.from("classes").upsert(row);
@@ -220,6 +271,7 @@ export async function upsertClassRemote(projectId: string, input: SchoolClass) {
     p_registration_date: input.registrationDate,
     p_status: input.status,
     p_complementary_info: input.complementaryInfo ?? null,
+    p_parent_class_id: input.parentClassId ?? null,
   });
 
   if (rpcErr) throw rpcErr;

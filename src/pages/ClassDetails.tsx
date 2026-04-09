@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2,
-  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck
+  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck, Layers
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
+import NucleosTab from '@/components/NucleosTab';
 import Dashboard from '@/pages/Dashboard';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
@@ -35,7 +36,9 @@ import {
   removeStudentEnrollmentRemote,
   setClassTeacherIdsRemote,
   fetchClassesRemoteWithMeta,
+  fetchClassByIdRemote,
   deleteClassRemote,
+  fetchNucleosRemote,
 } from '@/services/classesService';
 
 import { readGlobalTeachers } from "@/utils/teachers";
@@ -57,6 +60,8 @@ const ClassDetails = () => {
   const [selectedStudent, setSelectedStudent] = useState<StudentRegistration | null>(null);
   const [isStudentDetailsOpen, setIsStudentDetailsOpen] = useState(false);
   const [dashboardRole, setDashboardRole] = useState<"professor" | "coordenador">("professor");
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [nucleoSummaries, setNucleoSummaries] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -68,6 +73,7 @@ const ClassDetails = () => {
       const projectId = getActiveProjectId()
         || getCoordinatorSessionProjectId()
         || getTeacherSessionProjectId();
+      setActiveProjectId(projectId || null);
       let activeStudentIds: string[] = [];
 
       // 1) Tenta carregar as turmas do storage (pode falhar se não houver projeto ativo)
@@ -95,7 +101,20 @@ const ClassDetails = () => {
         }
       }
 
-      const found = classes.find((c: any) => c.id === id);
+      let found = classes.find((c: any) => c.id === id);
+      // Núcleos não estão no cache local de turmas (que só traz as turmas-mãe).
+      // Busca direto no servidor pelo id.
+      if (!found) {
+        try {
+          const remote = await fetchClassByIdRemote(id);
+          if (remote) {
+            found = remote;
+            classes = [...classes, remote];
+          }
+        } catch {
+          // ignore
+        }
+      }
       if (!found) {
         navigate(`${base}/turmas`, { replace: true });
         return;
@@ -216,6 +235,18 @@ const ClassDetails = () => {
 
       setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
     };
+
+    // Carrega núcleos para expor na aba Chamada
+    const loadNucleos = async () => {
+      if (!id) return;
+      try {
+        const list = await fetchNucleosRemote(id);
+        setNucleoSummaries(list.map((n) => ({ id: n.id, name: n.name })));
+      } catch {
+        setNucleoSummaries([]);
+      }
+    };
+    void loadNucleos();
 
     void run();
 
@@ -401,6 +432,9 @@ const ClassDetails = () => {
           <TabsTrigger value="geral" className="rounded-xl font-black">Geral</TabsTrigger>
           <TabsTrigger value="chamada" className="rounded-xl font-black">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Chamada
+          </TabsTrigger>
+          <TabsTrigger value="nucleos" className="rounded-xl font-black">
+            <Layers className="h-4 w-4 mr-2" /> Núcleos
           </TabsTrigger>
           {base === "" && (
             <TabsTrigger value="dashboard" className="rounded-xl font-black">
@@ -624,7 +658,25 @@ const ClassDetails = () => {
         </TabsContent>
 
         <TabsContent value="chamada" className="mt-8">
-          <ClassAttendance classId={schoolClass.id} students={classStudents} />
+          <ClassAttendance
+            classId={schoolClass.id}
+            students={classStudents}
+            childClasses={nucleoSummaries}
+          />
+        </TabsContent>
+
+        <TabsContent value="nucleos" className="mt-8">
+          {activeProjectId ? (
+            <NucleosTab
+              parentClass={schoolClass}
+              projectId={activeProjectId}
+              allTeachers={allTeachers}
+              parentStudents={classStudents}
+              isTeacherArea={isTeacherArea}
+            />
+          ) : (
+            <p className="text-slate-400 text-sm italic">Projeto ativo não encontrado.</p>
+          )}
         </TabsContent>
 
 

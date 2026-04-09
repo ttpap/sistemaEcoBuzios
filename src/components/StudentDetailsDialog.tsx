@@ -307,7 +307,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
           <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-5 sm:gap-6">
               <button
-                className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center shrink-0 cursor-zoom-in"
+                className="h-40 w-40 sm:h-48 sm:w-48 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center shrink-0 cursor-zoom-in"
                 onClick={() => student.photo && setPhotoOpen(true)}
                 title="Ampliar foto"
                 type="button"
@@ -319,7 +319,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <User className="h-10 w-10 text-white/50" />
+                  <User className="h-20 w-20 text-white/50" />
                 )}
               </button>
 
@@ -332,7 +332,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   <img
                     src={student.photo}
                     alt={student.fullName}
-                    className="max-h-[90dvh] max-w-[90dvw] rounded-[2rem] shadow-2xl object-contain"
+                    className="h-[95dvh] w-[95dvw] rounded-[2rem] shadow-2xl object-contain"
                     onClick={(e) => e.stopPropagation()}
                   />
                 </div>

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle } from "lucide-react";
+import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -12,7 +12,13 @@ import { showError, showSuccess } from '@/utils/toast';
 import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
-import { deleteClassRemote, fetchClassesRemoteWithMeta } from '@/services/classesService';
+import {
+  deleteClassRemote,
+  fetchClassesRemoteWithMeta,
+  fetchProjectNucleosRemote,
+  fetchProjectEnrollmentsRemoteWithMeta,
+} from '@/services/classesService';
+import type { SchoolClass as SC } from '@/types/class';
 
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -36,6 +42,7 @@ const Classes = () => {
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [nucleosByParent, setNucleosByParent] = useState<Record<string, Array<{ id: string; name: string; count: number }>>>({});
 
   useEffect(() => {
     const run = async () => {
@@ -47,6 +54,27 @@ const Classes = () => {
       if (res.classes.length) {
         writeScoped('classes', res.classes);
         setClasses(res.classes);
+
+        // Carrega núcleos do projeto + matrículas e monta mapa por turma-mãe
+        try {
+          const [nucleos, enrollRes] = await Promise.all([
+            fetchProjectNucleosRemote(projectId),
+            fetchProjectEnrollmentsRemoteWithMeta(projectId),
+          ]);
+          const counts = new Map<string, number>();
+          for (const e of enrollRes.enrollments) {
+            counts.set(e.class_id, (counts.get(e.class_id) || 0) + 1);
+          }
+          const byParent: Record<string, Array<{ id: string; name: string; count: number }>> = {};
+          for (const n of nucleos as SC[]) {
+            const pid = n.parentClassId;
+            if (!pid) continue;
+            (byParent[pid] ||= []).push({ id: n.id, name: n.name, count: counts.get(n.id) || 0 });
+          }
+          setNucleosByParent(byParent);
+        } catch {
+          // ignore
+        }
         return;
       }
 
@@ -183,6 +211,34 @@ const Classes = () => {
                   <AlertCircle className="h-4 w-4 text-secondary" />
                   Limite de {cls.absenceLimit} faltas
                 </div>
+
+                {(nucleosByParent[cls.id]?.length ?? 0) > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      Núcleos ({nucleosByParent[cls.id].length})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {nucleosByParent[cls.id].map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`${base}/turmas/${n.id}`);
+                          }}
+                          className="inline-flex items-center gap-2 rounded-full bg-slate-50 border border-slate-100 px-3 py-1 text-xs font-black text-slate-700 hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer"
+                          title={`Abrir núcleo — ${n.count} aluno(s)`}
+                        >
+                          <span className="truncate max-w-[120px]">{n.name}</span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px]">
+                            <Users className="h-3 w-3" /> {n.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   <Button

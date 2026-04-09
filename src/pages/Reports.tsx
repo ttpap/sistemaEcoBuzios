@@ -26,7 +26,7 @@ import { downloadAttendanceXls } from "@/utils/attendance-xls";
 import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { getActiveProject, getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
-import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta } from "@/services/classesService";
+import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectNucleosRemote } from "@/services/classesService";
 import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
 import { projectsService } from "@/services/projectsService";
 
@@ -526,9 +526,18 @@ export default function Reports() {
         try {
           // Atualiza classes + matrículas + alunos do servidor (necessário no modo B)
           const classRes = await fetchClassesRemoteWithMeta(activeProjectId);
-          const baseClasses = classRes.classes.length
+          const parentClasses = classRes.classes.length
             ? classRes.classes
             : readScoped<SchoolClass[]>("classes", []);
+
+          // Núcleos (subturmas) também entram como opção no filtro de relatórios.
+          let nucleos: SchoolClass[] = [];
+          try {
+            nucleos = await fetchProjectNucleosRemote(activeProjectId);
+          } catch {
+            nucleos = [];
+          }
+          const baseClasses = [...parentClasses, ...nucleos];
 
           const enriched: SchoolClass[] = [];
           for (const c of baseClasses) {
@@ -972,11 +981,17 @@ export default function Reports() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={ALL}>Todas as turmas</SelectItem>
-                        {classes.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
+                        {classes.map((c) => {
+                          const parent = c.parentClassId
+                            ? classes.find((p) => p.id === c.parentClassId)
+                            : null;
+                          const label = parent ? `${parent.name} › ${c.name}` : c.name;
+                          return (
+                            <SelectItem key={c.id} value={c.id}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
