@@ -39,6 +39,7 @@ import {
   fetchClassByIdRemote,
   deleteClassRemote,
   fetchNucleosRemote,
+  fetchProjectEnrollmentsRemoteWithMeta,
 } from '@/services/classesService';
 
 import { readGlobalTeachers } from "@/utils/teachers";
@@ -62,6 +63,25 @@ const ClassDetails = () => {
   const [dashboardRole, setDashboardRole] = useState<"professor" | "coordenador">("professor");
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [nucleoSummaries, setNucleoSummaries] = useState<Array<{ id: string; name: string }>>([]);
+  const [projectStudentIds, setProjectStudentIds] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (!activeProjectId) { setProjectStudentIds(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchProjectEnrollmentsRemoteWithMeta(activeProjectId);
+        const ids = new Set<string>();
+        for (const e of (res.enrollments || [])) {
+          if (!e.removed_at) ids.add(e.student_id);
+        }
+        if (!cancelled) setProjectStudentIds(ids);
+      } catch {
+        if (!cancelled) setProjectStudentIds(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeProjectId]);
 
   useEffect(() => {
     const run = async () => {
@@ -370,10 +390,11 @@ const ClassDetails = () => {
         const registration = student.registration || "";
         const isAlreadyInClass = enrolled.has(student.id);
         const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
-        return !isAlreadyInClass && matchesSearch;
+        const inProject = !projectStudentIds || projectStudentIds.has(student.id);
+        return !isAlreadyInClass && matchesSearch && inProject;
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
-  }, [allStudents, schoolClass, studentSearch]);
+  }, [allStudents, schoolClass, studentSearch, projectStudentIds]);
 
   const handleDeleteClass = async () => {
     if (!schoolClass || !window.confirm(`Tem certeza que deseja excluir a turma "${schoolClass.name}"?`)) return;
