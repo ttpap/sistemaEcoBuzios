@@ -441,7 +441,7 @@ const Students = () => {
           <img
             src={photoZoom.src}
             alt={photoZoom.name}
-            className="max-h-[75vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl"
+            className="h-[90vh] w-[90vw] rounded-2xl object-contain shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
           <p className="mt-4 text-white text-lg font-bold drop-shadow">{photoZoom.name}</p>
