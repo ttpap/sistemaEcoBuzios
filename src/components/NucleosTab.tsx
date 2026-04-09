@@ -25,6 +25,7 @@ import {
   fetchClassTeacherIdsRemote,
   setClassTeacherIdsRemote,
   fetchEnrollmentsRemoteWithMeta,
+  fetchProjectEnrollmentsRemoteWithMeta,
   enrollStudentRemote,
   removeStudentEnrollmentRemote,
 } from "@/services/classesService";
@@ -62,6 +63,27 @@ const NucleosTab: React.FC<Props> = ({
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [studentSearch, setStudentSearch] = useState("");
+  const [projectStudentIds, setProjectStudentIds] = useState<Set<string> | null>(null);
+
+  // Carrega todos os alunos alocados em qualquer turma do projeto ativo.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+        const ids = new Set<string>();
+        for (const e of res.enrollments || []) {
+          if (!e.removed_at) ids.add(e.student_id);
+        }
+        if (!cancelled) setProjectStudentIds(ids);
+      } catch {
+        if (!cancelled) setProjectStudentIds(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const selected = useMemo(
     () => nucleos.find((n) => n.id === selectedId) || null,
@@ -177,8 +199,12 @@ const NucleosTab: React.FC<Props> = ({
     }
   };
 
-  // Base de alunos: projeto inteiro (fallback para parentStudents se não vier a prop)
-  const projectPool = projectStudents && projectStudents.length > 0 ? projectStudents : parentStudents;
+  // Base de alunos: apenas os matriculados em alguma turma deste projeto.
+  const projectPool = useMemo(() => {
+    const source = projectStudents && projectStudents.length > 0 ? projectStudents : parentStudents;
+    if (!projectStudentIds) return parentStudents; // antes de carregar, mostra os da turma-mãe
+    return source.filter((s) => projectStudentIds.has(s.id));
+  }, [projectStudents, parentStudents, projectStudentIds]);
 
   const nucleoStudents = useMemo(() => {
     const set = new Set(studentIds);
@@ -292,7 +318,7 @@ const NucleosTab: React.FC<Props> = ({
                           Adicionar aluno ao núcleo
                         </DialogTitle>
                         <p className="text-xs text-slate-500 font-medium mt-1">
-                          Todos os alunos do projeto — inclusive de outras turmas.
+                          Alunos matriculados em qualquer turma deste projeto.
                         </p>
                         <div className="relative mt-4">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
