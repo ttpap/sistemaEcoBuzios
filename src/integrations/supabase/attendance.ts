@@ -201,17 +201,17 @@ export async function upsertAttendanceSessionRemote(projectId: string, session: 
 export async function deleteAttendanceSessionRemote(sessionId: string) {
   if (!supabase) return;
 
-  const { error } = await supabase.from("attendance_sessions").delete().eq("id", sessionId);
-  if (!error) return;
-
   const creds = getModeBStaffCreds();
-  if (!creds) throw error;
+  if (creds) {
+    const { error: rpcErr } = await supabase.rpc("mode_b_delete_attendance_session", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_session_id: sessionId,
+    });
+    if (rpcErr) throw rpcErr;
+    return;
+  }
 
-  const { error: rpcErr } = await supabase.rpc("mode_b_delete_attendance_session", {
-    p_login: creds.login,
-    p_password: creds.password,
-    p_session_id: sessionId,
-  });
-
-  if (rpcErr) throw rpcErr;
+  const { error } = await supabase.from("attendance_sessions").delete().eq("id", sessionId);
+  if (error) throw error;
 }

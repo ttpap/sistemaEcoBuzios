@@ -250,12 +250,12 @@ export async function upsertClassRemote(projectId: string, input: SchoolClass) {
     parent_class_id: input.parentClassId ?? null,
   };
 
-  const { error } = await supabase.from("classes").upsert(row);
-  if (!error) return;
-
-  // Fallback (modo B)
   const staff = getModeBStaffSession();
-  if (!staff) throw error;
+  if (!staff) {
+    const { error } = await supabase.from("classes").upsert(row);
+    if (error) throw error;
+    return;
+  }
 
   const { error: rpcErr } = await supabase.rpc("mode_b_upsert_class", {
     p_login: staff.login,
