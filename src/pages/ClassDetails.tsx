@@ -672,6 +672,7 @@ const ClassDetails = () => {
               projectId={activeProjectId}
               allTeachers={allTeachers}
               parentStudents={classStudents}
+              projectStudents={allStudents}
               isTeacherArea={isTeacherArea}
             />
           ) : (

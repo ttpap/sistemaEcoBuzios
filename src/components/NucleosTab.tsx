@@ -34,6 +34,7 @@ type Props = {
   projectId: string;
   allTeachers: TeacherRegistration[];
   parentStudents: StudentRegistration[]; // alunos já matriculados na turma-mãe
+  projectStudents?: StudentRegistration[]; // todos os alunos do projeto (para matrícula no núcleo)
   isTeacherArea: boolean;
 };
 
@@ -47,7 +48,7 @@ function makeId() {
 }
 
 const NucleosTab: React.FC<Props> = ({
-  parentClass, projectId, allTeachers, parentStudents, isTeacherArea,
+  parentClass, projectId, allTeachers, parentStudents, projectStudents, isTeacherArea,
 }) => {
   const [nucleos, setNucleos] = useState<SchoolClass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,10 +158,6 @@ const NucleosTab: React.FC<Props> = ({
 
   const addStudentToNucleo = async (studentId: string) => {
     if (!selected) return;
-    if (!parentStudents.some((s) => s.id === studentId)) {
-      showError("Este aluno não está matriculado na turma-mãe.");
-      return;
-    }
     try {
       await enrollStudentRemote(selected.id, studentId);
       setStudentIds((prev) => (prev.includes(studentId) ? prev : [...prev, studentId]));
@@ -180,17 +177,20 @@ const NucleosTab: React.FC<Props> = ({
     }
   };
 
+  // Base de alunos: projeto inteiro (fallback para parentStudents se não vier a prop)
+  const projectPool = projectStudents && projectStudents.length > 0 ? projectStudents : parentStudents;
+
   const nucleoStudents = useMemo(() => {
     const set = new Set(studentIds);
-    return parentStudents
+    return projectPool
       .filter((s) => set.has(s.id))
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
-  }, [parentStudents, studentIds]);
+  }, [projectPool, studentIds]);
 
   const availableStudents = useMemo(() => {
     const enrolled = new Set(studentIds);
     const q = studentSearch.toLowerCase();
-    return parentStudents
+    return projectPool
       .filter((s) => !enrolled.has(s.id))
       .filter((s) =>
         !q
@@ -198,7 +198,7 @@ const NucleosTab: React.FC<Props> = ({
         || (s.registration || "").includes(studentSearch),
       )
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
-  }, [parentStudents, studentIds, studentSearch]);
+  }, [projectPool, studentIds, studentSearch]);
 
   // ---------- UI ----------
 
@@ -292,7 +292,7 @@ const NucleosTab: React.FC<Props> = ({
                           Adicionar aluno ao núcleo
                         </DialogTitle>
                         <p className="text-xs text-slate-500 font-medium mt-1">
-                          Só aparecem alunos já matriculados em <strong>{parentClass.name}</strong>.
+                          Todos os alunos do projeto — inclusive de outras turmas.
                         </p>
                         <div className="relative mt-4">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
