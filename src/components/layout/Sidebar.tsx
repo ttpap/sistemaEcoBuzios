@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Settings,
   ExternalLink,
+  ImageOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -33,7 +34,7 @@ import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/ut
 import { supabaseAuthService } from '@/services/supabaseAuthService';
 
 const SISTEMA_PATHS = ['/professores', '/coordenadores', '/api-keys', '/links-inscricao', '/supabase', '/conta'];
-const PROJECT_PATHS = ['/', '/escalas', '/turmas', '/alunos', '/relatorios', '/ata-reuniao', '/certificados'];
+const PROJECT_PATHS = ['/', '/escalas', '/turmas', '/alunos', '/relatorios', '/ata-reuniao', '/certificados', '/autorizar-imagem'];
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
   const location = useLocation();
@@ -75,6 +76,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
     { icon: CalendarDays, label: 'Escalas', path: '/escalas' },
     { icon: BookOpen, label: 'Turmas', path: '/turmas' },
     { icon: GraduationCap, label: 'Alunos', path: '/alunos' },
+    { icon: ImageOff, label: 'Autorização de Imagem', path: '/autorizar-imagem' },
   ];
 
   const isSistemaActive = sistemaItems.some((i) => location.pathname === i.path || location.pathname.startsWith(i.path + '/'));

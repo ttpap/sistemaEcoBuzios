@@ -19,6 +19,7 @@ import {
   ClipboardList,
   ChevronDown,
   Users,
+  ImageOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -93,6 +94,7 @@ export default function CoordinatorSidebar({
       ]},
       { icon: Award, label: "Certificados", path: "/coordenador/certificados" },
       { icon: ClipboardList, label: "Ata de Reunião", path: "/coordenador/ata-reuniao" },
+      { icon: ImageOff, label: "Autorização de Imagem", path: "/coordenador/autorizar-imagem" },
       { icon: Link2, label: "Links de inscrição", path: "/coordenador/links-inscricao" },
       { icon: UserCog, label: "Conta", path: "/coordenador/conta" },
     ],

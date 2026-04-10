@@ -78,6 +78,7 @@ const ScheduleViewer              = lazy(() => import("./pages/ScheduleViewer"))
 const AtaReuniao                  = lazy(() => import("./pages/AtaReuniao"));
 const AtaReuniaoViewer            = lazy(() => import("./pages/AtaReuniaoViewer"));
 const AdminApiKeys                = lazy(() => import("@/pages/AdminApiKeys"));
+const ImageAuthorization          = lazy(() => import("@/pages/ImageAuthorization"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -425,6 +426,7 @@ const App = () => (
                         <Route path="/escalas/:id" element={<ActiveProjectGate><ScheduleViewer /></ActiveProjectGate>} />
                         <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="/ata-reuniao" element={<ActiveProjectGate><AtaReuniao /></ActiveProjectGate>} />
+                        <Route path="/autorizar-imagem" element={<ActiveProjectGate><ImageAuthorization /></ActiveProjectGate>} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -619,6 +621,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <AtaReuniao />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="autorizar-imagem"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <ImageAuthorization />
                             </CoordinatorActiveProjectGate>
                           }
                         />
