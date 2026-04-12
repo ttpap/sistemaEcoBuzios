@@ -13,6 +13,7 @@ export interface MeetingMinute {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  duration_hours: number;
 }
 
 export interface CreateMeetingMinuteInput {
@@ -41,7 +42,7 @@ export async function fetchMeetingMinutes(projectId: string): Promise<MeetingMin
 export async function createMeetingMinute(input: CreateMeetingMinuteInput): Promise<MeetingMinute> {
   const { data, error } = await (supabase as any)
     .from("meeting_minutes")
-    .insert(input)
+    .insert({ ...input, duration_hours: 1 })
     .select()
     .single();
 
