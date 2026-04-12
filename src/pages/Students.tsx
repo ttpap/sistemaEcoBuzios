@@ -195,10 +195,12 @@ const Students = () => {
     );
   }, [visibleStudents]);
 
-  const filtered = visibleStudentsSorted.filter(s =>
-    (s.fullName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.registration || "").includes(searchTerm)
-  );
+  const filtered = visibleStudentsSorted.filter(s => {
+    const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const words = norm(searchTerm).split(/\s+/).filter(Boolean);
+    const name = norm(s.fullName || "");
+    return words.length === 0 || words.every(w => name.includes(w)) || (s.registration || "").includes(searchTerm);
+  });
 
   const openDetails = (student: StudentRegistration) => {
     setSelectedStudent(student);

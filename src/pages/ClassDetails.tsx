@@ -405,17 +405,17 @@ const ClassDetails = () => {
   const filteredAvailableStudents = useMemo(() => {
     if (!schoolClass) return [] as StudentRegistration[];
 
-    const search = studentSearch.toLowerCase();
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const searchNorm = norm(studentSearch);
+    const words = searchNorm.split(/\s+/).filter(Boolean);
     const enrolled = new Set(schoolClass.studentIds || []);
 
     return allStudents
       .filter((student) => {
-        const name = (student.fullName || "").toLowerCase();
+        const name = norm(student.fullName || "");
         const registration = student.registration || "";
         const isAlreadyInClass = enrolled.has(student.id);
-        const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
-        // Para núcleos: só mostra alunos já matriculados em alguma turma do projeto.
-        // Para turmas principais: mostra todos (inclusive recém-inscritos via link público).
+        const matchesSearch = words.length === 0 || words.every(w => name.includes(w)) || registration.includes(studentSearch);
         const isNucleo = Boolean(schoolClass.parentClassId);
         const inProject = !isNucleo || !projectStudentIds || projectStudentIds.has(student.id);
         return !isAlreadyInClass && matchesSearch && inProject;

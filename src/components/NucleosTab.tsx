@@ -218,11 +218,12 @@ const NucleosTab: React.FC<Props> = ({
     const q = studentSearch.toLowerCase();
     return projectPool
       .filter((s) => !enrolled.has(s.id))
-      .filter((s) =>
-        !q
-        || (s.fullName || "").toLowerCase().includes(q)
-        || (s.registration || "").includes(studentSearch),
-      )
+      .filter((s) => {
+        const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const words = norm(studentSearch).split(/\s+/).filter(Boolean);
+        const name = norm(s.fullName || "");
+        return !studentSearch || words.every(w => name.includes(w)) || (s.registration || "").includes(studentSearch);
+      })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
   }, [projectPool, studentIds, studentSearch]);
 
