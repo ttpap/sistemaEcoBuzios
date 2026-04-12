@@ -80,9 +80,14 @@ serve(async (req) => {
     // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
 
-    const [chartsResult, freqResult] = await Promise.all([
+    const meetingQuery = projectIds
+      ? client.from("meeting_minutes").select("duration_hours").in("project_id", projectIds)
+      : client.from("meeting_minutes").select("duration_hours");
+
+    const [chartsResult, freqResult, meetingResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
       client.rpc("public_attendance_stats", rpcParams),
+      meetingQuery,
     ]);
 
     if (chartsResult.error || !chartsResult.data) {
@@ -95,6 +100,9 @@ serve(async (req) => {
 
     const charts = chartsResult.data;
     const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
+    const meetings = meetingResult.data ?? [];
+    const totalReunioes = meetings.length;
+    const totalHorasReunioes = meetings.reduce((sum: number, r: { duration_hours: number }) => sum + Number(r.duration_hours), 0);
 
     if (freqResult.error) {
       console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
@@ -114,6 +122,10 @@ serve(async (req) => {
       instituicao: charts.schoolTypes ?? [],
       idades: charts.ageRanges ?? [],
       frequencia: freq,
+      reunioes: {
+        total: totalReunioes,
+        total_horas: totalHorasReunioes,
+      },
     };
 
     return new Response(JSON.stringify(response, null, 2), {
