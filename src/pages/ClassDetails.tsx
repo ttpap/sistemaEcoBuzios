@@ -390,7 +390,10 @@ const ClassDetails = () => {
         const registration = student.registration || "";
         const isAlreadyInClass = enrolled.has(student.id);
         const matchesSearch = !studentSearch || name.includes(search) || registration.includes(studentSearch);
-        const inProject = !projectStudentIds || projectStudentIds.has(student.id);
+        // Para núcleos: só mostra alunos já matriculados em alguma turma do projeto.
+        // Para turmas principais: mostra todos (inclusive recém-inscritos via link público).
+        const isNucleo = Boolean(schoolClass.parentClassId);
+        const inProject = !isNucleo || !projectStudentIds || projectStudentIds.has(student.id);
         return !isAlreadyInClass && matchesSearch && inProject;
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
