@@ -402,16 +402,20 @@ const ClassDetails = () => {
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
   }, [allStudents, schoolClass]);
 
-  const filteredAvailableStudents = useMemo(() => {
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const filteredAvailableStudents = (() => {
     if (!schoolClass) return [] as StudentRegistration[];
 
-    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const searchNorm = norm(studentSearch);
     const words = searchNorm.split(/\s+/).filter(Boolean);
     const enrolled = new Set(schoolClass.studentIds || []);
+    const seen = new Set<string>();
 
     return allStudents
       .filter((student) => {
+        if (seen.has(student.id)) return false;
+        seen.add(student.id);
         const name = norm(student.fullName || "");
         const registration = student.registration || "";
         const isAlreadyInClass = enrolled.has(student.id);
@@ -421,7 +425,7 @@ const ClassDetails = () => {
         return !isAlreadyInClass && matchesSearch && inProject;
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
-  }, [allStudents, schoolClass, studentSearch, projectStudentIds]);
+  })();
 
   const handleDeleteClass = async () => {
     if (!schoolClass || !window.confirm(`Tem certeza que deseja excluir a turma "${schoolClass.name}"?`)) return;
