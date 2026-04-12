@@ -27,8 +27,8 @@ import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
-import { getCoordinatorSessionProjectId, getCoordinatorSessionLogin } from '@/utils/coordinator-auth';
-import { getTeacherSessionProjectId, getTeacherSessionLogin } from '@/utils/teacher-auth';
+import { getCoordinatorSessionProjectId, getCoordinatorSessionLogin, getCoordinatorSessionProjectIds } from '@/utils/coordinator-auth';
+import { getTeacherSessionProjectId, getTeacherSessionLogin, getTeacherSessionProjectIds } from '@/utils/teacher-auth';
 import {
   enrollStudentRemote,
   fetchClassTeacherIdsRemote,
@@ -90,9 +90,15 @@ const ClassDetails = () => {
         return;
       }
 
+      // Calcula o projectId para chamadas de API.
+      // Para Modo B com múltiplos projetos, o session pode não ter um projectId fixo —
+      // neste caso usa o primeiro da lista de projetos do coordenador/professor.
       const projectId = getActiveProjectId()
         || getCoordinatorSessionProjectId()
-        || getTeacherSessionProjectId();
+        || getTeacherSessionProjectId()
+        || getCoordinatorSessionProjectIds()[0]
+        || getTeacherSessionProjectIds()[0]
+        || null;
       setActiveProjectId(projectId || null);
       let activeStudentIds: string[] = [];
 
@@ -606,7 +612,11 @@ const ClassDetails = () => {
                         <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
                           <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                           <p className="text-slate-400 font-bold">
-                            {studentSearch ? "Nenhum aluno encontrado para esta busca." : "Todos os alunos já estão matriculados."}
+                            {studentSearch
+                              ? "Nenhum aluno encontrado para esta busca."
+                              : allStudents.length === 0
+                                ? "Nenhum aluno carregado. Recarregue a página e tente novamente."
+                                : "Todos os alunos já estão matriculados."}
                           </p>
                         </div>
                       ) : (
