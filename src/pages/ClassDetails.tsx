@@ -65,6 +65,7 @@ const ClassDetails = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [nucleoSummaries, setNucleoSummaries] = useState<Array<{ id: string; name: string }>>([]);
   const [projectStudentIds, setProjectStudentIds] = useState<Set<string> | null>(null);
+  const [debugLoadPath, setDebugLoadPath] = useState("");
 
   useEffect(() => {
     if (!activeProjectId) { setProjectStudentIds(null); return; }
@@ -239,20 +240,31 @@ const ClassDetails = () => {
       // NUNCA usar hasModeBCreds como árbitro: admin pode ter credenciais Mode B
       // residuais no localStorage de testes anteriores, causando desvio incorreto.
 
+      // ── Carregamento de alunos (com debug) ──
+      const _hasLogin = Boolean(getTeacherSessionLogin() || getCoordinatorSessionLogin());
+      const _hasPw = Boolean(
+        (typeof sessionStorage !== 'undefined' && (sessionStorage.getItem('ecobuzios_teacher_password') || sessionStorage.getItem('ecobuzios_coordinator_password')))
+        || localStorage.getItem('ecobuzios_teacher_password')
+        || localStorage.getItem('ecobuzios_coordinator_password')
+      );
+      let _path = `login=${_hasLogin} pw=${_hasPw} proj=${projectId?.slice(0,8) ?? 'null'}`;
+
       let sessionUser: string | null = null;
       try {
         const { data: { session } } = await supabase.auth.getSession();
         sessionUser = session?.user?.id ?? null;
       } catch {
-        // ignora erro de sessão, trata como sem sessão
+        // ignora erro
       }
+      _path += ` jwt=${sessionUser ? 'YES' : 'NO'}`;
 
       if (sessionUser) {
-        // Admin com JWT ativo: fetchStudents() retorna TODOS via RLS students_admin_all.
         try {
           const all = await fetchStudents();
+          _path += ` admin→${all.length}`;
           if (all.length) {
-            // Garante que alunos matriculados nesta turma estejam no array.
+            const hasMaia = all.some(s => s.id === 'b1f3ae41-bfcd-4b66-b109-1eb381c39382');
+            _path += hasMaia ? ' MAIA✓' : ' MAIA✗';
             const enrolledIds = activeStudentIds ?? [];
             const allIds = new Set(all.map((s) => s.id));
             const missingIds = enrolledIds.filter((sid) => !allIds.has(sid));
@@ -262,29 +274,33 @@ const ClassDetails = () => {
             } else {
               setAllStudents(all);
             }
+            setDebugLoadPath(_path);
             return;
           }
-        } catch {
-          // fallback para Mode B abaixo
+        } catch (e: any) {
+          _path += ` admin-err:${e?.message?.slice(0,30) ?? '?'}`;
         }
       }
 
-      // Sem sessão JWT (Modo B: professor/coordenador) — ou admin com sessão expirada:
-      // mode_b_list_all_students (SECURITY DEFINER) retorna TODOS os alunos do sistema,
-      // incluindo alunos recém-inscritos via link público sem turma atribuída ainda.
       if (projectId) {
         try {
           const remoteStudents = await fetchStudentsRemote(projectId);
+          _path += ` modeB→${remoteStudents.length}`;
           if (remoteStudents.length) {
+            const hasMaia = remoteStudents.some(s => s.id === 'b1f3ae41-bfcd-4b66-b109-1eb381c39382');
+            _path += hasMaia ? ' MAIA✓' : ' MAIA✗';
             setAllStudents(remoteStudents);
+            setDebugLoadPath(_path);
             return;
           }
-        } catch {
-          // fallback abaixo
+        } catch (e: any) {
+          _path += ` modeB-err:${e?.message?.slice(0,30) ?? '?'}`;
         }
       }
 
+      _path += ' →localStorage';
       setAllStudents(readGlobalStudents<StudentRegistration[]>([]));
+      setDebugLoadPath(_path);
     };
 
     // Carrega núcleos para expor na aba Chamada
@@ -619,10 +635,10 @@ const ClassDetails = () => {
 
                     <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-3">
                       {/* DEBUG TEMPORÁRIO — remover após resolver o problema */}
-                      <div className="text-[10px] bg-yellow-50 border border-yellow-200 rounded-lg p-2 font-mono text-yellow-800">
-                        DEBUG: allStudents={allStudents.length} | filtered={filteredAvailableStudents.length} |
-                        Maia={allStudents.some(s => s.id === 'b1f3ae41-bfcd-4b66-b109-1eb381c39382') ? 'SIM ✓' : 'NÃO ✗'} |
-                        enrolled={schoolClass?.studentIds?.length ?? 0}
+                      <div className="text-[10px] bg-yellow-50 border border-yellow-200 rounded-lg p-2 font-mono text-yellow-800 break-all select-all">
+                        all={allStudents.length} filt={filteredAvailableStudents.length} enr={schoolClass?.studentIds?.length ?? 0} |
+                        Maia={allStudents.some(s => s.id === 'b1f3ae41-bfcd-4b66-b109-1eb381c39382') ? 'SIM' : 'NAO'} |
+                        {debugLoadPath}
                       </div>
                       {filteredAvailableStudents.length === 0 ? (
                         <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
