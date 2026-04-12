@@ -27,8 +27,8 @@ import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
-import { getCoordinatorSessionProjectId } from '@/utils/coordinator-auth';
-import { getTeacherSessionProjectId } from '@/utils/teacher-auth';
+import { getCoordinatorSessionProjectId, getCoordinatorSessionLogin } from '@/utils/coordinator-auth';
+import { getTeacherSessionProjectId, getTeacherSessionLogin } from '@/utils/teacher-auth';
 import {
   enrollStudentRemote,
   fetchClassTeacherIdsRemote,
@@ -218,29 +218,44 @@ const ClassDetails = () => {
       }
 
       // Alunos: buscar TODOS do sistema para permitir matrícula.
-      // Tenta fetchStudents() global primeiro (admin/JWT); se falhar, tenta por projeto
-      // (modo B, filtra pelos do projeto); se ainda falhar, cai no storage local.
-      try {
-        const all = await fetchStudents();
-        if (all.length) {
-          // fetchStudents retorna no máximo 1000 registros (limite Supabase).
-          // Garante que os alunos matriculados nesta turma estejam no array,
-          // buscando-os diretamente pelos IDs caso não estejam nos 1000.
-          const enrolledIds = activeStudentIds ?? [];
-          const allIds = new Set(all.map((s) => s.id));
-          const missingIds = enrolledIds.filter((sid) => !allIds.has(sid));
-          if (missingIds.length > 0) {
-            const missing = await fetchStudentsByIds(missingIds);
-            setAllStudents([...all, ...missing]);
-          } else {
-            setAllStudents(all);
+      //
+      // Problema: fetchStudents() usa RLS do Supabase. Para Modo B (professor/coordenador),
+      // a RLS retorna APENAS alunos já matriculados em turmas do projeto — alunos recém-
+      // inscritos pelo link público (sem turma ainda) ficam invisíveis. Se fetchStudents()
+      // retornar resultado parcial, o código fazia return antecipado e nunca chegava ao
+      // fetchStudentsRemote() que usa mode_b_list_all_students (retorna TODOS).
+      //
+      // Solução: detectar Modo B ANTES. Se houver credenciais de professor/coordenador,
+      // ir direto para fetchStudentsRemote() — que usa mode_b_list_all_students e
+      // retorna todos os alunos do sistema. Só usar fetchStudents() quando for admin (JWT).
+
+      const hasModeBCreds = Boolean(getTeacherSessionLogin() || getCoordinatorSessionLogin());
+
+      if (!hasModeBCreds) {
+        // Admin com JWT: fetchStudents() retorna todos via RLS students_admin_all.
+        try {
+          const all = await fetchStudents();
+          if (all.length) {
+            // Garante que alunos matriculados nesta turma estejam no array
+            // (fetchStudents tem limite de 1000 registros).
+            const enrolledIds = activeStudentIds ?? [];
+            const allIds = new Set(all.map((s) => s.id));
+            const missingIds = enrolledIds.filter((sid) => !allIds.has(sid));
+            if (missingIds.length > 0) {
+              const missing = await fetchStudentsByIds(missingIds);
+              setAllStudents([...all, ...missing]);
+            } else {
+              setAllStudents(all);
+            }
+            return;
           }
-          return;
+        } catch {
+          // fallback abaixo
         }
-      } catch {
-        // fallback abaixo
       }
 
+      // Modo B (professor/coordenador) — ou admin sem sessão ativa:
+      // usa mode_b_list_all_students que retorna TODOS os alunos do sistema.
       if (projectId) {
         try {
           const remoteStudents = await fetchStudentsRemote(projectId);
