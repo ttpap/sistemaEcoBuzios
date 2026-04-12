@@ -618,6 +618,12 @@ const ClassDetails = () => {
                     </DialogHeader>
 
                     <div className="flex-1 overflow-y-auto p-8 pt-2 space-y-3">
+                      {/* DEBUG TEMPORÁRIO — remover após resolver o problema */}
+                      <div className="text-[10px] bg-yellow-50 border border-yellow-200 rounded-lg p-2 font-mono text-yellow-800">
+                        DEBUG: allStudents={allStudents.length} | filtered={filteredAvailableStudents.length} |
+                        Maia={allStudents.some(s => s.id === 'b1f3ae41-bfcd-4b66-b109-1eb381c39382') ? 'SIM ✓' : 'NÃO ✗'} |
+                        enrolled={schoolClass?.studentIds?.length ?? 0}
+                      </div>
                       {filteredAvailableStudents.length === 0 ? (
                         <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
                           <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
