@@ -45,6 +45,7 @@ import {
 import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/services/teachersService";
 import { fetchStudents, fetchStudentsRemote, fetchStudentsByIds } from "@/services/studentsService";
+import { supabase } from "@/integrations/supabase/client";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -225,25 +226,33 @@ const ClassDetails = () => {
 
       // Alunos: buscar TODOS do sistema para permitir matrícula.
       //
-      // Problema: fetchStudents() usa RLS do Supabase. Para Modo B (professor/coordenador),
-      // a RLS retorna APENAS alunos já matriculados em turmas do projeto — alunos recém-
-      // inscritos pelo link público (sem turma ainda) ficam invisíveis. Se fetchStudents()
-      // retornar resultado parcial, o código fazia return antecipado e nunca chegava ao
-      // fetchStudentsRemote() que usa mode_b_list_all_students (retorna TODOS).
+      // Estratégia definitiva baseada na sessão Supabase:
       //
-      // Solução: detectar Modo B ANTES. Se houver credenciais de professor/coordenador,
-      // ir direto para fetchStudentsRemote() — que usa mode_b_list_all_students e
-      // retorna todos os alunos do sistema. Só usar fetchStudents() quando for admin (JWT).
+      // 1) Se o usuário tem sessão JWT ativa (admin) → fetchStudents() retorna TODOS
+      //    via RLS students_admin_all. Fonte da verdade para admin.
+      //
+      // 2) Se não há sessão JWT (Modo B: professor/coordenador) → fetchStudents() via RLS
+      //    retornaria apenas alunos matriculados. Por isso vai direto para
+      //    fetchStudentsRemote() que usa mode_b_list_all_students (SECURITY DEFINER,
+      //    retorna TODOS os alunos sem restrição de matrícula).
+      //
+      // NUNCA usar hasModeBCreds como árbitro: admin pode ter credenciais Mode B
+      // residuais no localStorage de testes anteriores, causando desvio incorreto.
 
-      const hasModeBCreds = Boolean(getTeacherSessionLogin() || getCoordinatorSessionLogin());
+      let sessionUser: string | null = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        sessionUser = session?.user?.id ?? null;
+      } catch {
+        // ignora erro de sessão, trata como sem sessão
+      }
 
-      if (!hasModeBCreds) {
-        // Admin com JWT: fetchStudents() retorna todos via RLS students_admin_all.
+      if (sessionUser) {
+        // Admin com JWT ativo: fetchStudents() retorna TODOS via RLS students_admin_all.
         try {
           const all = await fetchStudents();
           if (all.length) {
-            // Garante que alunos matriculados nesta turma estejam no array
-            // (fetchStudents tem limite de 1000 registros).
+            // Garante que alunos matriculados nesta turma estejam no array.
             const enrolledIds = activeStudentIds ?? [];
             const allIds = new Set(all.map((s) => s.id));
             const missingIds = enrolledIds.filter((sid) => !allIds.has(sid));
@@ -256,12 +265,13 @@ const ClassDetails = () => {
             return;
           }
         } catch {
-          // fallback abaixo
+          // fallback para Mode B abaixo
         }
       }
 
-      // Modo B (professor/coordenador) — ou admin sem sessão ativa:
-      // usa mode_b_list_all_students que retorna TODOS os alunos do sistema.
+      // Sem sessão JWT (Modo B: professor/coordenador) — ou admin com sessão expirada:
+      // mode_b_list_all_students (SECURITY DEFINER) retorna TODOS os alunos do sistema,
+      // incluindo alunos recém-inscritos via link público sem turma atribuída ainda.
       if (projectId) {
         try {
           const remoteStudents = await fetchStudentsRemote(projectId);
