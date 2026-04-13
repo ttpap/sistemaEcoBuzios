@@ -601,17 +601,17 @@ function printPrefeituraReport(data: {
         </div>
 
         <div class="section">
-          <div class="section-title">Aulas Dadas por Turma</div>
-          <table>
-            <thead><tr><th class="left">Turma</th><th>Aulas</th></tr></thead>
-            <tbody>
-              ${classRows}
-              <tr class="foot">
-                <td style="padding:7px 10px;">TOTAL</td>
-                <td style="text-align:center;padding:7px 10px;color:#059669;font-weight:900;">${totalSessions}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="section-title">Frequência</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;">
+            <div style="padding:18px 14px;text-align:center;border-right:1px solid var(--border);">
+              <div style="font-size:38px;font-weight:950;color:#059669;line-height:1;">${totalSessions}</div>
+              <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px;">aulas dadas</div>
+            </div>
+            <div style="padding:18px 14px;text-align:center;">
+              <div style="font-size:38px;font-weight:950;color:#f59e0b;line-height:1;">${totalHours}</div>
+              <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px;">horas de aula</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
