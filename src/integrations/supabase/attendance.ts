@@ -88,10 +88,7 @@ export async function fetchAttendanceSessionsRemote(projectId: string, classId?:
     if (!ids.length) return sessions;
 
     const { data: ssData } = await supabase
-      .from("attendance_session_students")
-      .select("session_id,student_id")
-      .in("session_id", ids)
-      .limit(50000);
+      .rpc("fetch_attendance_session_students_bulk", { p_session_ids: ids });
 
     const bySessionStudents = new Map<string, string[]>();
     for (const row of (ssData as any[]) || []) {
@@ -101,10 +98,7 @@ export async function fetchAttendanceSessionsRemote(projectId: string, classId?:
     }
 
     const { data: recData } = await supabase
-      .from("attendance_records")
-      .select("session_id,student_id,status")
-      .in("session_id", ids)
-      .limit(50000);
+      .rpc("fetch_attendance_records_bulk", { p_session_ids: ids });
 
     const bySessionRecords = new Map<string, Record<string, AttendanceStatus>>();
     for (const row of (recData as any[]) || []) {
