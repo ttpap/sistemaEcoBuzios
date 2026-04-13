@@ -1156,7 +1156,7 @@ export default function Reports() {
                   ? Math.max(0, parseTimeHours(c.endTime) - parseTimeHours(c.startTime))
                   : 2;
               const sess = attendanceSessions.filter(
-                (s) => s.classId === c.id && s.finalizedAt && s.date.startsWith(prefeituraYear)
+                (s) => s.classId === c.id && s.date.startsWith(prefeituraYear)
               ).length;
               return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * dur).toFixed(1) };
             })
