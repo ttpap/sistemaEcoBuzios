@@ -2022,81 +2022,9 @@ export default function Reports() {
 
             <div className="p-0">
               {classId === ALL ? (
-                <div className="p-6 md:p-8">
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm">
-                      <div className="p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo</p>
-                        <p className="text-xl font-black text-primary mt-1">Todas as turmas</p>
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-600">Turmas cadastradas</span>
-                            <span className="text-sm font-black text-slate-900">{classes.length}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-600">Alunos (únicos) nas turmas</span>
-                            <span className="text-sm font-black text-slate-900">{totalStudentsInClasses}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-bold text-slate-600">Mês</span>
-                            <span className="text-sm font-black text-slate-900">{monthLabel(month)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2 lg:col-span-2">
-                      <div className="p-5 flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ação</p>
-                          <p className="text-xl font-black text-primary mt-1">Escolha uma turma</p>
-                          <p className="text-sm font-bold text-slate-500 mt-1">Clique em qualquer turma abaixo para ver o relatório detalhado.</p>
-                        </div>
-                        <div className="h-12 w-12 rounded-2xl bg-secondary/10 text-primary flex items-center justify-center border border-secondary/20">
-                          <Layers className="h-6 w-6" />
-                        </div>
-                      </div>
-                    </Card>
-                  </div>
-
-                  <div className="mt-6">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Turmas</p>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {classesWithCounts.map(({ cls, studentsCount, callDaysCount }) => (
-                        <button
-                          key={cls.id}
-                          onClick={() => setClassId(cls.id)}
-                          className="text-left rounded-[2rem] border border-slate-100 bg-white p-5 hover:border-primary/25 hover:bg-slate-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-base font-black text-primary truncate">{cls.name}</p>
-                              <p className="text-xs font-bold text-slate-500 mt-1">
-                                {cls.period} • {cls.startTime}–{cls.endTime}
-                              </p>
-                            </div>
-                            <Badge
-                              className={cn(
-                                "rounded-full border-none font-black",
-                                cls.status === "Ativo" ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700",
-                              )}
-                            >
-                              {cls.status}
-                            </Badge>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
-                              <Users className="h-3.5 w-3.5 mr-1" /> {studentsCount} aluno(s)
-                            </Badge>
-                            <Badge className="rounded-full bg-slate-900/5 text-slate-700 border-none font-black">
-                              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> {callDaysCount} dia(s) com chamada
-                            </Badge>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                <div className="p-10 text-center bg-white">
+                  <Layers className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Selecione uma turma no filtro acima para ver o relatório.</p>
                 </div>
               ) : !matrix ? (
                 <div className="p-10 text-center bg-white">
