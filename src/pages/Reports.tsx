@@ -51,7 +51,11 @@ import {
   FileText,
   Eye,
   Receipt,
+  Save,
+  FolderOpen,
 } from "lucide-react";
+
+import { supabase } from "@/integrations/supabase/client";
 
 function parseTimeHours(t: string): number {
   const parts = t.split(":").map(Number);
@@ -785,6 +789,10 @@ export default function Reports() {
   const [pcText, setPcText] = useState("");
   const [pcPhotos, setPcPhotos] = useState<{ name: string; dataUrl: string }[]>([]);
   const pcFileInputRef = useRef<HTMLInputElement>(null);
+  const [pcSavedReports, setPcSavedReports] = useState<{ id: string; title: string; month: string; text: string; photos: { name: string; dataUrl: string }[]; created_at: string }[]>([]);
+  const [pcSaving, setPcSaving] = useState(false);
+  const [pcLoadedId, setPcLoadedId] = useState<string | null>(null);
+  const [pcShowList, setPcShowList] = useState(false);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
@@ -995,6 +1003,67 @@ export default function Reports() {
       }),
     [],
   );
+
+  const loadSavedReports = async () => {
+    const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
+    if (!activeProjectId) return;
+    const { data } = await supabase
+      .from("prestacao_contas_reports")
+      .select("*")
+      .eq("project_id", activeProjectId)
+      .order("updated_at", { ascending: false });
+    if (data) setPcSavedReports(data as typeof pcSavedReports);
+  };
+
+  const saveReport = async () => {
+    const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
+    if (!activeProjectId) return;
+    setPcSaving(true);
+    const payload = {
+      project_id: activeProjectId,
+      title: pcTitle,
+      month: pcMonth,
+      text: pcText,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      photos: pcPhotos as any,
+      updated_at: new Date().toISOString(),
+    };
+    if (pcLoadedId) {
+      await supabase.from("prestacao_contas_reports").update(payload).eq("id", pcLoadedId);
+    } else {
+      const { data } = await supabase.from("prestacao_contas_reports").insert(payload).select().single();
+      if (data) setPcLoadedId((data as { id: string }).id);
+    }
+    await loadSavedReports();
+    setPcSaving(false);
+  };
+
+  const deleteReport = async (id: string) => {
+    await supabase.from("prestacao_contas_reports").delete().eq("id", id);
+    if (pcLoadedId === id) {
+      setPcLoadedId(null);
+      setPcTitle("");
+      setPcMonth(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
+      setPcText("");
+      setPcPhotos([]);
+    }
+    await loadSavedReports();
+  };
+
+  const loadReport = (r: typeof pcSavedReports[0]) => {
+    setPcTitle(r.title);
+    setPcMonth(r.month);
+    setPcText(r.text);
+    setPcPhotos(r.photos);
+    setPcLoadedId(r.id);
+    setPcShowList(false);
+  };
+
+  useEffect(() => {
+    if (report === "prestacao-contas") {
+      void loadSavedReports();
+    }
+  }, [report]);
 
   return (
     <div className="space-y-6">
@@ -1531,7 +1600,29 @@ export default function Reports() {
             >
               <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                onClick={() => void saveReport()}
+                disabled={pcSaving}
+              >
+                {pcSaving ? (
+                  <span className="h-4 w-4 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin inline-block" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {pcLoadedId ? "Atualizar" : "Salvar"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl font-bold gap-2 border-slate-200 text-slate-600 hover:bg-slate-100"
+                onClick={() => setPcShowList((v) => !v)}
+              >
+                <FolderOpen className="h-4 w-4" /> Relatórios Salvos
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -1585,6 +1676,64 @@ export default function Reports() {
               </Button>
             </div>
           </div>
+
+          {/* Lista de relatórios salvos */}
+          {pcShowList && (
+            <Card className="border border-slate-200 shadow-sm bg-white rounded-[2rem] overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-2xl bg-slate-50 text-slate-500 flex items-center justify-center border border-slate-100">
+                    <FolderOpen className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banco de Dados</p>
+                    <p className="text-lg font-black text-slate-700">Relatórios Salvos</p>
+                  </div>
+                </div>
+                {pcSavedReports.length === 0 ? (
+                  <p className="text-sm text-slate-400 font-medium text-center py-6">Nenhum relatório salvo ainda.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pcSavedReports.map((r) => (
+                      <div
+                        key={r.id}
+                        className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${pcLoadedId === r.id ? "border-indigo-200 bg-indigo-50/50" : "border-slate-100 bg-slate-50/50 hover:bg-slate-50"}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-700 truncate">{r.title || "(sem título)"}</p>
+                          <p className="text-xs font-medium text-slate-400 mt-0.5">
+                            {r.month ? monthLabel(r.month) : "—"} &middot; Criado em {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl font-bold text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 h-8 px-3"
+                            onClick={() => loadReport(r)}
+                          >
+                            Carregar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl font-bold text-xs border-rose-200 text-rose-600 hover:bg-rose-50 h-8 px-3"
+                            onClick={() => {
+                              if (window.confirm(`Excluir o relatório "${r.title || "(sem título)"}"? Esta ação não pode ser desfeita.`)) {
+                                void deleteReport(r.id);
+                              }
+                            }}
+                          >
+                            Excluir
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Card principal */}
           <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
