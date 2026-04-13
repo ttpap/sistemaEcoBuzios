@@ -1004,42 +1004,61 @@ export default function Reports() {
     [],
   );
 
+  // Comprime imagem via Canvas antes de salvar (max 1200px, qualidade 0.75)
+  const compressImage = (file: File): Promise<{ name: string; dataUrl: string }> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX = 1200;
+          let { width, height } = img;
+          if (width > MAX || height > MAX) {
+            if (width > height) { height = Math.round(height * MAX / width); width = MAX; }
+            else { width = Math.round(width * MAX / height); height = MAX; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width; canvas.height = height;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+          resolve({ name: file.name, dataUrl: canvas.toDataURL("image/jpeg", 0.75) });
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+
   const loadSavedReports = async () => {
     const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
     if (!activeProjectId) return;
-    const { data } = await supabase
-      .from("prestacao_contas_reports")
-      .select("*")
-      .eq("project_id", activeProjectId)
-      .order("updated_at", { ascending: false });
+    const { data, error } = await supabase.rpc("list_prestacao_contas_reports", { p_project_id: activeProjectId });
+    if (error) { console.error("Erro ao carregar relatórios:", error.message); return; }
     if (data) setPcSavedReports(data as typeof pcSavedReports);
   };
 
   const saveReport = async () => {
     const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
-    if (!activeProjectId) return;
+    if (!activeProjectId) { alert("Nenhum projeto ativo encontrado."); return; }
     setPcSaving(true);
-    const payload = {
-      project_id: activeProjectId,
-      title: pcTitle,
-      month: pcMonth,
-      text: pcText,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      photos: pcPhotos as any,
-      updated_at: new Date().toISOString(),
-    };
-    if (pcLoadedId) {
-      await supabase.from("prestacao_contas_reports").update(payload).eq("id", pcLoadedId);
+    const { data, error } = await supabase.rpc("save_prestacao_contas_report", {
+      p_id: pcLoadedId ?? null,
+      p_project_id: activeProjectId,
+      p_title: pcTitle,
+      p_month: pcMonth,
+      p_text: pcText,
+      p_photos: pcPhotos,
+    });
+    if (error) {
+      alert("Erro ao salvar: " + error.message);
     } else {
-      const { data } = await supabase.from("prestacao_contas_reports").insert(payload).select().single();
-      if (data) setPcLoadedId((data as { id: string }).id);
+      if (!pcLoadedId && data) setPcLoadedId(data as string);
+      await loadSavedReports();
     }
-    await loadSavedReports();
     setPcSaving(false);
   };
 
   const deleteReport = async (id: string) => {
-    await supabase.from("prestacao_contas_reports").delete().eq("id", id);
+    const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
+    await supabase.rpc("delete_prestacao_contas_report", { p_id: id, p_project_id: activeProjectId });
     if (pcLoadedId === id) {
       setPcLoadedId(null);
       setPcTitle("");
@@ -1811,16 +1830,10 @@ export default function Reports() {
                       accept="image/*"
                       multiple
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const files = Array.from(e.target.files || []);
-                        files.forEach((file) => {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const dataUrl = ev.target?.result as string;
-                            setPcPhotos((prev) => [...prev, { name: file.name, dataUrl }]);
-                          };
-                          reader.readAsDataURL(file);
-                        });
+                        const compressed = await Promise.all(files.map(compressImage));
+                        setPcPhotos((prev) => [...prev, ...compressed]);
                         e.target.value = "";
                       }}
                     />
