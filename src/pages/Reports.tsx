@@ -669,6 +669,7 @@ function printPrefeituraReport(data: {
 function printPrestacaoContasReport(data: {
   projectName: string;
   title: string;
+  month: string;
   text: string;
   photos: { name: string; dataUrl: string }[];
   print: boolean;
@@ -678,7 +679,10 @@ function printPrestacaoContasReport(data: {
 
   const logoUrl = getReportLogoUrl();
   const generatedAt = new Date().toLocaleString("pt-BR");
-  const { projectName, title, text, photos } = data;
+  const { projectName, title, month, text, photos } = data;
+  const monthLabel = month
+    ? new Date(month + "-02").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+    : "";
 
   const photosHtml = photos.length > 0
     ? `<div style="margin-top:20px;">
@@ -736,6 +740,7 @@ function printPrestacaoContasReport(data: {
         </div>
         <div class="meta">
           <div>Gerado em <strong>${generatedAt}</strong></div>
+          ${monthLabel ? `<div>Referência: <strong>${monthLabel}</strong></div>` : ""}
         </div>
       </div>
     </div>
@@ -776,6 +781,7 @@ export default function Reports() {
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
   const [pcTitle, setPcTitle] = useState("");
+  const [pcMonth, setPcMonth] = useState<string>(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
   const [pcText, setPcText] = useState("");
   const [pcPhotos, setPcPhotos] = useState<{ name: string; dataUrl: string }[]>([]);
   const pcFileInputRef = useRef<HTMLInputElement>(null);
@@ -1534,6 +1540,7 @@ export default function Reports() {
                   printPrestacaoContasReport({
                     projectName: getReportProjectName(),
                     title: pcTitle,
+                    month: pcMonth,
                     text: pcText,
                     photos: pcPhotos,
                     print: false,
@@ -1550,6 +1557,7 @@ export default function Reports() {
                   printPrestacaoContasReport({
                     projectName: getReportProjectName(),
                     title: pcTitle,
+                    month: pcMonth,
                     text: pcText,
                     photos: pcPhotos,
                     print: true,
@@ -1587,6 +1595,19 @@ export default function Reports() {
                     onChange={(e) => setPcTitle(e.target.value)}
                     placeholder="Ex: Reforma da Sede — Março 2026"
                     className="w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+
+                {/* Mês de referência */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Mês de Referência
+                  </label>
+                  <input
+                    type="month"
+                    value={pcMonth}
+                    onChange={(e) => setPcMonth(e.target.value)}
+                    className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
                   />
                 </div>
 
