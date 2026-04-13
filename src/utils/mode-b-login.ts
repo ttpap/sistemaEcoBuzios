@@ -50,9 +50,8 @@ export async function modeBLogin(input: {
     if (!error) {
       return { ok: true, role: "admin", redirectTo: "/" };
     }
-
-    // Email com @ → é sempre tentativa de admin; não tenta staff/aluno.
-    return { ok: false, reason: "invalid_credentials" };
+    // Admin falhou → continua para tentar staff (coordenador/professor via RPC).
+    // Permite que coordenadores usem email como auth_login no Modo B.
   }
 
   // 2) Tenta staff (coordenador/professor) via RPC.
