@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ import {
   Users,
   FileText,
   Eye,
+  Receipt,
 } from "lucide-react";
 
 function parseTimeHours(t: string): number {
@@ -665,6 +666,100 @@ function printPrefeituraReport(data: {
   if (data.print) setTimeout(() => { win.print(); }, 250);
 }
 
+function printPrestacaoContasReport(data: {
+  projectName: string;
+  title: string;
+  text: string;
+  photos: { name: string; dataUrl: string }[];
+  print: boolean;
+}) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const logoUrl = getReportLogoUrl();
+  const generatedAt = new Date().toLocaleString("pt-BR");
+  const { projectName, title, text, photos } = data;
+
+  const photosHtml = photos.length > 0
+    ? `<div style="margin-top:20px;">
+        <div style="font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.1em;color:#008ca0;margin-bottom:12px;">Fotos</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          ${photos.map((p) => `
+            <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+              <img src="${p.dataUrl}" alt="${p.name}" style="width:100%;height:200px;object-fit:cover;display:block;" />
+              <div style="padding:6px 10px;font-size:9px;font-weight:800;color:#64748b;background:#f8fafc;">${p.name}</div>
+            </div>`).join("")}
+        </div>
+      </div>`
+    : "";
+
+  const html = `<html>
+  <head>
+    <title>Prestação de Contas — ${projectName}</title>
+    <style>
+      :root { --primary: #008ca0; --slate: #0f172a; --muted: #64748b; --border: #e2e8f0; --soft: #f8fafc; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Inter, Arial, sans-serif; font-size: 10px; margin: 18px; color: var(--slate); }
+      .sheet-header { border: 1px solid var(--border); border-radius: 22px; background: #fff; overflow: hidden; margin-bottom: 20px; }
+      .brandbar { height: 8px; background: var(--primary); }
+      .header-inner { padding: 14px 16px 12px; }
+      .toprow { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+      .brand { display:flex; align-items:center; gap:12px; }
+      .logo { height:44px; width:auto; object-fit:contain; }
+      .proj { font-size:10px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+      .report-title { font-weight:950; font-size:15px; margin:3px 0 0; letter-spacing:-0.02em; }
+      .meta { margin-top:10px; display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:16px; background:var(--soft); border:1px solid var(--border); color:#334155; font-weight:800; }
+      .section { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:#fff; margin-bottom:16px; }
+      .section-title { padding:10px 14px; font-weight:950; font-size:11px; text-transform:uppercase; letter-spacing:.1em; background:var(--soft); border-bottom:1px solid var(--border); color:var(--primary); }
+      .section-body { padding:16px 14px; font-size:11px; line-height:1.7; color:#1e293b; font-weight:700; white-space:pre-wrap; }
+      .title-text { font-size:18px; font-weight:950; color:var(--slate); padding:16px 14px; }
+      @media print { @page { size: portrait; margin: 1cm; } .toolbar { display:none !important; } }
+    </style>
+  </head>
+  <body>
+    <div class="toolbar" style="position:sticky;top:0;z-index:100;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:16px;">
+      <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#d97706;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">🖨️ Imprimir</button>
+      <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">📄 Salvar PDF</button>
+    </div>
+    <div class="sheet-header">
+      <div class="brandbar"></div>
+      <div class="header-inner">
+        <div class="toprow">
+          <div class="brand">
+            <img class="logo" src="${logoUrl}" alt="Logo" />
+            <div>
+              <div class="proj">${projectName}</div>
+              <div class="report-title">PRESTAÇÃO DE CONTAS DE OBJETO</div>
+            </div>
+          </div>
+          <div style="display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-weight:900;font-size:10px;border:1px solid rgba(217,119,6,0.22);background:rgba(217,119,6,0.08);color:#d97706;">Relatório de Objeto</div>
+        </div>
+        <div class="meta">
+          <div>Gerado em <strong>${generatedAt}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Título do Relatório</div>
+      <div class="title-text">${title || "(sem título)"}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Descrição / Relato</div>
+      <div class="section-body">${text || "(sem descrição)"}</div>
+    </div>
+
+    ${photosHtml}
+  </body>
+</html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  if (data.print) setTimeout(() => { win.print(); }, 250);
+}
+
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -677,9 +772,13 @@ export default function Reports() {
     profile?.role === "coordinator" ||
     Boolean(getCoordinatorSessionLogin());
 
-  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura">("home");
+  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas">("home");
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
+  const [pcTitle, setPcTitle] = useState("");
+  const [pcText, setPcText] = useState("");
+  const [pcPhotos, setPcPhotos] = useState<{ name: string; dataUrl: string }[]>([]);
+  const pcFileInputRef = useRef<HTMLInputElement>(null);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
@@ -983,6 +1082,28 @@ export default function Reports() {
               </div>
             </CardContent>
           </Card>
+
+          {canSeeEnel ? (
+            <Card
+              className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+              onClick={() => setReport("prestacao-contas")}
+            >
+              <CardContent className="p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200 group-hover:scale-110 transition-transform">
+                    <Receipt className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-lg font-black text-primary">Prestação de Contas</p>
+                    <p className="text-sm font-bold text-slate-500 mt-1">
+                      Relatório de objeto com fotos e descrição.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       ) : report === "classes-year" ? (
         /* ── Relatório: Aulas Dadas no Ano ── */
@@ -1393,6 +1514,159 @@ export default function Reports() {
             </div>
           );
         })()
+      ) : report === "prestacao-contas" ? (
+        <div className="space-y-6">
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <Button
+              variant="ghost"
+              className="rounded-2xl w-fit px-4 font-black text-slate-600 hover:bg-slate-100"
+              onClick={() => setReport("home")}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl font-bold gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+                onClick={() =>
+                  printPrestacaoContasReport({
+                    projectName: getReportProjectName(),
+                    title: pcTitle,
+                    text: pcText,
+                    photos: pcPhotos,
+                    print: false,
+                  })
+                }
+              >
+                <Eye className="h-4 w-4" /> Visualizar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl font-bold gap-2 border-amber-300 text-amber-800 hover:bg-amber-50"
+                onClick={() =>
+                  printPrestacaoContasReport({
+                    projectName: getReportProjectName(),
+                    title: pcTitle,
+                    text: pcText,
+                    photos: pcPhotos,
+                    print: true,
+                  })
+                }
+              >
+                <Printer className="h-4 w-4" /> Imprimir
+              </Button>
+            </div>
+          </div>
+
+          {/* Card principal */}
+          <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-14 w-14 rounded-3xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
+                  <Receipt className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-2xl font-black text-primary mt-0.5">Prestação de Contas de Objeto</p>
+                  <p className="text-slate-500 font-medium mt-1">Preencha o título, descrição e adicione fotos.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Título */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Título do Relatório
+                  </label>
+                  <input
+                    type="text"
+                    value={pcTitle}
+                    onChange={(e) => setPcTitle(e.target.value)}
+                    placeholder="Ex: Reforma da Sede — Março 2026"
+                    className="w-full h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+
+                {/* Texto/Descrição */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Descrição / Relato
+                  </label>
+                  <textarea
+                    value={pcText}
+                    onChange={(e) => setPcText(e.target.value)}
+                    placeholder="Descreva os itens adquiridos, serviços executados ou ações realizadas..."
+                    rows={6}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+                  />
+                </div>
+
+                {/* Upload de fotos */}
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Fotos
+                  </label>
+                  <div>
+                    <Button
+                      variant="outline"
+                      className="rounded-2xl font-bold gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+                      onClick={() => pcFileInputRef.current?.click()}
+                      type="button"
+                    >
+                      <FileDown className="h-4 w-4" /> Adicionar Fotos
+                    </Button>
+                    <input
+                      ref={pcFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach((file) => {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const dataUrl = ev.target?.result as string;
+                            setPcPhotos((prev) => [...prev, { name: file.name, dataUrl }]);
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
+
+                  {pcPhotos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                      {pcPhotos.map((photo, idx) => (
+                        <div key={idx} className="relative group rounded-2xl overflow-hidden border border-slate-100 bg-slate-50">
+                          <img
+                            src={photo.dataUrl}
+                            alt={photo.name}
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="px-2 py-1 text-[10px] font-bold text-slate-500 truncate bg-white border-t border-slate-100">
+                            {photo.name}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPcPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                            className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-rose-600 text-white text-xs font-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
