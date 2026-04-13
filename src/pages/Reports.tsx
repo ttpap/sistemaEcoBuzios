@@ -38,6 +38,7 @@ import { Zap } from "lucide-react";
 
 import {
   BarChart3,
+  Building2,
   CalendarDays,
   FileDown,
   FileSpreadsheet,
@@ -49,6 +50,11 @@ import {
   Users,
   FileText,
 } from "lucide-react";
+
+function parseTimeHours(t: string): number {
+  const parts = t.split(":").map(Number);
+  return (parts[0] || 0) + (parts[1] || 0) / 60;
+}
 
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
@@ -476,6 +482,150 @@ function printClassesYearReport(
   setTimeout(() => { win.print(); win.close(); }, 250);
 }
 
+function printPrefeituraReport(data: {
+  projectName: string;
+  total: number;
+  schoolTypes: { label: string; count: number; color: string }[];
+  ageGroups: { label: string; count: number }[];
+  hoursRows: { name: string; period: string; sessions: number; hours: number }[];
+  totalSessions: number;
+  totalHours: number;
+}) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const logoUrl = getReportLogoUrl();
+  const generatedAt = new Date().toLocaleString("pt-BR");
+  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours } = data;
+
+  const schoolRows = schoolTypes.map((st) => {
+    const pct = total > 0 ? ((st.count / total) * 100).toFixed(1) : "0.0";
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${st.label}</td>
+      <td style="text-align:center;padding:7px 10px;font-weight:900;color:#1e293b;">${st.count}</td>
+      <td style="text-align:center;padding:7px 10px;font-weight:900;color:${st.color};">${pct}%</td>
+    </tr>`;
+  }).join("");
+
+  const ageRows = ageGroups.filter(g => g.count > 0).map((g) => {
+    const pct = total > 0 ? ((g.count / total) * 100).toFixed(1) : "0.0";
+    return `<tr>
+      <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${g.label}</td>
+      <td style="text-align:center;padding:7px 10px;font-weight:900;color:#1e293b;">${g.count}</td>
+      <td style="text-align:center;padding:7px 10px;font-weight:900;color:#6366f1;">${pct}%</td>
+    </tr>`;
+  }).join("");
+
+  const classRows = hoursRows.map((r) => `<tr>
+    <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${r.name}${r.period ? ` <span style="color:#94a3b8;font-size:9px;">${r.period}</span>` : ""}</td>
+    <td style="text-align:center;padding:7px 10px;font-weight:700;color:#475569;">${r.sessions}</td>
+    <td style="text-align:center;padding:7px 10px;font-weight:900;color:#059669;">${r.hours}h</td>
+  </tr>`).join("");
+
+  const html = `<html>
+  <head>
+    <title>Relatório Prefeitura — ${projectName}</title>
+    <style>
+      :root { --primary: #008ca0; --indigo: #6366f1; --slate: #0f172a; --muted: #64748b; --border: #e2e8f0; --soft: #f8fafc; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Inter, Arial, sans-serif; font-size: 10px; margin: 18px; color: var(--slate); }
+      .sheet-header { border: 1px solid var(--border); border-radius: 22px; background: #fff; overflow: hidden; margin-bottom: 16px; }
+      .brandbar { height: 8px; background: var(--primary); }
+      .header-inner { padding: 14px 16px 12px; }
+      .toprow { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+      .brand { display:flex; align-items:center; gap:12px; }
+      .logo { height:44px; width:auto; object-fit:contain; }
+      .proj { font-size:10px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+      .title { font-weight:950; font-size:15px; margin:3px 0 0; letter-spacing:-0.02em; }
+      .meta { margin-top:10px; display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:16px; background:var(--soft); border:1px solid var(--border); color:#334155; font-weight:800; }
+      .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px; }
+      .section { border:1px solid var(--border); border-radius:16px; overflow:hidden; background:#fff; }
+      .section-title { padding:10px 14px; font-weight:950; font-size:11px; text-transform:uppercase; letter-spacing:.1em; background:var(--soft); border-bottom:1px solid var(--border); color:var(--primary); }
+      .total-box { padding:18px 14px; text-align:center; }
+      .total-num { font-size:42px; font-weight:950; color:var(--primary); line-height:1; }
+      .total-label { font-size:11px; font-weight:800; color:var(--muted); margin-top:4px; }
+      table { width:100%; border-collapse:collapse; }
+      th { background:#f1f5f9; text-align:center; font-weight:950; font-size:9px; text-transform:uppercase; letter-spacing:.08em; padding:7px 10px; border-bottom:1px solid var(--border); }
+      th.left { text-align:left; }
+      tr + tr td { border-top:1px solid #f1f5f9; }
+      tr.foot td { border-top:2px solid #cbd5e1; font-weight:950; background:#f8fafc; }
+      @media print { @page { size: portrait; margin: 1cm; } }
+    </style>
+  </head>
+  <body>
+    <div class="sheet-header">
+      <div class="brandbar"></div>
+      <div class="header-inner">
+        <div class="toprow">
+          <div class="brand">
+            <img class="logo" src="${logoUrl}" alt="Logo" />
+            <div>
+              <div class="proj">${projectName}</div>
+              <div class="title">RELATÓRIO PREFEITURA</div>
+            </div>
+          </div>
+          <div style="display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-weight:900;font-size:10px;border:1px solid rgba(0,140,160,0.22);background:rgba(0,140,160,0.08);color:var(--primary);">Dados do Projeto</div>
+        </div>
+        <div class="meta">
+          <div>Gerado em <strong>${generatedAt}</strong></div>
+          <div>Total de alunos: <strong>${total}</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div class="section" style="margin-bottom:14px;">
+          <div class="section-title">Total de Alunos no Projeto</div>
+          <div class="total-box">
+            <div class="total-num">${total}</div>
+            <div class="total-label">alunos matriculados</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Distribuição por Rede de Ensino</div>
+          <table>
+            <thead><tr><th class="left">Rede</th><th>Alunos</th><th>%</th></tr></thead>
+            <tbody>${schoolRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="section" style="margin-bottom:14px;">
+          <div class="section-title">Faixas Etárias</div>
+          <table>
+            <thead><tr><th class="left">Faixa</th><th>Alunos</th><th>%</th></tr></thead>
+            <tbody>${ageRows}</tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Horas-Aula por Turma</div>
+          <table>
+            <thead><tr><th class="left">Turma</th><th>Aulas</th><th>Horas</th></tr></thead>
+            <tbody>
+              ${classRows}
+              <tr class="foot">
+                <td style="padding:7px 10px;">TOTAL</td>
+                <td style="text-align:center;padding:7px 10px;">${totalSessions}</td>
+                <td style="text-align:center;padding:7px 10px;color:#059669;">${totalHours}h</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); win.close(); }, 250);
+}
+
 export default function Reports() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -488,7 +638,7 @@ export default function Reports() {
     profile?.role === "coordinator" ||
     Boolean(getCoordinatorSessionLogin());
 
-  const [report, setReport] = useState<"home" | "attendance" | "classes-year">("home");
+  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura">("home");
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
@@ -773,6 +923,26 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : null}
+
+          <Card
+            className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+            onClick={() => setReport("prefeitura")}
+          >
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-3xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200 group-hover:scale-110 transition-transform">
+                  <Building2 className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-lg font-black text-primary">Relatório Prefeitura</p>
+                  <p className="text-sm font-bold text-slate-500 mt-1">
+                    Total de alunos, distribuição por rede de ensino, faixas etárias e horas-aula dadas.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       ) : report === "classes-year" ? (
         /* ── Relatório: Aulas Dadas no Ano ── */
@@ -940,6 +1110,233 @@ export default function Reports() {
             );
           })()}
         </div>
+      ) : report === "prefeitura" ? (
+        (() => {
+          // ── Cálculos do Relatório Prefeitura ──
+          const total = students.length;
+
+          const sc = { publica: 0, particular: 0, superior: 0, naoEstuda: 0, outros: 0 };
+          for (const s of students) {
+            const raw = (s.schoolType || "").toLowerCase().trim();
+            if (raw === "municipal" || raw === "state") sc.publica++;
+            else if (raw === "private") sc.particular++;
+            else if (raw === "higher") sc.superior++;
+            else if (raw === "none") sc.naoEstuda++;
+            else sc.outros++;
+          }
+          const schoolTypes = [
+            { label: "Rede Pública", count: sc.publica, color: "#008ca0" },
+            { label: "Particular", count: sc.particular, color: "#f59e0b" },
+            { label: "Ensino Superior", count: sc.superior, color: "#6366f1" },
+            { label: "Não estudante", count: sc.naoEstuda, color: "#f43f5e" },
+            ...(sc.outros > 0 ? [{ label: "Não informado", count: sc.outros, color: "#cbd5e1" }] : []),
+          ].filter((d) => d.count > 0);
+
+          const ageGroups = [
+            { label: "Até 9 anos", min: 0, max: 9, count: 0 },
+            { label: "10–12 anos", min: 10, max: 12, count: 0 },
+            { label: "13–15 anos", min: 13, max: 15, count: 0 },
+            { label: "16–18 anos", min: 16, max: 18, count: 0 },
+            { label: "19–25 anos", min: 19, max: 25, count: 0 },
+            { label: "26+ anos", min: 26, max: 999, count: 0 },
+          ];
+          for (const s of students) {
+            const age = s.age ?? 0;
+            for (const g of ageGroups) {
+              if (age >= g.min && age <= g.max) { g.count++; break; }
+            }
+          }
+
+          const hoursRows = classes
+            .map((c) => {
+              const dur =
+                c.startTime && c.endTime
+                  ? Math.max(0, parseTimeHours(c.endTime) - parseTimeHours(c.startTime))
+                  : 2;
+              const sess = attendanceSessions.filter((s) => s.classId === c.id && s.finalizedAt).length;
+              return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * dur).toFixed(1) };
+            })
+            .filter((r) => r.sessions > 0)
+            .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+          const totalSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
+          const totalHours = +hoursRows.reduce((s, r) => s + r.hours, 0).toFixed(1);
+
+          return (
+            <div className="space-y-6">
+              {/* Cabeçalho */}
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <Button
+                  variant="ghost"
+                  className="rounded-2xl w-fit px-4 font-black text-slate-600 hover:bg-slate-100"
+                  onClick={() => setReport("home")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-2xl font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  onClick={() =>
+                    printPrefeituraReport({
+                      projectName: getReportProjectName(),
+                      total,
+                      schoolTypes,
+                      ageGroups,
+                      hoursRows,
+                      totalSessions,
+                      totalHours,
+                    })
+                  }
+                >
+                  <Printer className="h-4 w-4" /> Imprimir
+                </Button>
+              </div>
+
+              {/* Título */}
+              <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-3xl bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200">
+                      <Building2 className="h-7 w-7" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                      <p className="text-2xl font-black text-primary mt-0.5">Relatório Prefeitura</p>
+                      <p className="text-slate-500 font-medium mt-1">Dados consolidados do projeto ativo.</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Linha 1: Total de alunos + Rede de ensino */}
+              <div className="grid gap-6 lg:grid-cols-3">
+                {/* Total */}
+                <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</p>
+                    <p className="text-base font-black text-slate-700 mt-0.5">Alunos no Projeto</p>
+                  </div>
+                  <CardContent className="p-8 flex flex-col items-center justify-center gap-2">
+                    <span className="text-6xl font-black text-primary leading-none">{total}</span>
+                    <span className="text-sm font-bold text-slate-400">alunos matriculados</span>
+                  </CardContent>
+                </Card>
+
+                {/* Rede de ensino */}
+                <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden lg:col-span-2">
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Distribuição</p>
+                    <p className="text-base font-black text-slate-700 mt-0.5">Rede de Ensino</p>
+                  </div>
+                  <CardContent className="p-6 space-y-4">
+                    {schoolTypes.length === 0 ? (
+                      <p className="text-slate-400 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
+                    ) : (
+                      schoolTypes.map((st) => {
+                        const pct = total > 0 ? (st.count / total) * 100 : 0;
+                        return (
+                          <div key={st.label} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-black text-slate-700">{st.label}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-slate-500">{st.count} aluno{st.count !== 1 ? "s" : ""}</span>
+                                <span className="text-sm font-black w-12 text-right" style={{ color: st.color }}>{pct.toFixed(1)}%</span>
+                              </div>
+                            </div>
+                            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{ width: `${pct}%`, backgroundColor: st.color }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Linha 2: Faixas etárias + Horas-aula */}
+              <div className="grid gap-6 lg:grid-cols-2">
+                {/* Faixas etárias */}
+                <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil</p>
+                    <p className="text-base font-black text-slate-700 mt-0.5">Faixas Etárias</p>
+                  </div>
+                  <CardContent className="p-6 space-y-4">
+                    {ageGroups.filter((g) => g.count > 0).length === 0 ? (
+                      <p className="text-slate-400 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
+                    ) : (
+                      ageGroups.filter((g) => g.count > 0).map((g) => {
+                        const pct = total > 0 ? (g.count / total) * 100 : 0;
+                        return (
+                          <div key={g.label} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-black text-slate-700">{g.label}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-slate-500">{g.count}</span>
+                                <span className="text-sm font-black text-indigo-600 w-12 text-right">{pct.toFixed(1)}%</span>
+                              </div>
+                            </div>
+                            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                              <div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Horas-aula */}
+                <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Carga horária</p>
+                      <p className="text-base font-black text-slate-700 mt-0.5">Horas-Aula Dadas</p>
+                    </div>
+                    {totalHours > 0 && (
+                      <div className="text-right">
+                        <p className="text-2xl font-black text-emerald-600">{totalHours}h</p>
+                        <p className="text-xs font-bold text-slate-400">{totalSessions} aulas</p>
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-0">
+                    {hoursRows.length === 0 ? (
+                      <p className="text-slate-400 text-sm font-medium text-center py-8">Nenhuma aula finalizada.</p>
+                    ) : (
+                      <div className="divide-y divide-slate-50">
+                        {hoursRows.map((r) => (
+                          <div key={r.name} className="flex items-center justify-between px-6 py-3">
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{r.name}</p>
+                              {r.period && <p className="text-xs text-slate-400">{r.period}</p>}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-black text-emerald-600">{r.hours}h</p>
+                              <p className="text-xs text-slate-400">{r.sessions} aulas</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between px-6 py-3 bg-slate-50">
+                          <span className="text-sm font-black text-slate-700">TOTAL</span>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-emerald-700">{totalHours}h</p>
+                            <p className="text-xs text-slate-400">{totalSessions} aulas</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         <div className="space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
