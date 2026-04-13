@@ -36,6 +36,7 @@ import {
   setClassTeacherIdsRemote,
   fetchClassesRemoteWithMeta,
   fetchClassByIdRemote,
+  fetchProjectNucleosRemote,
   deleteClassRemote,
   fetchNucleosRemote,
   fetchProjectEnrollmentsRemoteWithMeta,
@@ -136,6 +137,21 @@ const ClassDetails = () => {
           if (remote) {
             found = remote;
             classes = [...classes, remote];
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // Fallback Modo B: fetchClassByIdRemote usa SELECT direto que falha para professor/coordenador
+      // sem sessão JWT. Busca os núcleos do projeto (que usa RPC com suporte ao Modo B) e
+      // procura o ID correspondente.
+      if (!found && projectId) {
+        try {
+          const nucleos = await fetchProjectNucleosRemote(projectId);
+          const match = nucleos.find((n) => n.id === id);
+          if (match) {
+            found = match;
+            classes = [...classes, match];
           }
         } catch {
           // ignore
