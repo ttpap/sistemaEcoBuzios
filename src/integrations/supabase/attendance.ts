@@ -58,59 +58,22 @@ export async function fetchAttendanceSessionsRemote(projectId: string, classId?:
     }));
   }
 
-  // Admin / sessão Supabase Auth: SELECT direto via RLS.
-  let q = supabase
-    .from("attendance_sessions")
-    .select("id,class_id,date,created_at,finalized_at")
-    .eq("project_id", projectId)
-    .order("date", { ascending: false });
+  // Admin / sessão Supabase Auth: RPC SECURITY DEFINER que retorna sessões
+  // já com student_ids e records embutidos (sem limite de linhas).
+  const { data: fullData, error: fullErr } = await supabase.rpc("list_attendance_sessions_full", {
+    p_project_id: projectId,
+    p_class_id: classId || null,
+  });
 
-  if (classId) q = q.eq("class_id", classId);
-
-  const { data, error } = await q;
-
-  // Se tiver resultado, segue com o caminho normal.
-  if (!error && Array.isArray(data) && data.length > 0) {
-    const sessions: AttendanceSession[] = [];
-    for (const s of data as any[]) {
-      sessions.push({
-        id: s.id,
-        classId: s.class_id,
-        date: s.date,
-        createdAt: s.created_at,
-        finalizedAt: s.finalized_at ?? undefined,
-        records: {},
-        studentIds: [],
-      });
-    }
-
-    const ids = sessions.map((s) => s.id);
-    if (!ids.length) return sessions;
-
-    const { data: ssData } = await supabase
-      .rpc("fetch_attendance_session_students_bulk", { p_session_ids: ids });
-
-    const bySessionStudents = new Map<string, string[]>();
-    for (const row of (ssData as any[]) || []) {
-      const arr = bySessionStudents.get(row.session_id) || [];
-      arr.push(row.student_id);
-      bySessionStudents.set(row.session_id, arr);
-    }
-
-    const { data: recData } = await supabase
-      .rpc("fetch_attendance_records_bulk", { p_session_ids: ids });
-
-    const bySessionRecords = new Map<string, Record<string, AttendanceStatus>>();
-    for (const row of (recData as any[]) || []) {
-      const map = bySessionRecords.get(row.session_id) || {};
-      map[row.student_id] = row.status;
-      bySessionRecords.set(row.session_id, map);
-    }
-
-    return sessions.map((s) => ({
-      ...s,
-      studentIds: bySessionStudents.get(s.id) || [],
-      records: bySessionRecords.get(s.id) || {},
+  if (!fullErr && fullData && Array.isArray(fullData) && fullData.length > 0) {
+    return (fullData as any[]).map((r: any) => ({
+      id: r.id,
+      classId: r.class_id,
+      date: r.date,
+      createdAt: r.created_at,
+      finalizedAt: r.finalized_at ?? undefined,
+      studentIds: r.student_ids || [],
+      records: (r.records || {}) as Record<string, AttendanceStatus>,
     }));
   }
 
