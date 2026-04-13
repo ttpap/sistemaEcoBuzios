@@ -68,6 +68,7 @@ export default function TeacherSidebar({
 
   const selectedProjectId = useMemo(() => getActiveProjectId(), [location.pathname]);
   const [reportsOpen, setReportsOpen] = useState(() => location.pathname.startsWith('/professor/relatorios'));
+  const [turmasOpen, setTurmasOpen] = useState(() => location.pathname.startsWith('/professor/turmas') || location.pathname.startsWith('/professor/numeros'));
 
   const onChangeProject = (projectId: string) => {
     setActiveProjectId(projectId);
@@ -79,7 +80,10 @@ export default function TeacherSidebar({
     () => [
       { icon: LayoutDashboard, label: "Dashboard", path: "/professor" },
       { icon: CalendarDays, label: "Escala", path: "/professor/agenda" },
-      { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
+      { icon: BookOpen, label: "Turmas", children: [
+        { icon: BookOpen, label: "Turmas", path: "/professor/turmas" },
+        { icon: Layers, label: "Números", path: "/professor/numeros" },
+      ]},
       { icon: GraduationCap, label: "Alunos", path: "/professor/alunos" },
       { icon: MessageSquarePlus, label: "Justificar", path: "/professor/justificativas" },
       { icon: BarChart3, label: "Relatórios", children: [
@@ -149,12 +153,16 @@ export default function TeacherSidebar({
       <nav className="flex-1 px-4 pb-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           if ('children' in item && item.children) {
-            const isGroupActive = item.children.some((c) => location.pathname === c.path);
+            const isGroupActive = item.children.some((c) => location.pathname === c.path || location.pathname.startsWith(c.path + '/'));
+            const isOpen = item.label === "Relatórios" ? reportsOpen : turmasOpen;
+            const toggleOpen = item.label === "Relatórios"
+              ? () => setReportsOpen((v) => !v)
+              : () => setTurmasOpen((v) => !v);
             return (
               <div key={item.label}>
                 <button
                   type="button"
-                  onClick={() => setReportsOpen((v) => !v)}
+                  onClick={toggleOpen}
                   className={cn(
                     "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black transition-colors",
                     isGroupActive
@@ -164,12 +172,12 @@ export default function TeacherSidebar({
                 >
                   <item.icon className={cn("h-5 w-5", isGroupActive ? "text-primary" : "text-slate-500")} />
                   <span className="flex-1 text-left">{item.label}</span>
-                  <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", reportsOpen ? "rotate-180" : "")} />
+                  <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isOpen ? "rotate-180" : "")} />
                 </button>
-                {reportsOpen && (
+                {isOpen && (
                   <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-slate-200 pl-2">
                     {item.children.map((child) => {
-                      const isActive = location.pathname === child.path;
+                      const isActive = location.pathname === child.path || location.pathname.startsWith(child.path + '/');
                       return (
                         <Link
                           key={child.path}

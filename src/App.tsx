@@ -79,6 +79,7 @@ const AtaReuniao                  = lazy(() => import("./pages/AtaReuniao"));
 const AtaReuniaoViewer            = lazy(() => import("./pages/AtaReuniaoViewer"));
 const AdminApiKeys                = lazy(() => import("@/pages/AdminApiKeys"));
 const ImageAuthorization          = lazy(() => import("@/pages/ImageAuthorization"));
+const Numeros                     = lazy(() => import("@/pages/Numeros"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -257,6 +258,14 @@ const App = () => (
                           }
                         />
                         <Route
+                          path="numeros"
+                          element={
+                            <TeacherActiveProjectGate>
+                              <Numeros />
+                            </TeacherActiveProjectGate>
+                          }
+                        />
+                        <Route
                           path="relatorios"
                           element={
                             <TeacherActiveProjectGate>
@@ -378,6 +387,14 @@ const App = () => (
                           element={
                             <ActiveProjectGate>
                               <ClassDetails />
+                            </ActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="/numeros"
+                          element={
+                            <ActiveProjectGate>
+                              <Numeros />
                             </ActiveProjectGate>
                           }
                         />
@@ -517,6 +534,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <ClassDetails />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="numeros"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <Numeros />
                             </CoordinatorActiveProjectGate>
                           }
                         />

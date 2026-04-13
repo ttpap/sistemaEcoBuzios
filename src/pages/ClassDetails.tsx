@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2,
-  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck, Layers
+  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ClassAttendance from '@/components/ClassAttendance';
-import NucleosTab from '@/components/NucleosTab';
 import Dashboard from '@/pages/Dashboard';
 import { enrollStudent, ensureStudentEnrollments, removeStudentEnrollment } from '@/utils/class-enrollment';
 import { readGlobalStudents, readScoped, writeScoped } from '@/utils/storage';
@@ -485,9 +484,6 @@ const ClassDetails = () => {
           <TabsTrigger value="chamada" className="rounded-xl font-black">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Chamada
           </TabsTrigger>
-          <TabsTrigger value="nucleos" className="rounded-xl font-black">
-            <Layers className="h-4 w-4 mr-2" /> Núcleos
-          </TabsTrigger>
           {base === "" && (
             <TabsTrigger value="dashboard" className="rounded-xl font-black">
               <Eye className="h-4 w-4 mr-2" /> Dashboard
@@ -721,20 +717,6 @@ const ClassDetails = () => {
           />
         </TabsContent>
 
-        <TabsContent value="nucleos" className="mt-8">
-          {activeProjectId ? (
-            <NucleosTab
-              parentClass={schoolClass}
-              projectId={activeProjectId}
-              allTeachers={allTeachers}
-              parentStudents={classStudents}
-              projectStudents={allStudents}
-              isTeacherArea={false}
-            />
-          ) : (
-            <p className="text-slate-400 text-sm italic">Projeto ativo não encontrado.</p>
-          )}
-        </TabsContent>
 
 
         {base === "" && (
