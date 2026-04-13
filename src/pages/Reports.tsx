@@ -49,6 +49,7 @@ import {
   NotebookPen,
   Users,
   FileText,
+  Eye,
 } from "lucide-react";
 
 function parseTimeHours(t: string): number {
@@ -491,6 +492,7 @@ function printPrefeituraReport(data: {
   totalSessions: number;
   totalHours: number;
   students: { fullName: string; socialName?: string; schoolName: string; age: number }[];
+  print: boolean;
 }) {
   const win = window.open("", "_blank");
   if (!win) return;
@@ -549,10 +551,14 @@ function printPrefeituraReport(data: {
       th.left { text-align:left; }
       tr + tr td { border-top:1px solid #f1f5f9; }
       tr.foot td { border-top:2px solid #cbd5e1; font-weight:950; background:#f8fafc; }
-      @media print { @page { size: portrait; margin: 1cm; } }
+      @media print { @page { size: portrait; margin: 1cm; } .toolbar { display:none !important; } }
     </style>
   </head>
   <body>
+    <div class="toolbar" style="position:sticky;top:0;z-index:100;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:16px;">
+      <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#6366f1;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">🖨️ Imprimir</button>
+      <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">📄 Salvar PDF</button>
+    </div>
     <div class="sheet-header">
       <div class="brandbar"></div>
       <div class="header-inner">
@@ -646,7 +652,7 @@ function printPrefeituraReport(data: {
   win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(() => { win.print(); win.close(); }, 250);
+  if (data.print) setTimeout(() => { win.print(); }, 250);
 }
 
 export default function Reports() {
@@ -1218,6 +1224,26 @@ export default function Reports() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="rounded-2xl font-bold gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
+                    onClick={() =>
+                      printPrefeituraReport({
+                        projectName: getReportProjectName(),
+                        total,
+                        schoolTypes,
+                        ageGroups,
+                        hoursRows,
+                        totalSessions,
+                        totalHours,
+                        students: projectStudents,
+                        print: false,
+                      })
+                    }
+                  >
+                    <Eye className="h-4 w-4" /> Visualizar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="rounded-2xl font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
                     onClick={() =>
                       printPrefeituraReport({
@@ -1229,6 +1255,7 @@ export default function Reports() {
                         totalSessions,
                         totalHours,
                         students: projectStudents,
+                        print: true,
                       })
                     }
                   >
