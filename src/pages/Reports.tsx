@@ -518,8 +518,7 @@ function printPrefeituraReport(data: {
 
   const classRows = hoursRows.map((r) => `<tr>
     <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${r.name}${r.period ? ` <span style="color:#94a3b8;font-size:9px;">${r.period}</span>` : ""}</td>
-    <td style="text-align:center;padding:7px 10px;font-weight:700;color:#475569;">${r.sessions}</td>
-    <td style="text-align:center;padding:7px 10px;font-weight:900;color:#059669;">${r.hours}h</td>
+    <td style="text-align:center;padding:7px 10px;font-weight:900;color:#059669;">${r.sessions}</td>
   </tr>`).join("");
 
   const html = `<html>
@@ -602,15 +601,14 @@ function printPrefeituraReport(data: {
         </div>
 
         <div class="section">
-          <div class="section-title">Horas-Aula por Turma</div>
+          <div class="section-title">Aulas Dadas por Turma</div>
           <table>
-            <thead><tr><th class="left">Turma</th><th>Aulas</th><th>Horas</th></tr></thead>
+            <thead><tr><th class="left">Turma</th><th>Aulas</th></tr></thead>
             <tbody>
               ${classRows}
               <tr class="foot">
                 <td style="padding:7px 10px;">TOTAL</td>
-                <td style="text-align:center;padding:7px 10px;">${totalSessions}</td>
-                <td style="text-align:center;padding:7px 10px;color:#059669;">${totalHours}h</td>
+                <td style="text-align:center;padding:7px 10px;color:#059669;font-weight:900;">${totalSessions}</td>
               </tr>
             </tbody>
           </table>
@@ -1291,17 +1289,17 @@ export default function Reports() {
                   </CardContent>
                 </Card>
 
-                {/* Horas-aula */}
+                {/* Aulas dadas */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Carga horária</p>
-                      <p className="text-base font-black text-slate-700 mt-0.5">Horas-Aula Dadas</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                      <p className="text-base font-black text-slate-700 mt-0.5">Aulas Dadas por Turma</p>
                     </div>
-                    {totalHours > 0 && (
+                    {totalSessions > 0 && (
                       <div className="text-right">
-                        <p className="text-2xl font-black text-emerald-600">{totalHours}h</p>
-                        <p className="text-xs font-bold text-slate-400">{totalSessions} aulas</p>
+                        <p className="text-2xl font-black text-emerald-600">{totalSessions}</p>
+                        <p className="text-xs font-bold text-slate-400">total de aulas</p>
                       </div>
                     )}
                   </div>
@@ -1316,18 +1314,12 @@ export default function Reports() {
                               <p className="text-sm font-bold text-slate-800">{r.name}</p>
                               {r.period && <p className="text-xs text-slate-400">{r.period}</p>}
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm font-black text-emerald-600">{r.hours}h</p>
-                              <p className="text-xs text-slate-400">{r.sessions} aulas</p>
-                            </div>
+                            <p className="text-sm font-black text-emerald-600">{r.sessions} aulas</p>
                           </div>
                         ))}
                         <div className="flex items-center justify-between px-6 py-3 bg-slate-50">
                           <span className="text-sm font-black text-slate-700">TOTAL</span>
-                          <div className="text-right">
-                            <p className="text-sm font-black text-emerald-700">{totalHours}h</p>
-                            <p className="text-xs text-slate-400">{totalSessions} aulas</p>
-                          </div>
+                          <p className="text-sm font-black text-emerald-700">{totalSessions} aulas</p>
                         </div>
                       </div>
                     )}
