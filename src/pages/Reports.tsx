@@ -1535,7 +1535,7 @@ export default function Reports() {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-2xl font-bold gap-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+                className="rounded-2xl font-bold gap-2 border-slate-200 text-slate-600 hover:bg-slate-50"
                 onClick={() =>
                   printPrestacaoContasReport({
                     projectName: getReportProjectName(),
@@ -1548,6 +1548,23 @@ export default function Reports() {
                 }
               >
                 <Eye className="h-4 w-4" /> Visualizar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-2xl font-bold gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                onClick={() =>
+                  printPrestacaoContasReport({
+                    projectName: getReportProjectName(),
+                    title: pcTitle,
+                    month: pcMonth,
+                    text: pcText,
+                    photos: pcPhotos,
+                    print: true,
+                  })
+                }
+              >
+                <FileDown className="h-4 w-4" /> Salvar PDF
               </Button>
               <Button
                 variant="outline"
