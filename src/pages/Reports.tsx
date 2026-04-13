@@ -638,6 +638,7 @@ export default function Reports() {
 
   const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura">("home");
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
+  const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
@@ -1154,7 +1155,9 @@ export default function Reports() {
                 c.startTime && c.endTime
                   ? Math.max(0, parseTimeHours(c.endTime) - parseTimeHours(c.startTime))
                   : 2;
-              const sess = attendanceSessions.filter((s) => s.classId === c.id && s.finalizedAt).length;
+              const sess = attendanceSessions.filter(
+                (s) => s.classId === c.id && s.finalizedAt && s.date.startsWith(prefeituraYear)
+              ).length;
               return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * dur).toFixed(1) };
             })
             .filter((r) => r.sessions > 0)
@@ -1174,24 +1177,38 @@ export default function Reports() {
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-2xl font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  onClick={() =>
-                    printPrefeituraReport({
-                      projectName: getReportProjectName(),
-                      total,
-                      schoolTypes,
-                      ageGroups,
-                      hoursRows,
-                      totalSessions,
-                      totalHours,
-                    })
-                  }
-                >
-                  <Printer className="h-4 w-4" /> Imprimir
-                </Button>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-500">Ano:</span>
+                    <select
+                      value={prefeituraYear}
+                      onChange={(e) => setPrefeituraYear(e.target.value)}
+                      className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
+                    >
+                      {Array.from(new Set(attendanceSessions.map((s) => s.date.slice(0, 4)))).sort().reverse().map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-2xl font-bold gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    onClick={() =>
+                      printPrefeituraReport({
+                        projectName: getReportProjectName(),
+                        total,
+                        schoolTypes,
+                        ageGroups,
+                        hoursRows,
+                        totalSessions,
+                        totalHours,
+                      })
+                    }
+                  >
+                    <Printer className="h-4 w-4" /> Imprimir
+                  </Button>
+                </div>
               </div>
 
               {/* Título */}
