@@ -491,7 +491,7 @@ function printPrefeituraReport(data: {
   hoursRows: { name: string; period: string; sessions: number; hours: number }[];
   totalSessions: number;
   totalHours: number;
-  students: { fullName: string; socialName?: string; schoolName: string; age: number }[];
+  students: { fullName: string; socialName?: string; schoolName: string; age: number; birthDate?: string }[];
   print: boolean;
 }) {
   const win = window.open("", "_blank");
@@ -635,14 +635,24 @@ function printPrefeituraReport(data: {
           </tr>
         </thead>
         <tbody>
-          ${[...students].sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR")).map((s, i) => `
-          <tr style="${i % 2 === 1 ? "background:#f8fafc;" : ""}">
-            <td style="text-align:center;padding:6px 8px;font-weight:900;color:#94a3b8;">${i + 1}</td>
-            <td style="padding:6px 8px;font-weight:800;color:#1e293b;">${s.fullName}</td>
-            <td style="padding:6px 8px;color:#475569;">${s.socialName || "—"}</td>
-            <td style="padding:6px 8px;color:#475569;">${s.schoolName || "—"}</td>
-            <td style="text-align:center;padding:6px 8px;font-weight:900;color:#6366f1;">${s.age ?? "—"}</td>
-          </tr>`).join("")}
+          ${[...students].sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR")).map((s, i) => {
+            let displayAge: string | number = s.age || "—";
+            if ((!s.age || s.age === 0) && s.birthDate) {
+              const birth = new Date(s.birthDate);
+              const today = new Date();
+              let calc = today.getFullYear() - birth.getFullYear();
+              const m = today.getMonth() - birth.getMonth();
+              if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) calc--;
+              if (calc > 0) displayAge = calc;
+            }
+            return `<tr style="${i % 2 === 1 ? "background:#f8fafc;" : ""}">
+              <td style="text-align:center;padding:6px 8px;font-weight:900;color:#94a3b8;">${i + 1}</td>
+              <td style="padding:6px 8px;font-weight:800;color:#1e293b;">${s.fullName}</td>
+              <td style="padding:6px 8px;color:#475569;">${s.socialName || "—"}</td>
+              <td style="padding:6px 8px;color:#475569;">${s.schoolName || "—"}</td>
+              <td style="text-align:center;padding:6px 8px;font-weight:900;color:#6366f1;">${displayAge}</td>
+            </tr>`;
+          }).join("")}
         </tbody>
       </table>
     </div>
@@ -1234,7 +1244,7 @@ export default function Reports() {
                         hoursRows,
                         totalSessions,
                         totalHours,
-                        students: projectStudents,
+                        students: projectStudents.map(s => ({ fullName: s.fullName, socialName: s.socialName, schoolName: s.schoolName, age: s.age, birthDate: s.birthDate })),
                         print: false,
                       })
                     }
@@ -1254,7 +1264,7 @@ export default function Reports() {
                         hoursRows,
                         totalSessions,
                         totalHours,
-                        students: projectStudents,
+                        students: projectStudents.map(s => ({ fullName: s.fullName, socialName: s.socialName, schoolName: s.schoolName, age: s.age, birthDate: s.birthDate })),
                         print: true,
                       })
                     }
