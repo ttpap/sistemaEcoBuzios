@@ -1111,10 +1111,13 @@ export default function Reports() {
       ) : report === "prefeitura" ? (
         (() => {
           // ── Cálculos do Relatório Prefeitura ──
-          const total = students.length;
+          // Filtra apenas alunos matriculados no projeto ativo (via classes carregadas)
+          const enrolledInProject = new Set(classes.flatMap((c) => c.studentIds || []));
+          const projectStudents = students.filter((s) => enrolledInProject.has(s.id));
+          const total = projectStudents.length;
 
           const sc = { publica: 0, particular: 0, superior: 0, naoEstuda: 0, outros: 0 };
-          for (const s of students) {
+          for (const s of projectStudents) {
             const raw = (s.schoolType || "").toLowerCase().trim();
             if (raw === "municipal" || raw === "state") sc.publica++;
             else if (raw === "private") sc.particular++;
@@ -1138,7 +1141,7 @@ export default function Reports() {
             { label: "19–25 anos", min: 19, max: 25, count: 0 },
             { label: "26+ anos", min: 26, max: 999, count: 0 },
           ];
-          for (const s of students) {
+          for (const s of projectStudents) {
             const age = s.age ?? 0;
             for (const g of ageGroups) {
               if (age >= g.min && age <= g.max) { g.count++; break; }
