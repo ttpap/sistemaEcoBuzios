@@ -1291,38 +1291,19 @@ export default function Reports() {
 
                 {/* Aulas dadas */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
-                  <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
-                      <p className="text-base font-black text-slate-700 mt-0.5">Aulas Dadas por Turma</p>
-                    </div>
-                    {totalSessions > 0 && (
-                      <div className="text-right">
-                        <p className="text-2xl font-black text-emerald-600">{totalSessions}</p>
-                        <p className="text-xs font-bold text-slate-400">total de aulas</p>
-                      </div>
-                    )}
+                  <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                    <p className="text-base font-black text-slate-700 mt-0.5">Aulas e Horas Dadas</p>
                   </div>
-                  <CardContent className="p-0">
-                    {hoursRows.length === 0 ? (
-                      <p className="text-slate-400 text-sm font-medium text-center py-8">Nenhuma aula finalizada.</p>
-                    ) : (
-                      <div className="divide-y divide-slate-50">
-                        {hoursRows.map((r) => (
-                          <div key={r.name} className="flex items-center justify-between px-6 py-3">
-                            <div>
-                              <p className="text-sm font-bold text-slate-800">{r.name}</p>
-                              {r.period && <p className="text-xs text-slate-400">{r.period}</p>}
-                            </div>
-                            <p className="text-sm font-black text-emerald-600">{r.sessions} aulas</p>
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-between px-6 py-3 bg-slate-50">
-                          <span className="text-sm font-black text-slate-700">TOTAL</span>
-                          <p className="text-sm font-black text-emerald-700">{totalSessions} aulas</p>
-                        </div>
-                      </div>
-                    )}
+                  <CardContent className="p-8 grid grid-cols-2 gap-6">
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <span className="text-5xl font-black text-emerald-600 leading-none">{totalSessions}</span>
+                      <span className="text-sm font-bold text-slate-400 mt-1">aulas dadas</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
+                      <span className="text-5xl font-black text-primary leading-none">{totalHours}</span>
+                      <span className="text-sm font-bold text-slate-400 mt-1">horas de aula</span>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
