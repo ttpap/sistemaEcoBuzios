@@ -490,13 +490,14 @@ function printPrefeituraReport(data: {
   hoursRows: { name: string; period: string; sessions: number; hours: number }[];
   totalSessions: number;
   totalHours: number;
+  students: { fullName: string; socialName?: string; schoolName: string; age: number }[];
 }) {
   const win = window.open("", "_blank");
   if (!win) return;
 
   const logoUrl = getReportLogoUrl();
   const generatedAt = new Date().toLocaleString("pt-BR");
-  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours } = data;
+  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students } = data;
 
   const schoolRows = schoolTypes.map((st) => {
     const pct = total > 0 ? ((st.count / total) * 100).toFixed(1) : "0.0";
@@ -614,6 +615,30 @@ function printPrefeituraReport(data: {
           </div>
         </div>
       </div>
+    </div>
+    <div style="page-break-before:always;">
+      <div class="section-title" style="border-radius:12px 12px 0 0;margin-bottom:0;">Lista de Alunos Matriculados</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
+        <thead>
+          <tr>
+            <th style="background:#f1f5f9;text-align:center;font-weight:950;font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #e2e8f0;width:32px;">#</th>
+            <th style="background:#f1f5f9;text-align:left;font-weight:950;font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #e2e8f0;">Nome Completo</th>
+            <th style="background:#f1f5f9;text-align:left;font-weight:950;font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #e2e8f0;">Nome Social</th>
+            <th style="background:#f1f5f9;text-align:left;font-weight:950;font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #e2e8f0;">Escola</th>
+            <th style="background:#f1f5f9;text-align:center;font-weight:950;font-size:9px;text-transform:uppercase;letter-spacing:.08em;padding:7px 8px;border-bottom:1px solid #e2e8f0;">Idade</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${[...students].sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR")).map((s, i) => `
+          <tr style="${i % 2 === 1 ? "background:#f8fafc;" : ""}">
+            <td style="text-align:center;padding:6px 8px;font-weight:900;color:#94a3b8;">${i + 1}</td>
+            <td style="padding:6px 8px;font-weight:800;color:#1e293b;">${s.fullName}</td>
+            <td style="padding:6px 8px;color:#475569;">${s.socialName || "—"}</td>
+            <td style="padding:6px 8px;color:#475569;">${s.schoolName || "—"}</td>
+            <td style="text-align:center;padding:6px 8px;font-weight:900;color:#6366f1;">${s.age ?? "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
     </div>
   </body>
 </html>`;
@@ -1203,6 +1228,7 @@ export default function Reports() {
                         hoursRows,
                         totalSessions,
                         totalHours,
+                        students: projectStudents,
                       })
                     }
                   >
