@@ -92,6 +92,7 @@ export default function AtaReuniao() {
   const [transcriberGroq, setTranscriberGroq] = useState(false);
   const [groqTranscript, setGroqTranscript] = useState<string | null>(null);
   const [panelTranscript, setPanelTranscript] = useState("");
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
 
   // IA
   const [generatingAI, setGeneratingAI] = useState(false);
@@ -192,8 +193,9 @@ export default function AtaReuniao() {
     webSpeech.start();
   }
 
-  function stopRecording() {
-    webSpeech.stop();
+  async function stopRecording() {
+    const blob = await webSpeech.stop();
+    setAudioBlob(blob);
   }
 
   // Usar a transcrição do painel como rawNotes
@@ -207,24 +209,49 @@ export default function AtaReuniao() {
     }
   }
 
-  // Refinar com Groq a partir do painel transcript
+  // Usar Groq: pode transcrever áudio ou refinar texto do Web Speech
   async function handleUseGroqForWebSpeech() {
-    if (!panelTranscript.trim()) {
-      toast.error("Nenhuma transcrição para refinar");
-      return;
-    }
-
     setTranscriberGroq(true);
     try {
       const apiKey = import.meta.env.VITE_GROQ_API_KEY;
       if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
 
+      let transcribedText: string;
+
+      // Se tem áudio gravado, transcreve com Groq Whisper
+      if (audioBlob) {
+        const formData = new FormData();
+        formData.append("file", audioBlob, "recording.webm");
+        formData.append("model", "whisper-large-v3");
+        formData.append("language", "pt");
+        formData.append("response_format", "text");
+
+        const transcribeResponse = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: formData,
+        });
+
+        if (!transcribeResponse.ok) {
+          const err = await transcribeResponse.text();
+          throw new Error(`Erro na transcrição do áudio: ${err}`);
+        }
+
+        transcribedText = await transcribeResponse.text();
+      } else if (panelTranscript.trim()) {
+        // Caso contrário, refina o texto do Web Speech
+        transcribedText = panelTranscript;
+      } else {
+        throw new Error("Nenhuma transcrição ou áudio para processar");
+      }
+
+      // Refinar texto com Llama
       const prompt = `Você é um assistente especializado em revisão de transcrições em português brasileiro.
 
 A transcrição abaixo foi feita por reconhecimento de voz. Revise-a corrigindo erros ortográficos, gramaticais e melhorando a clareza, mantendo o significado original:
 
 ---
-${panelTranscript}
+${transcribedText}
 ---
 
 Retorne apenas a transcrição revisada, sem explicações adicionais.`;
@@ -251,9 +278,9 @@ Retorne apenas a transcrição revisada, sem explicações adicionais.`;
       const json = await response.json();
       const refined = json.choices[0].message.content as string;
       setGroqTranscript(refined);
-      toast.success("Transcrição refinada pela IA!");
+      toast.success("Transcrição processada pela IA!");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao refinar transcrição");
+      toast.error(err instanceof Error ? err.message : "Erro ao processar transcrição");
     } finally {
       setTranscriberGroq(false);
     }

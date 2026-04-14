@@ -5,8 +5,10 @@ interface UseWebSpeechTranscriptionReturn {
   isListening: boolean;
   isFinal: boolean;
   error: string | null;
+  isRecording: boolean;
+  recordingDuration: number;
   start: () => void;
-  stop: () => void;
+  stop: () => Promise<Blob | null>;
   reset: () => void;
 }
 
@@ -15,9 +17,15 @@ export function useWebSpeechTranscription(): UseWebSpeechTranscriptionReturn {
   const [isListening, setIsListening] = useState(false);
   const [isFinal, setIsFinal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
 
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
   const interimTranscriptRef = useRef("");
+  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -77,34 +85,109 @@ export function useWebSpeechTranscription(): UseWebSpeechTranscriptionReturn {
     };
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback(async () => {
     if (recognitionRef.current && !isListening) {
       setTranscript("");
       interimTranscriptRef.current = "";
       setError(null);
       setIsFinal(false);
-      recognitionRef.current.start();
+      setRecordingDuration(0);
+
+      try {
+        // Inicia gravação de áudio
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+
+        const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : "audio/webm";
+
+        const recorder = new MediaRecorder(stream, {
+          mimeType: preferredMime,
+          audioBitsPerSecond: 16000,
+        });
+
+        chunksRef.current = [];
+
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        setIsRecording(true);
+
+        // Iniciar contador de duração
+        let duration = 0;
+        durationIntervalRef.current = setInterval(() => {
+          duration += 1;
+          setRecordingDuration(duration);
+        }, 1000);
+
+        // Iniciar reconhecimento de voz
+        recognitionRef.current!.start();
+      } catch {
+        setError("Não foi possível acessar o microfone");
+      }
     }
   }, [isListening]);
 
-  const stop = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-      // Aguarda um pouco para garantir que o último resultado seja processado
-      setTimeout(() => {
-        recognitionRef.current?.stop();
-      }, 100);
-    }
-  }, [isListening]);
+  const stop = useCallback(async (): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (recognitionRef.current && isListening) {
+        setTimeout(() => {
+          recognitionRef.current?.stop();
+        }, 100);
+      }
+
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.onstop = () => {
+          streamRef.current?.getTracks().forEach((t) => t.stop());
+          setIsRecording(false);
+
+          if (durationIntervalRef.current) {
+            clearInterval(durationIntervalRef.current);
+          }
+
+          if (chunksRef.current.length > 0) {
+            const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+              ? "audio/webm;codecs=opus"
+              : "audio/webm";
+            const audioBlob = new Blob(chunksRef.current, { type: mimeType });
+            resolve(audioBlob);
+          } else {
+            resolve(null);
+          }
+        };
+
+        mediaRecorderRef.current.stop();
+      } else {
+        resolve(null);
+      }
+    });
+  }, [isListening, isRecording]);
 
   const reset = useCallback(() => {
     setTranscript("");
     interimTranscriptRef.current = "";
     setError(null);
     setIsFinal(false);
+    setRecordingDuration(0);
+
+    if (durationIntervalRef.current) {
+      clearInterval(durationIntervalRef.current);
+    }
+
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
     }
-  }, [isListening]);
+
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      setIsRecording(false);
+    }
+  }, [isListening, isRecording]);
 
   // Retorna transcrição final + interim (para visualização em tempo real)
   const displayTranscript = transcript + (interimTranscriptRef.current ? " " + interimTranscriptRef.current : "");
@@ -114,6 +197,8 @@ export function useWebSpeechTranscription(): UseWebSpeechTranscriptionReturn {
     isListening,
     isFinal,
     error,
+    isRecording,
+    recordingDuration,
     start,
     stop,
     reset,
