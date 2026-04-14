@@ -60,12 +60,28 @@ export async function deleteMeetingMinute(id: string): Promise<void> {
 }
 
 // Transcreve áudio usando Groq Whisper
-export async function transcribeAudio(audioBlob: Blob): Promise<string> {
+// Aceita Blob (usa "recording.webm") ou File (detecta extensão, converte .opus → .ogg)
+export async function transcribeAudio(audio: Blob | File): Promise<string> {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
 
+  // Determina o nome do arquivo a enviar
+  let filename = "recording.webm";
+
+  if (audio instanceof File) {
+    const originalName = audio.name.toLowerCase();
+
+    // .opus é Opus dentro de container OGG - renomeia para .ogg
+    // (Groq Whisper detecta o formato pela extensão e aceita .ogg)
+    if (originalName.endsWith(".opus")) {
+      filename = audio.name.replace(/\.opus$/i, ".ogg");
+    } else {
+      filename = audio.name;
+    }
+  }
+
   const formData = new FormData();
-  formData.append("file", audioBlob, "recording.webm");
+  formData.append("file", audio, filename);
   formData.append("model", "whisper-large-v3");
   formData.append("language", "pt");
   formData.append("response_format", "text");

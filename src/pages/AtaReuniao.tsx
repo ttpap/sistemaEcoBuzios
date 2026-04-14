@@ -722,11 +722,11 @@ export default function AtaReuniao() {
               </Button>
             )}
 
-            {/* Upload de arquivo de áudio */}
+            {/* Upload de arquivo de áudio - aceita mp3, wav, m4a, ogg, opus (iPhone), webm, flac */}
             <input
               ref={fileInputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,.opus,.m4a,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga"
               onChange={handleAudioUpload}
               className="hidden"
             />
