@@ -63,6 +63,110 @@ interface Person {
   role: "Coordenador" | "Professor";
 }
 
+// Renderização simples de markdown para HTML — apenas o subset que a IA usa:
+// ## Título, ### Subtítulo, **negrito**, listas com - ou *, tabelas simples, linhas em branco
+function renderMarkdownToHtml(md: string): string {
+  const escape = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let inList = false;
+  let inTable = false;
+
+  const closeList = () => {
+    if (inList) {
+      out.push("</ul>");
+      inList = false;
+    }
+  };
+  const closeTable = () => {
+    if (inTable) {
+      out.push("</tbody></table>");
+      inTable = false;
+    }
+  };
+
+  const inline = (text: string) =>
+    escape(text)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Títulos
+    const h = trimmed.match(/^(#{1,6})\s+(.+)$/);
+    if (h) {
+      closeList();
+      closeTable();
+      const level = h[1].length;
+      const cls =
+        level === 1
+          ? "text-xl font-black text-slate-800 mt-4 mb-2"
+          : level === 2
+            ? "text-lg font-black text-slate-800 mt-4 mb-2"
+            : "text-base font-black text-slate-700 mt-3 mb-1";
+      out.push(`<h${level} class="${cls}">${inline(h[2])}</h${level}>`);
+      continue;
+    }
+
+    // Listas
+    const li = trimmed.match(/^[-*•]\s+(.+)$/);
+    if (li) {
+      closeTable();
+      if (!inList) {
+        out.push('<ul class="list-disc pl-5 space-y-1 my-2">');
+        inList = true;
+      }
+      out.push(`<li>${inline(li[1])}</li>`);
+      continue;
+    }
+
+    // Tabela: linha com | ... |
+    if (/^\|.*\|$/.test(trimmed)) {
+      closeList();
+      // Pula separador de tabela (| --- | --- |)
+      if (/^\|[\s\-:|]+\|$/.test(trimmed)) continue;
+      const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
+      if (!inTable) {
+        out.push('<table class="w-full text-sm my-2 border-collapse"><thead><tr>');
+        cells.forEach((c) =>
+          out.push(`<th class="text-left p-2 border-b-2 border-slate-300 font-bold">${inline(c)}</th>`)
+        );
+        out.push("</tr></thead><tbody>");
+        inTable = true;
+      } else {
+        out.push('<tr class="border-b border-slate-200">');
+        cells.forEach((c) => out.push(`<td class="p-2">${inline(c)}</td>`));
+        out.push("</tr>");
+      }
+      continue;
+    }
+
+    // Linha vazia
+    if (trimmed === "") {
+      closeList();
+      closeTable();
+      out.push("");
+      continue;
+    }
+
+    // Parágrafo
+    closeList();
+    closeTable();
+    out.push(`<p class="my-2 leading-relaxed">${inline(trimmed)}</p>`);
+  }
+
+  closeList();
+  closeTable();
+  return out.join("\n");
+}
+
 export default function AtaReuniao() {
   const projectId = getActiveProjectId();
 
@@ -322,19 +426,46 @@ export default function AtaReuniao() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     {m.organized_content && (
-                      <Badge variant="secondary" className="text-xs rounded-xl bg-emerald-50 text-emerald-700 border-emerald-200">
+                      <Badge variant="secondary" className="text-xs rounded-xl bg-emerald-50 text-emerald-700 border-emerald-200 mr-1">
                         <Sparkles className="h-3 w-3 mr-1" />
                         Organizada
                       </Badge>
                     )}
-                    <Button size="sm" variant="ghost" className="rounded-xl" onClick={() => setViewingMinute(m)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl"
+                      title="Visualizar"
+                      onClick={() => setViewingMinute(m)}
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
                     <Button
-                      size="sm" variant="ghost"
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl"
+                      title="Baixar PDF"
+                      onClick={() => handleGeneratePdf(m)}
+                      disabled={generatingPdf}
+                    >
+                      {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl"
+                      title="Imprimir"
+                      onClick={() => handlePrint(m)}
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
+                      title="Remover"
                       onClick={() => setDeletingId(m.id)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -402,13 +533,16 @@ export default function AtaReuniao() {
                 </div>
 
                 {viewingMinute.organized_content ? (
-                  <div className="bg-slate-50 rounded-2xl p-4">
+                  <div className="bg-slate-50 rounded-2xl p-5">
                     <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> Ata organizada pela IA
+                      <Sparkles className="h-3 w-3" /> Relatório organizado pela IA
                     </p>
-                    <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-wrap">
-                      {viewingMinute.organized_content}
-                    </div>
+                    <div
+                      className="text-sm text-slate-700"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdownToHtml(viewingMinute.organized_content),
+                      }}
+                    />
                   </div>
                 ) : viewingMinute.raw_notes ? (
                   <div className="bg-slate-50 rounded-2xl p-4">
