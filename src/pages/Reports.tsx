@@ -123,7 +123,7 @@ function statusPill(s?: AttendanceStatus) {
   }
 }
 
-function printAttendanceReport(matrix: AttendanceMatrix) {
+function printAttendanceReport(matrix: AttendanceMatrix, print = true) {
   const win = window.open("", "_blank");
   if (!win) return;
 
@@ -131,7 +131,7 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
   const projectName = getReportProjectName();
 
   const title = `RELATÓRIO DE CHAMADA`;
-  const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+  const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)} • ${matrix.students.length} alunos`;
   const generatedAt = new Date().toLocaleString("pt-BR");
 
   const html = `
@@ -203,12 +203,18 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
         .full { color: #475569; font-weight: 800; font-size: 9px; margin-top: 2px; }
         .center { text-align: center; font-weight: 950; }
 
+        .toolbar { position:sticky;top:0;z-index:100;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:16px; }
         @media print {
           @page { size: landscape; margin: 1cm; }
+          .toolbar { display:none !important; }
         }
       </style>
     </head>
     <body>
+      <div class="toolbar">
+        <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#008ca0;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">🖨️ Imprimir</button>
+        <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">📄 Salvar PDF</button>
+      </div>
       <div class="sheet-header">
         <div class="brandbar"></div>
         <div class="header-inner">
@@ -264,13 +270,10 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
   win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(() => {
-    win.print();
-    win.close();
-  }, 250);
+  if (print) setTimeout(() => { win.print(); }, 250);
 }
 
-function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
+function printMultiAttendanceReport(matrices: AttendanceMatrix[], print = true) {
   const win = window.open("", "_blank");
   if (!win) return;
 
@@ -280,7 +283,7 @@ function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
 
   const turmaHtml = matrices.map((matrix, idx) => {
     const title = `RELATÓRIO DE CHAMADA`;
-    const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+    const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)} • ${matrix.students.length} alunos`;
 
     return `
       <div class="turma-section" ${idx > 0 ? 'style="page-break-before:always;"' : ''}>
@@ -404,12 +407,18 @@ function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
         .full { color: #475569; font-weight: 800; font-size: 9px; margin-top: 2px; }
         .center { text-align: center; font-weight: 950; }
 
+        .toolbar { position:sticky;top:0;z-index:100;display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;background:#fff;border-bottom:1px solid #e2e8f0;margin-bottom:16px; }
         @media print {
           @page { size: landscape; margin: 1cm; }
+          .toolbar { display:none !important; }
         }
       </style>
     </head>
     <body>
+      <div class="toolbar">
+        <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#008ca0;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">🖨️ Imprimir</button>
+        <button onclick="window.print()" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:#059669;color:#fff;border:none;border-radius:10px;font-weight:800;font-size:12px;cursor:pointer;">📄 Salvar PDF</button>
+      </div>
       ${turmaHtml}
     </body>
   </html>`;
@@ -417,10 +426,7 @@ function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
   win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(() => {
-    win.print();
-    win.close();
-  }, 250);
+  if (print) setTimeout(() => { win.print(); }, 250);
 }
 
 async function downloadClassesYearPdf(
@@ -2237,6 +2243,23 @@ export default function Reports() {
                       {matrices.length} turmas no documento
                     </Badge>
                   )}
+
+                  <Button
+                    variant="outline"
+                    className="rounded-2xl gap-2 h-11 font-black border-slate-200"
+                    onClick={() => {
+                      if (matrices.length === 0) return;
+                      if (matrices.length === 1) {
+                        printAttendanceReport(matrices[0], false);
+                      } else {
+                        printMultiAttendanceReport(matrices, false);
+                      }
+                    }}
+                    disabled={matrices.length === 0}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Visualizar
+                  </Button>
 
                   <Button
                     variant="outline"
