@@ -94,8 +94,14 @@ export function useWebSpeechTranscription(): UseWebSpeechTranscriptionReturn {
       setRecordingDuration(0);
 
       try {
-        // Inicia gravação de áudio
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Inicia gravação de áudio - SEM filtros para captar som ambiente (celular em viva voz, etc)
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: true,
+          },
+        });
         streamRef.current = stream;
 
         const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")

@@ -96,9 +96,11 @@ export async function organizeMinutesWithAI(params: {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
   if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
 
-  const prompt = `Você é um assistente especializado em elaborar atas de reunião formais em português brasileiro.
+  const prompt = `Você é um assistente especializado em elaborar RELATÓRIOS DETALHADOS de reunião em português brasileiro.
 
-Com base nas informações abaixo, elabore uma ata de reunião completa, organizada e formal.
+IMPORTANTE: Este NÃO é um resumo curto. É um RELATÓRIO COMPLETO que conta como foi a reunião, com detalhes, citações e análise.
+
+Com base nas informações abaixo, elabore um relatório completo, detalhado e analítico da reunião.
 
 **Dados da reunião:**
 - Título: ${params.title}
@@ -110,16 +112,45 @@ Com base nas informações abaixo, elabore uma ata de reunião completa, organiz
 **Anotações/Transcrição:**
 ${params.raw_notes}
 
-**Instruções:**
-- Organize a ata com exatamente os seguintes campos, nesta ordem:
-  1. **Cabeçalho** — título, data, local e lista de participantes
-  2. **Resumo da Reunião** — parágrafo conciso com o contexto geral e os principais assuntos tratados
-  3. **Tópicos Mais Importantes** — lista dos pontos-chave discutidos, com destaque para decisões tomadas
-  4. **Conclusão e Encerramento** — síntese dos resultados alcançados e considerações finais
-  5. **Tarefas e Responsáveis** — lista das ações definidas, com nome do responsável e prazo (quando informado)
-- Use linguagem formal em português brasileiro
-- Seja objetivo e claro em cada seção
-- Use markdown para formatação`;
+**Instruções para o relatório — use EXATAMENTE estas seções:**
+
+## 📅 Cabeçalho
+- Título, data, local e lista completa de participantes
+
+## 🎯 Contexto e Objetivo
+- Parágrafo explicando o cenário da reunião e o objetivo geral
+- Contexto do que motivou o encontro
+
+## 💬 Desenvolvimento Detalhado
+- Narrativa COMPLETA e detalhada do que foi discutido
+- Inclua CITAÇÕES DIRETAS relevantes: "Conforme mencionado por [Nome]: '...'"
+- Apresente as diferentes perspectivas e argumentos levantados
+- Detalhe os tópicos debatidos, não apenas liste
+- Use trechos do que foi dito para embasar
+
+## ⭐ Pontos Altos
+- Principais destaques e decisões importantes
+- Momentos-chave da reunião
+- Acordos firmados
+
+## 🤔 Pontos de Reflexão
+- Questões abertas, dúvidas que ficaram
+- Pontos que merecem ser pensados
+- Desafios identificados
+
+## ✅ Decisões Tomadas
+- Lista clara e objetiva das decisões
+- Contexto de cada decisão
+
+## 📋 Tarefas e Responsáveis
+- Tabela ou lista com: Ação | Responsável | Prazo (quando informado)
+
+**Diretrizes de estilo:**
+- Use linguagem formal mas acessível, em português brasileiro
+- Seja DETALHADO, não resumido — prefira MAIS detalhe a menos
+- Use citações diretas sempre que possível
+- Use markdown para formatação (títulos, listas, negrito)
+- O relatório deve fazer com que quem não participou da reunião entenda TUDO que aconteceu`;
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -130,8 +161,8 @@ ${params.raw_notes}
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.3,
-      max_tokens: 4096,
+      temperature: 0.4,
+      max_tokens: 8192,
     }),
   });
 
