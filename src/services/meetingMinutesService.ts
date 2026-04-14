@@ -152,25 +152,89 @@ ${params.raw_notes}
 - Use markdown para formatação (títulos, listas, negrito)
 - O relatório deve fazer com que quem não participou da reunião entenda TUDO que aconteceu`;
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-      max_tokens: 8192,
-    }),
+  const json = await callGroqWithRetry(apiKey, {
+    model: "llama-3.3-70b-versatile",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.4,
+    max_tokens: 6000,
   });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Erro na IA: ${err}`);
+  return json.choices[0].message.content as string;
+}
+
+// Refina uma transcrição usando Llama com retry automático
+export async function refineTranscriptionText(text: string): Promise<string> {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
+
+  const prompt = `Você é um assistente especializado em revisão de transcrições em português brasileiro.
+
+A transcrição abaixo foi feita por reconhecimento de voz. Revise-a corrigindo erros ortográficos, gramaticais e melhorando a clareza, mantendo o significado original:
+
+---
+${text}
+---
+
+Retorne apenas a transcrição revisada, sem explicações adicionais.`;
+
+  const json = await callGroqWithRetry(apiKey, {
+    model: "llama-3.3-70b-versatile",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.2,
+    max_tokens: 4096,
+  });
+
+  return json.choices[0].message.content as string;
+}
+
+// Helper: chama a Groq com retry automático quando der rate limit
+async function callGroqWithRetry(
+  apiKey: string,
+  body: Record<string, unknown>,
+  maxRetries = 3
+): Promise<any> {
+  let lastError: string = "";
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+
+    const errText = await response.text();
+    lastError = errText;
+
+    // Rate limit (429): extrai tempo de espera e tenta de novo
+    if (response.status === 429 && attempt < maxRetries) {
+      let waitSeconds = 5; // default
+
+      // Tenta extrair o tempo sugerido da mensagem de erro
+      // Ex: "Please try again in 3.115s"
+      const match = errText.match(/try again in ([\d.]+)s/);
+      if (match) {
+        waitSeconds = parseFloat(match[1]) + 1; // adiciona 1s de buffer
+      }
+
+      // Exponential backoff: aumenta o tempo a cada tentativa
+      const waitMs = Math.max(waitSeconds * 1000, (attempt + 1) * 2000);
+
+      console.warn(`Rate limit atingido. Aguardando ${waitMs / 1000}s antes de tentar de novo (tentativa ${attempt + 1}/${maxRetries})...`);
+
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+
+    // Outros erros: não retry
+    throw new Error(`Erro na IA: ${errText}`);
   }
 
-  const json = await response.json();
-  return json.choices[0].message.content as string;
+  throw new Error(`Erro na IA após ${maxRetries} tentativas: ${lastError}`);
 }

@@ -52,6 +52,7 @@ import {
   deleteMeetingMinute,
   transcribeAudio,
   organizeMinutesWithAI,
+  refineTranscriptionText,
   type MeetingMinute,
 } from "@/services/meetingMinutesService";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
@@ -245,73 +246,27 @@ export default function AtaReuniao() {
 
     setTranscriberGroq(true);
     try {
-      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-      if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
-
       let transcribedText: string;
 
       // Se tem áudio gravado, transcreve com Groq Whisper (mais preciso)
       if (audioBlob) {
-        const formData = new FormData();
-        formData.append("file", audioBlob, "recording.webm");
-        formData.append("model", "whisper-large-v3");
-        formData.append("language", "pt");
-        formData.append("response_format", "text");
-
-        const transcribeResponse = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${apiKey}` },
-          body: formData,
-        });
-
-        if (!transcribeResponse.ok) {
-          const err = await transcribeResponse.text();
-          throw new Error(`Erro na transcrição do áudio: ${err}`);
-        }
-
-        transcribedText = await transcribeResponse.text();
+        transcribedText = await transcribeAudio(audioBlob);
       } else {
-        // Refina o texto existente
         transcribedText = textToRefine;
       }
 
-      // Refinar texto com Llama
-      const prompt = `Você é um assistente especializado em revisão de transcrições em português brasileiro.
-
-A transcrição abaixo foi feita por reconhecimento de voz. Revise-a corrigindo erros ortográficos, gramaticais e melhorando a clareza, mantendo o significado original:
-
----
-${transcribedText}
----
-
-Retorne apenas a transcrição revisada, sem explicações adicionais.`;
-
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2,
-          max_tokens: 4096,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Erro na IA: ${err}`);
-      }
-
-      const json = await response.json();
-      const refined = json.choices[0].message.content as string;
+      // Refinar texto com retry automático em caso de rate limit
+      const refined = await refineTranscriptionText(transcribedText);
       setLiveTranscript(refined);
       setRawNotes(refined);
       toast.success("Transcrição refinada pela IA!");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao processar transcrição");
+      const msg = err instanceof Error ? err.message : "Erro ao processar transcrição";
+      if (msg.includes("rate_limit")) {
+        toast.error("Limite de requisições atingido. Aguarde alguns segundos e tente de novo.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setTranscriberGroq(false);
     }
@@ -331,6 +286,7 @@ Retorne apenas a transcrição revisada, sem explicações adicionais.`;
       return;
     }
     setGeneratingAI(true);
+    toast.info("Gerando relatório detalhado... pode levar alguns segundos", { duration: 5000 });
     try {
       const result = await organizeMinutesWithAI({
         title: title || "Reunião",
@@ -343,7 +299,12 @@ Retorne apenas a transcrição revisada, sem explicações adicionais.`;
       setOrganizedContent(result);
       toast.success("Relatório gerado pela IA!");
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar relatório");
+      const msg = err instanceof Error ? err.message : "Erro ao gerar relatório";
+      if (msg.includes("rate_limit")) {
+        toast.error("Limite de requisições atingido. Aguarde 1 minuto e tente de novo.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setGeneratingAI(false);
     }
