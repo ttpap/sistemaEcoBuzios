@@ -56,6 +56,8 @@ import { fetchTeachers } from "@/integrations/supabase/teachers";
 import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
 import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
+import { useWebSpeechTranscription } from "@/hooks/useWebSpeechTranscription";
+import { TranscriptionPanel } from "@/components/TranscriptionPanel";
 
 type Step = "list" | "form";
 
@@ -85,13 +87,11 @@ export default function AtaReuniao() {
   const [rawNotes, setRawNotes] = useState("");
   const [organizedContent, setOrganizedContent] = useState("");
 
-  // Gravação
-  const [recording, setRecording] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [transcribingSegment, setTranscribingSegment] = useState<string | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const mimeTypeRef = useRef<string>("audio/webm");
+  // Web Speech Transcription
+  const webSpeech = useWebSpeechTranscription();
+  const [transcriberGroq, setTranscriberGroq] = useState(false);
+  const [groqTranscript, setGroqTranscript] = useState<string | null>(null);
+  const [panelTranscript, setPanelTranscript] = useState("");
 
   // IA
   const [generatingAI, setGeneratingAI] = useState(false);
@@ -184,114 +184,78 @@ export default function AtaReuniao() {
     });
   }
 
-  // ── Gravação ──────────────────────────────────────────────
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-      // Bitrate reduzido (16 kbps) → suporta ~3,5 h dentro do limite de 25 MB da API
-      const preferredMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      mimeTypeRef.current = preferredMime;
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType: preferredMime,
-        audioBitsPerSecond: 16000,
-      });
-      chunksRef.current = [];
-
-      // Coleta dados a cada 60 s para monitorar tamanho em tempo real
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        if (chunksRef.current.length === 0) return;
-
-        const totalSize = chunksRef.current.reduce((s, c) => s + c.size, 0);
-        const mime = mimeTypeRef.current;
-
-        if (totalSize <= 23 * 1024 * 1024) {
-          // Cabe em uma única chamada
-          const blob = new Blob(chunksRef.current, { type: mime });
-          await handleTranscribe(blob);
-        } else {
-          // Gravação longa: divide em segmentos de ≤ 22 MB
-          // O primeiro chunk contém o cabeçalho WebM e é incluído em cada segmento
-          await transcribeInSegments(chunksRef.current, mime);
-        }
-      };
-
-      recorder.start(60000); // chunk a cada 60 s
-      mediaRecorderRef.current = recorder;
-      setRecording(true);
-    } catch {
-      toast.error("Não foi possível acessar o microfone");
-    }
+  // ── Web Speech ────────────────────────────────────────────
+  function startRecording() {
+    setPanelTranscript("");
+    setGroqTranscript(null);
+    webSpeech.reset();
+    webSpeech.start();
   }
 
   function stopRecording() {
-    mediaRecorderRef.current?.stop();
-    setRecording(false);
+    webSpeech.stop();
   }
 
-  async function handleTranscribe(blob: Blob) {
-    setTranscribing(true);
-    try {
-      const text = await transcribeAudio(blob);
-      setRawNotes((prev) => (prev ? prev + "\n\n" + text : text));
-      toast.success("Transcrição concluída!");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro na transcrição");
-    } finally {
-      setTranscribing(false);
+  // Usar a transcrição do painel como rawNotes
+  async function handleUseWebSpeech() {
+    if (panelTranscript.trim()) {
+      setRawNotes(panelTranscript);
+      setGroqTranscript(null);
+      toast.success("Transcrição copiada para anotações!");
+    } else {
+      toast.error("Nenhuma transcrição para usar");
     }
   }
 
-  async function transcribeInSegments(chunks: Blob[], mime: string) {
-    // Divide os chunks em segmentos de ≤ 22 MB.
-    // O chunk 0 (cabeçalho WebM) é incluído no início de cada segmento
-    // para que o áudio seja decodificável.
-    const LIMIT = 22 * 1024 * 1024;
-    const header = chunks[0];
-    const segments: Blob[][] = [];
-    let current: Blob[] = [header];
-    let currentSize = header.size;
-
-    for (let i = 1; i < chunks.length; i++) {
-      if (currentSize + chunks[i].size > LIMIT && current.length > 1) {
-        segments.push(current);
-        current = [header, chunks[i]];
-        currentSize = header.size + chunks[i].size;
-      } else {
-        current.push(chunks[i]);
-        currentSize += chunks[i].size;
-      }
+  // Refinar com Groq a partir do painel transcript
+  async function handleUseGroqForWebSpeech() {
+    if (!panelTranscript.trim()) {
+      toast.error("Nenhuma transcrição para refinar");
+      return;
     }
-    if (current.length > 0) segments.push(current);
 
-    setTranscribing(true);
-    const parts: string[] = [];
+    setTranscriberGroq(true);
     try {
-      for (let i = 0; i < segments.length; i++) {
-        setTranscribingSegment(`parte ${i + 1} de ${segments.length}`);
-        const blob = new Blob(segments[i], { type: mime });
-        const text = await transcribeAudio(blob);
-        parts.push(text);
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+      if (!apiKey) throw new Error("VITE_GROQ_API_KEY não configurada");
+
+      const prompt = `Você é um assistente especializado em revisão de transcrições em português brasileiro.
+
+A transcrição abaixo foi feita por reconhecimento de voz. Revise-a corrigindo erros ortográficos, gramaticais e melhorando a clareza, mantendo o significado original:
+
+---
+${panelTranscript}
+---
+
+Retorne apenas a transcrição revisada, sem explicações adicionais.`;
+
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+          max_tokens: 4096,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Erro na IA: ${err}`);
       }
-      const combined = parts.join("\n\n[continuação]\n\n");
-      setRawNotes((prev) => (prev ? prev + "\n\n" + combined : combined));
-      toast.success("Transcrição concluída!");
+
+      const json = await response.json();
+      const refined = json.choices[0].message.content as string;
+      setGroqTranscript(refined);
+      toast.success("Transcrição refinada pela IA!");
     } catch (err: unknown) {
-      if (parts.length > 0) {
-        setRawNotes((prev) => (prev ? prev + "\n\n" + parts.join("\n\n") : parts.join("\n\n")));
-      }
-      toast.error(err instanceof Error ? err.message : "Erro na transcrição");
+      toast.error(err instanceof Error ? err.message : "Erro ao refinar transcrição");
     } finally {
-      setTranscribing(false);
-      setTranscribingSegment(null);
+      setTranscriberGroq(false);
     }
   }
 
@@ -704,62 +668,81 @@ export default function AtaReuniao() {
         </CardContent>
       </Card>
 
-      {/* Gravação e anotações */}
-      <Card className="rounded-3xl">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-black flex items-center gap-2">
-            <Mic className="h-4 w-4 text-primary" />
-            Gravação e Anotações
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center gap-3">
-            {recording ? (
-              <Button variant="destructive" className="rounded-xl gap-2 animate-pulse" onClick={stopRecording}>
-                <MicOff className="h-4 w-4" />
-                Parar Gravação
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="rounded-xl gap-2 border-primary text-primary hover:bg-primary/10"
-                onClick={startRecording}
-                disabled={transcribing}
-              >
-                <Mic className="h-4 w-4" />
+      {/* Gravação com transcrição em tempo real */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Seção de controles e anotações */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="rounded-3xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-black flex items-center gap-2">
+                <Mic className="h-4 w-4 text-primary" />
                 Gravar Reunião
-              </Button>
-            )}
-            {transcribing && (
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {transcribingSegment
-                  ? `Transcrevendo ${transcribingSegment}...`
-                  : "Transcrevendo áudio..."}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                {webSpeech.isListening ? (
+                  <Button variant="destructive" className="rounded-xl gap-2 animate-pulse" onClick={stopRecording}>
+                    <MicOff className="h-4 w-4" />
+                    Parar Gravação
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="rounded-xl gap-2 border-primary text-primary hover:bg-primary/10"
+                    onClick={startRecording}
+                  >
+                    <Mic className="h-4 w-4" />
+                    Iniciar Gravação
+                  </Button>
+                )}
+                {webSpeech.isListening && (
+                  <div className="flex items-center gap-2 text-sm text-red-500 font-bold">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                    Ouvindo sua fala...
+                  </div>
+                )}
               </div>
-            )}
-            {recording && (
-              <div className="flex items-center gap-2 text-sm text-red-500 font-bold">
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                Gravando...
-              </div>
-            )}
-          </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-wide">
-              Anotações / Transcrição
-            </label>
-            <Textarea
-              placeholder="As anotações da reunião aparecerão aqui após a transcrição, ou você pode digitar diretamente..."
-              value={rawNotes}
-              onChange={(e) => setRawNotes(e.target.value)}
-              className="rounded-xl resize-none"
-              rows={8}
-            />
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-500 uppercase tracking-wide">
+                  Anotações Manual
+                </label>
+                <Textarea
+                  placeholder="Você pode adicionar anotações manualmente aqui, ou usar a transcrição automática do painel ao lado..."
+                  value={rawNotes}
+                  onChange={(e) => setRawNotes(e.target.value)}
+                  className="rounded-xl resize-none"
+                  rows={10}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Painel de transcrição em tempo real */}
+        <div className="lg:col-span-1">
+          <Card className="rounded-3xl h-full flex flex-col">
+            <CardContent className="p-4 flex flex-col h-full">
+              <TranscriptionPanel
+                transcript={webSpeech.transcript}
+                isListening={webSpeech.isListening}
+                error={webSpeech.error}
+                isTranscribingGroq={transcriberGroq}
+                onUseWebSpeech={() => {
+                  setPanelTranscript(webSpeech.transcript);
+                  handleUseWebSpeech();
+                }}
+                onUseGroq={() => {
+                  setPanelTranscript(webSpeech.transcript);
+                  handleUseGroqForWebSpeech();
+                }}
+                groqTranscript={groqTranscript}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Gerar ata com IA */}
       <Card className="rounded-3xl border-primary/20 bg-primary/5">
