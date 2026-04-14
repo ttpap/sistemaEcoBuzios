@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Mic,
-  MicOff,
   Sparkles,
   Save,
   FileText,
@@ -40,8 +38,7 @@ import {
   UserCheck,
   FileDown,
   Printer,
-  Upload,
-  AlertCircle,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getActiveProject, getActiveProjectId } from "@/utils/projects";
@@ -50,16 +47,13 @@ import {
   fetchMeetingMinutes,
   createMeetingMinute,
   deleteMeetingMinute,
-  transcribeAudio,
   organizeMinutesWithAI,
-  refineTranscriptionText,
   type MeetingMinute,
 } from "@/services/meetingMinutesService";
 import { fetchTeachers } from "@/integrations/supabase/teachers";
 import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import { fetchTeacherAssignments } from "@/integrations/supabase/teacher-assignments";
 import { fetchCoordinatorAssignments } from "@/integrations/supabase/coordinator-assignments";
-import { useWebSpeechTranscription } from "@/hooks/useWebSpeechTranscription";
 
 type Step = "list" | "form";
 
@@ -89,14 +83,6 @@ export default function AtaReuniao() {
   const [rawNotes, setRawNotes] = useState("");
   const [organizedContent, setOrganizedContent] = useState("");
 
-  // Web Speech Transcription
-  const webSpeech = useWebSpeechTranscription();
-  const [transcriberGroq, setTranscriberGroq] = useState(false);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [liveTranscript, setLiveTranscript] = useState("");
-  const [uploadingAudio, setUploadingAudio] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   // IA
   const [generatingAI, setGeneratingAI] = useState(false);
 
@@ -117,13 +103,6 @@ export default function AtaReuniao() {
     loadMinutes();
     loadProjectPeople();
   }, [projectId]);
-
-  // Sincroniza transcrição do Web Speech com o campo editável em tempo real
-  useEffect(() => {
-    if (webSpeech.isListening) {
-      setLiveTranscript(webSpeech.transcript);
-    }
-  }, [webSpeech.transcript, webSpeech.isListening]);
 
   async function loadMinutes() {
     setLoadingList(true);
@@ -185,9 +164,6 @@ export default function AtaReuniao() {
     setAgenda("");
     setRawNotes("");
     setOrganizedContent("");
-    setLiveTranscript("");
-    setAudioBlob(null);
-    webSpeech.reset();
   }
 
   function togglePerson(id: string) {
@@ -196,94 +172,6 @@ export default function AtaReuniao() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }
-
-  // ── Gravação ──────────────────────────────────────────────
-  function startRecording() {
-    setLiveTranscript("");
-    setAudioBlob(null);
-    webSpeech.reset();
-    webSpeech.start();
-  }
-
-  async function stopRecording() {
-    const blob = await webSpeech.stop();
-    setAudioBlob(blob);
-    // Copia a transcrição para o rawNotes para editar/usar
-    if (webSpeech.transcript.trim()) {
-      setRawNotes(webSpeech.transcript);
-    }
-  }
-
-  // ── Upload de arquivo de áudio ────────────────────────────
-  async function handleAudioUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadingAudio(true);
-    try {
-      const sizeMB = file.size / 1024 / 1024;
-      if (sizeMB > 22) {
-        toast.info(
-          `Áudio grande (${sizeMB.toFixed(1)} MB). Dividindo em pedaços e transcrevendo — pode levar alguns minutos.`,
-          { duration: 8000 }
-        );
-      }
-      const text = await transcribeAudio(file);
-      setRawNotes((prev) => (prev ? prev + "\n\n" + text : text));
-      setLiveTranscript(text);
-      toast.success("Áudio transcrito com sucesso!");
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao transcrever áudio");
-    } finally {
-      setUploadingAudio(false);
-      // Limpa o input para permitir re-upload do mesmo arquivo
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
-  // ── Refinar com IA (Groq Whisper + Llama) ────────────────
-  async function handleRefineWithAI() {
-    const textToRefine = liveTranscript || rawNotes;
-
-    if (!textToRefine.trim() && !audioBlob) {
-      toast.error("Nenhuma transcrição ou áudio para processar");
-      return;
-    }
-
-    setTranscriberGroq(true);
-    try {
-      let transcribedText: string;
-
-      // Se tem áudio gravado, transcreve com Groq Whisper (mais preciso)
-      if (audioBlob) {
-        transcribedText = await transcribeAudio(audioBlob);
-      } else {
-        transcribedText = textToRefine;
-      }
-
-      // Refinar texto com retry automático em caso de rate limit
-      const refined = await refineTranscriptionText(transcribedText);
-      setLiveTranscript(refined);
-      setRawNotes(refined);
-      toast.success("Transcrição refinada pela IA!");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro ao processar transcrição";
-      if (msg.includes("rate_limit")) {
-        toast.error("Limite de requisições atingido. Aguarde alguns segundos e tente de novo.");
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setTranscriberGroq(false);
-    }
-  }
-
-  // Formatar duração em MM:SS
-  function formatDuration(seconds: number): string {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   }
 
   // ── IA ───────────────────────────────────────────────────
@@ -701,134 +589,25 @@ export default function AtaReuniao() {
         </CardContent>
       </Card>
 
-      {/* Gravação e Transcrição - Caixa Única Unificada */}
+      {/* Anotações da Reunião */}
       <Card className="rounded-3xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-black flex items-center gap-2">
-            <Mic className="h-4 w-4 text-primary" />
-            Gravação da Reunião
+            <Pencil className="h-4 w-4 text-primary" />
+            Anotações da Reunião
           </CardTitle>
+          <p className="text-xs text-slate-500 mt-1">
+            Anote aqui os tópicos discutidos, decisões e observações. Pode ser em tópicos — a IA organiza tudo depois.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Botões de ação principais */}
-          <div className="flex flex-wrap items-center gap-3">
-            {webSpeech.isListening ? (
-              <Button variant="destructive" className="rounded-xl gap-2 animate-pulse" onClick={stopRecording}>
-                <MicOff className="h-4 w-4" />
-                Parar Gravação
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="rounded-xl gap-2 border-primary text-primary hover:bg-primary/10"
-                onClick={startRecording}
-                disabled={uploadingAudio || transcriberGroq}
-              >
-                <Mic className="h-4 w-4" />
-                Iniciar Gravação
-              </Button>
-            )}
-
-            {/* Upload de arquivo de áudio - aceita mp3, wav, m4a, ogg, opus (iPhone), webm, flac */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*,.opus,.m4a,.mp3,.wav,.ogg,.webm,.flac,.mp4,.mpeg,.mpga"
-              onChange={handleAudioUpload}
-              className="hidden"
-            />
-            <Button
-              variant="outline"
-              className="rounded-xl gap-2"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={webSpeech.isListening || uploadingAudio || transcriberGroq}
-            >
-              {uploadingAudio ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Transcrevendo...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4" />
-                  Upload de Áudio
-                </>
-              )}
-            </Button>
-
-            {/* Refinar com IA */}
-            <Button
-              variant="outline"
-              className="rounded-xl gap-2 border-emerald-400 text-emerald-700 hover:bg-emerald-50"
-              onClick={handleRefineWithAI}
-              disabled={webSpeech.isListening || uploadingAudio || transcriberGroq || (!liveTranscript.trim() && !audioBlob && !rawNotes.trim())}
-            >
-              {transcriberGroq ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Refinando...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Refinar com IA
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Status da gravação */}
-          {webSpeech.isListening && (
-            <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
-              <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-bold text-red-600">Gravando e ouvindo...</p>
-                <p className="text-xs text-red-500">Captura o som ambiente (celular em viva voz, várias pessoas falando, etc)</p>
-              </div>
-              <div className="text-sm font-mono font-bold text-red-600">
-                {formatDuration(webSpeech.recordingDuration)}
-              </div>
-            </div>
-          )}
-
-          {/* Indicador de áudio gravado disponível */}
-          {audioBlob && !webSpeech.isListening && (
-            <div className="flex items-center gap-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Áudio gravado disponível — clique "Refinar com IA" para transcrição mais precisa
-            </div>
-          )}
-
-          {/* Erro da Web Speech */}
-          {webSpeech.error && (
-            <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
-              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{webSpeech.error}</span>
-            </div>
-          )}
-
-          {/* Campo de transcrição/anotações - UNIFICADO e EDITÁVEL */}
-          <div className="space-y-1">
-            <label className="text-xs font-black text-slate-500 uppercase tracking-wide flex items-center justify-between">
-              <span>Transcrição / Anotações</span>
-              {webSpeech.isListening && (
-                <span className="text-red-500 normal-case font-normal">● em tempo real</span>
-              )}
-            </label>
-            <Textarea
-              placeholder="Clique em 'Iniciar Gravação' para transcrever em tempo real, faça upload de um arquivo de áudio, ou digite manualmente aqui..."
-              value={webSpeech.isListening ? liveTranscript : rawNotes}
-              onChange={(e) => {
-                if (webSpeech.isListening) {
-                  setLiveTranscript(e.target.value);
-                } else {
-                  setRawNotes(e.target.value);
-                }
-              }}
-              className="rounded-xl resize-none font-mono text-sm"
-              rows={14}
-            />
-          </div>
+        <CardContent>
+          <Textarea
+            placeholder="Digite aqui as anotações da reunião..."
+            value={rawNotes}
+            onChange={(e) => setRawNotes(e.target.value)}
+            className="rounded-xl resize-none font-mono text-sm"
+            rows={14}
+          />
         </CardContent>
       </Card>
 
