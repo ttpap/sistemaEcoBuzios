@@ -222,6 +222,13 @@ export default function AtaReuniao() {
 
     setUploadingAudio(true);
     try {
+      const sizeMB = file.size / 1024 / 1024;
+      if (sizeMB > 22) {
+        toast.info(
+          `Áudio grande (${sizeMB.toFixed(1)} MB). Dividindo em pedaços e transcrevendo — pode levar alguns minutos.`,
+          { duration: 8000 }
+        );
+      }
       const text = await transcribeAudio(file);
       setRawNotes((prev) => (prev ? prev + "\n\n" + text : text));
       setLiveTranscript(text);
