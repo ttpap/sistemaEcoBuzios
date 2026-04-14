@@ -21,8 +21,10 @@ import type { AttendanceSession } from "@/types/attendance";
 import { fetchAttendanceSessionsRemote } from "@/services/attendanceService";
 
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
-import { generateAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
-import { downloadAttendanceXls } from "@/utils/attendance-xls";
+import { generateAttendancePdf, generateMultiAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
+import { downloadAttendanceXls, downloadMultiAttendanceXls } from "@/utils/attendance-xls";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { showError } from "@/utils/toast";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { getActiveProject, getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
@@ -53,6 +55,7 @@ import {
   Receipt,
   Save,
   FolderOpen,
+  ChevronDown,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -255,6 +258,159 @@ function printAttendanceReport(matrix: AttendanceMatrix) {
             .join("")}
         </tbody>
       </table>
+    </body>
+  </html>`;
+
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => {
+    win.print();
+    win.close();
+  }, 250);
+}
+
+function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+
+  const logoUrl = getReportLogoUrl();
+  const projectName = getReportProjectName();
+  const generatedAt = new Date().toLocaleString("pt-BR");
+
+  const turmaHtml = matrices.map((matrix, idx) => {
+    const title = `RELATÓRIO DE CHAMADA`;
+    const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+
+    return `
+      <div class="turma-section" ${idx > 0 ? 'style="page-break-before:always;"' : ''}>
+        <div class="sheet-header">
+          <div class="brandbar"></div>
+          <div class="header-inner">
+            <div class="toprow">
+              <div class="brand">
+                <img class="logo" src="${logoUrl}" alt="Logo" />
+                <div class="titlewrap">
+                  <div class="proj">${projectName}</div>
+                  <p class="header">${title}</p>
+                  <div class="sub">${subtitle}</div>
+                </div>
+              </div>
+              <div class="chip">EcoBúzios • Chamada</div>
+            </div>
+
+            <div class="meta">
+              <div>Gerado em <strong>${generatedAt}</strong></div>
+              <div>Status: <strong>P</strong>=Presente • <strong>A</strong>=Atrasado • <strong>F</strong>=Falta • <strong>J</strong>=Justificada • <strong>—</strong>=não estava na turma</div>
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left">Aluno</th>
+              ${matrix.dates.map((d) => `<th>${formatDateCol(d)}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${matrix.students
+              .map((st) => {
+                const name = `${st.socialName || st.preferredName || st.fullName}`;
+                const full = st.fullName;
+                const tds = matrix.dates
+                  .map((d) => {
+                    const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
+                    if (!isMember) return \`<td class="center">—</td>\`;
+                    const s = matrix.statusByStudentByDate[st.id]?.[d];
+                    return \`<td class="center">\${statusShort(s)}</td>\`;
+                  })
+                  .join("");
+                return \`<tr><td class="name"><div class="social">\${name}</div><div class="full">\${full}</div></td>\${tds}</tr>\`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }).join("");
+
+  const html = `
+  <html>
+    <head>
+      <title>Relatório de Chamada</title>
+      <style>
+        :root {
+          --primary: #008ca0;
+          --accent: #ffa534;
+          --slate: #0f172a;
+          --muted: #64748b;
+          --border: #e2e8f0;
+          --soft: #f8fafc;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: Inter, Arial, sans-serif; font-size: 10px; margin: 18px; color: var(--slate); }
+
+        .sheet-header {
+          border: 1px solid var(--border);
+          border-radius: 22px;
+          background: #fff;
+          overflow: hidden;
+          margin-bottom: 12px;
+        }
+        .brandbar { height: 8px; background: var(--primary); }
+        .header-inner { padding: 14px 16px 12px; }
+        .toprow { display:flex; align-items:center; justify-content: space-between; gap: 14px; }
+        .brand { display:flex; align-items:center; gap: 12px; min-width: 0; }
+        .logo { height: 44px; width: auto; object-fit: contain; display:block; }
+        .titlewrap { min-width: 0; }
+        .proj { font-size: 10px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+        .header { font-weight: 950; font-size: 15px; margin: 3px 0 0; letter-spacing: -0.02em; }
+        .sub { font-size: 11px; margin-top: 4px; color: #334155; font-weight: 850; }
+
+        .chip {
+          display:inline-flex;
+          align-items:center;
+          gap: 8px;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-weight: 900;
+          font-size: 10px;
+          border: 1px solid rgba(0, 140, 160, 0.22);
+          background: rgba(0, 140, 160, 0.08);
+          color: var(--primary);
+          white-space: nowrap;
+        }
+        .meta {
+          margin-top: 10px;
+          display:flex;
+          align-items:center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: var(--soft);
+          border: 1px solid var(--border);
+          color: #334155;
+          font-weight: 800;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #0f172a; padding: 5px 6px; vertical-align: top; }
+        th { background: #f1f5f9; text-align: center; font-weight: 950; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+        td.name { width: 260px; }
+        .social { font-weight: 950; }
+        .full { color: #475569; font-weight: 800; font-size: 9px; margin-top: 2px; }
+        .center { text-align: center; font-weight: 950; }
+
+        @media print {
+          @page { size: landscape; margin: 1cm; }
+        }
+      </style>
+    </head>
+    <body>
+      ${turmaHtml}
     </body>
   </html>`;
 
@@ -798,7 +954,7 @@ export default function Reports() {
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
 
   const ALL = "__all__";
-  const [classId, setClassId] = useState<string>(ALL);
+  const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(new Set([ALL]));
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -913,11 +1069,47 @@ export default function Reports() {
     return ids.size;
   }, [classes]);
 
+  const resolvedClassIds = useMemo(() => {
+    if (selectedClassIds.has(ALL)) return classes.map(c => c.id);
+    return Array.from(selectedClassIds);
+  }, [selectedClassIds, classes]);
+
+  const firstSelectedId = resolvedClassIds[0] || null;
+
+  const toggleClass = useCallback((id: string) => {
+    setSelectedClassIds(prev => {
+      const next = new Set(prev);
+      if (id === ALL) {
+        if (next.has(ALL)) {
+          next.clear();
+        } else {
+          next.clear();
+          next.add(ALL);
+        }
+      } else {
+        next.delete(ALL);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        if (next.size === classes.length) {
+          next.clear();
+          next.add(ALL);
+        }
+      }
+      if (next.size === 0) {
+        next.add(ALL);
+      }
+      return next;
+    });
+  }, [classes.length]);
+
   const selectedClass = useMemo(() => {
-    if (classId === ALL) return null;
-    const c = classes.find((x) => x.id === classId);
+    if (!firstSelectedId) return null;
+    const c = classes.find((x) => x.id === firstSelectedId);
     return c ? ensureStudentEnrollments(c) : null;
-  }, [classes, classId]);
+  }, [classes, firstSelectedId]);
 
   const matrix = useMemo((): AttendanceMatrix | null => {
     if (!selectedClass || !month) return null;
@@ -986,6 +1178,53 @@ export default function Reports() {
     month,
     students,
   ]);
+
+  const matrices = useMemo((): AttendanceMatrix[] => {
+    if (!month) return [];
+    const ids = resolvedClassIds;
+    const result: AttendanceMatrix[] = [];
+    for (const cid of ids) {
+      const cls = classes.find(c => c.id === cid);
+      if (!cls) continue;
+      const enriched = ensureStudentEnrollments(cls);
+      const sessions = sessionsForClass(enriched.id).filter(s => s.date.startsWith(month));
+      const dates = Array.from(new Set(sessions.map(s => s.date))).sort();
+      if (dates.length === 0) continue;
+
+      const everIds = new Set<string>([
+        ...(enriched.studentEnrollments || []).map(e => e.studentId),
+        ...(enriched.studentIds || []),
+      ]);
+      const allStudents = students.filter(s => everIds.has(s.id));
+
+      const membershipByStudentByDate: AttendanceMatrix["membershipByStudentByDate"] = {};
+      const statusByStudentByDate: AttendanceMatrix["statusByStudentByDate"] = {};
+      for (const st of allStudents) {
+        membershipByStudentByDate[st.id] = {};
+        statusByStudentByDate[st.id] = {};
+        for (const date of dates) {
+          const isMember = isStudentEnrolledOn(enriched, st.id, date);
+          membershipByStudentByDate[st.id][date] = isMember;
+          if (!isMember) { statusByStudentByDate[st.id][date] = undefined; continue; }
+          const sess = sessions.find(x => x.date === date);
+          statusByStudentByDate[st.id][date] = sess?.records?.[st.id];
+        }
+      }
+      const studentsInMonth = allStudents
+        .filter(st => dates.some(d => membershipByStudentByDate[st.id]?.[d]))
+        .sort((a, b) => displaySocialName(a).localeCompare(displaySocialName(b), "pt-BR"));
+
+      result.push({
+        className: enriched.name,
+        month,
+        dates,
+        students: studentsInMonth.map(s => ({ id: s.id, fullName: s.fullName, socialName: s.socialName, preferredName: s.preferredName })),
+        statusByStudentByDate,
+        membershipByStudentByDate,
+      });
+    }
+    return result;
+  }, [resolvedClassIds, classes, month, students, attendanceSessions]);
 
   const yearOptions = useMemo(() => {
     const y = now.getFullYear();
@@ -1902,25 +2141,46 @@ export default function Reports() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
-                    <Select value={classId} onValueChange={setClassId}>
-                      <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={ALL}>Todas as turmas</SelectItem>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="h-12 w-full rounded-2xl border-slate-200 bg-white justify-between text-left font-medium text-sm">
+                          <span className="truncate">
+                            {selectedClassIds.has(ALL)
+                              ? "Todas as turmas"
+                              : resolvedClassIds.length === 1
+                                ? (classes.find(c => c.id === resolvedClassIds[0])?.name || "1 turma")
+                                : `${resolvedClassIds.length} turmas`}
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-2 max-h-72 overflow-y-auto" align="start">
+                        <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                          <Checkbox
+                            checked={selectedClassIds.has(ALL)}
+                            onCheckedChange={() => toggleClass(ALL)}
+                          />
+                          <span className="text-sm font-bold">Todas as turmas</span>
+                        </label>
+                        <div className="my-1 border-t border-slate-100" />
                         {classes.map((c) => {
                           const parent = c.parentClassId
                             ? classes.find((p) => p.id === c.parentClassId)
                             : null;
-                          const label = parent ? `${parent.name} › ${c.name}` : c.name;
+                          const label = parent ? `${parent.name} > ${c.name}` : c.name;
+                          const isChecked = selectedClassIds.has(ALL) || selectedClassIds.has(c.id);
                           return (
-                            <SelectItem key={c.id} value={c.id}>
-                              {label}
-                            </SelectItem>
+                            <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => toggleClass(c.id)}
+                              />
+                              <span className="text-sm font-medium truncate">{label}</span>
+                            </label>
                           );
                         })}
-                      </SelectContent>
-                    </Select>
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   <div className="space-y-2">
@@ -1966,19 +2226,30 @@ export default function Reports() {
                 <div className="flex flex-wrap gap-2">
                   <Badge className="rounded-full bg-primary/10 text-primary border border-primary/15 font-black">
                     <Users className="h-4 w-4 mr-2" />
-                    {classId === ALL
+                    {selectedClassIds.has(ALL) || resolvedClassIds.length > 1
                       ? `Alunos (geral nas turmas): ${totalStudentsInClasses}`
                       : `Alunos na turma: ${selectedClass?.studentIds?.length || 0}`}
                   </Badge>
+
+                  {matrices.length > 1 && (
+                    <Badge className="rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-black">
+                      <Layers className="h-4 w-4 mr-1" />
+                      {matrices.length} turmas no documento
+                    </Badge>
+                  )}
 
                   <Button
                     variant="outline"
                     className="rounded-2xl gap-2 h-11 font-black border-slate-200"
                     onClick={() => {
-                      if (!matrix || !matrix.dates.length) return;
-                      printAttendanceReport(matrix);
+                      if (matrices.length === 0) return;
+                      if (matrices.length === 1) {
+                        printAttendanceReport(matrices[0]);
+                      } else {
+                        printMultiAttendanceReport(matrices);
+                      }
                     }}
-                    disabled={!matrix || matrix.dates.length === 0}
+                    disabled={matrices.length === 0}
                   >
                     <Printer className="h-4 w-4" />
                     Imprimir
@@ -1988,14 +2259,18 @@ export default function Reports() {
                     variant="outline"
                     className="rounded-2xl gap-2 h-11 font-black border-slate-200"
                     onClick={async () => {
-                      if (!matrix || !matrix.dates.length) return;
+                      if (matrices.length === 0) return;
                       try {
-                        await downloadAttendanceXls(matrix);
+                        if (matrices.length === 1) {
+                          await downloadAttendanceXls(matrices[0]);
+                        } else {
+                          await downloadMultiAttendanceXls(matrices);
+                        }
                       } catch {
                         showError("Não foi possível gerar o XLS.");
                       }
                     }}
-                    disabled={!matrix || matrix.dates.length === 0}
+                    disabled={matrices.length === 0}
                   >
                     <FileSpreadsheet className="h-4 w-4" />
                     Gerar XLS
@@ -2004,14 +2279,18 @@ export default function Reports() {
                   <Button
                     className="rounded-2xl gap-2 h-11 font-black shadow-lg shadow-primary/20"
                     onClick={async () => {
-                      if (!matrix) return;
+                      if (matrices.length === 0) return;
                       try {
-                        await generateAttendancePdf(matrix);
+                        if (matrices.length === 1) {
+                          await generateAttendancePdf(matrices[0]);
+                        } else {
+                          await generateMultiAttendancePdf(matrices);
+                        }
                       } catch {
                         showError("Não foi possível gerar o PDF.");
                       }
                     }}
-                    disabled={!matrix || matrix.dates.length === 0}
+                    disabled={matrices.length === 0}
                   >
                     <FileDown className="h-4 w-4" />
                     Gerar PDF
@@ -2021,10 +2300,11 @@ export default function Reports() {
             </div>
 
             <div className="p-0">
-              {classId === ALL ? (
+              {matrices.length === 0 ? (
                 <div className="p-10 text-center bg-white">
-                  <Layers className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                  <p className="text-sm font-bold text-slate-500">Selecione uma turma no filtro acima para ver o relatório.</p>
+                  <ClipboardCheck className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                  <p className="text-sm font-bold text-slate-500">Nenhuma chamada registrada neste mês para as turmas selecionadas.</p>
+                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : !matrix ? (
                 <div className="p-10 text-center bg-white">

@@ -209,3 +209,128 @@ export async function generateAttendancePdf(matrix: AttendanceMatrix) {
 
   doc.save(filename);
 }
+
+export async function generateMultiAttendancePdf(matrices: AttendanceMatrix[]) {
+  if (matrices.length === 0) return;
+
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+  const projectName = getReportProjectName();
+  const logoUrl = getReportLogoUrl();
+  const logoInfo = await loadImageAsPngWithSize(logoUrl);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 40;
+
+  for (let i = 0; i < matrices.length; i++) {
+    const matrix = matrices[i];
+    if (i > 0) doc.addPage();
+
+    const title = "Relatório de Chamada";
+    const subtitle = `Turma: ${matrix.className} • ${monthLabel(matrix.month)}`;
+
+    // Brand strips
+    doc.setFillColor(...BRAND.primary);
+    doc.rect(marginX, 18, pageWidth - marginX * 2, 6, "F");
+    doc.setFillColor(...BRAND.accent);
+    doc.rect(marginX, 24, 90, 3, "F");
+
+    const maxLogoW = 130;
+    const maxLogoH = 42;
+    const logoX = marginX;
+    const logoY = 34;
+    let textX = marginX;
+
+    if (logoInfo) {
+      const scale = Math.min(maxLogoW / logoInfo.w, maxLogoH / logoInfo.h, 1);
+      const w = logoInfo.w * scale;
+      const h = logoInfo.h * scale;
+      const y = logoY + (maxLogoH - h) / 2;
+      try {
+        doc.addImage(logoInfo.dataUrl, "PNG", logoX, y, w, h);
+        textX = logoX + maxLogoW + 14;
+      } catch {
+        // ignore logo errors
+      }
+    }
+
+    doc.setTextColor(...BRAND.muted);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(projectName.toUpperCase(), textX, 42);
+
+    doc.setTextColor(...BRAND.slate);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(15);
+    doc.text(title, textX, 60);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(subtitle, textX, 78);
+
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.muted);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, marginX, 96);
+    doc.text(
+      "Legenda: P=Presente • A=Atrasado • F=Falta • J=Justificada • —=não estava na turma",
+      marginX,
+      110,
+      { maxWidth: pageWidth - marginX * 2 },
+    );
+
+    doc.setTextColor(0, 0, 0);
+
+    const head = [["Aluno", ...matrix.dates.map((d) => formatDatePt(d))]];
+
+    const body = matrix.students.map((st) => {
+      const row: string[] = [];
+      row.push(`${displaySocialName(st)}\n${st.fullName}`);
+
+      for (const date of matrix.dates) {
+        const isMember = matrix.membershipByStudentByDate[st.id]?.[date];
+        if (!isMember) {
+          row.push("—");
+          continue;
+        }
+        const status = matrix.statusByStudentByDate[st.id]?.[date];
+        row.push(statusShort(status));
+      }
+
+      return row;
+    });
+
+    autoTable(doc, {
+      startY: 128,
+      head,
+      body,
+      theme: "grid",
+      styles: {
+        font: "helvetica",
+        fontSize: 8,
+        cellPadding: 4,
+        valign: "top",
+      },
+      headStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [15, 23, 42],
+        fontStyle: "bold",
+        halign: "center",
+      },
+      columnStyles: {
+        0: { cellWidth: 180 },
+      },
+      horizontalPageBreak: true,
+      horizontalPageBreakRepeat: 0,
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index > 0) {
+          data.cell.styles.halign = "center";
+        }
+      },
+    });
+  }
+
+  const filename = `relatorio-chamada-${matrices[0].month}.pdf`
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-_.]/g, "");
+
+  doc.save(filename);
+}
