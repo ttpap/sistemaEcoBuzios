@@ -321,12 +321,12 @@ function printMultiAttendanceReport(matrices: AttendanceMatrix[]) {
                 const tds = matrix.dates
                   .map((d) => {
                     const isMember = matrix.membershipByStudentByDate[st.id]?.[d];
-                    if (!isMember) return \`<td class="center">—</td>\`;
+                    if (!isMember) return `<td class="center">—</td>`;
                     const s = matrix.statusByStudentByDate[st.id]?.[d];
-                    return \`<td class="center">\${statusShort(s)}</td>\`;
+                    return `<td class="center">${statusShort(s)}</td>`;
                   })
                   .join("");
-                return \`<tr><td class="name"><div class="social">\${name}</div><div class="full">\${full}</div></td>\${tds}</tr>\`;
+                return `<tr><td class="name"><div class="social">${name}</div><div class="full">${full}</div></td>${tds}</tr>`;
               })
               .join("")}
           </tbody>
