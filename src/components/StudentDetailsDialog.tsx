@@ -68,6 +68,25 @@ function formatBirthDate(iso?: string) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
+function computeAge(birthDate?: string, fallback?: number) {
+  if (birthDate) {
+    const parts = birthDate.split("-");
+    if (parts.length === 3) {
+      const y = Number(parts[0]);
+      const m = Number(parts[1]);
+      const d = Number(parts[2]);
+      if (Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)) {
+        const now = new Date();
+        let age = now.getFullYear() - y;
+        const monthDiff = now.getMonth() + 1 - m;
+        if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < d)) age--;
+        if (age >= 0 && age < 150) return age;
+      }
+    }
+  }
+  return Number.isFinite(Number(fallback)) ? Number(fallback) : 0;
+}
+
 function labelSchoolType(type?: string) {
   switch (type) {
     case "municipal":
@@ -346,7 +365,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     Matrícula: {student.registration}
                   </Badge>
                   <Badge className="bg-white/20 text-white border-none">
-                    {student.age} anos
+                    {computeAge(student.birthDate, student.age)} anos
                   </Badge>
                   <Badge className="bg-white/20 text-white border-none">
                     {student.status}
