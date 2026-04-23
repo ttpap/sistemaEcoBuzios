@@ -144,8 +144,11 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
       try {
         const projectId = getActiveProjectId();
         if (projectId) {
-          const { fetchProjectEnrollmentsRemoteWithMeta } = await import("@/services/classesService");
-          const enrRes = await fetchProjectEnrollmentsRemoteWithMeta(projectId);
+          const { fetchProjectEnrollmentsRemoteWithMeta, fetchProjectNucleosRemote } = await import("@/services/classesService");
+          const [enrRes, nucleos] = await Promise.all([
+            fetchProjectEnrollmentsRemoteWithMeta(projectId),
+            fetchProjectNucleosRemote(projectId),
+          ]);
           const classIds = new Set(
             enrRes.enrollments
               .filter((e) => String(e.student_id) === String(student.id))
@@ -153,7 +156,10 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
           );
           if (classIds.size > 0) {
             const allClasses = readScoped<SchoolClass[]>("classes", []);
-            setClassesForStudent(allClasses.filter((c) => classIds.has(c.id)));
+            const merged = [...allClasses, ...nucleos];
+            // dedup por id
+            const uniq = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+            setClassesForStudent(uniq.filter((c) => classIds.has(c.id)));
             return;
           }
         }
@@ -264,6 +270,32 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
     };
   }, [freqYearRows]);
 
+  // ── Separação: Turmas (parentClassId=null) vs Números (parentClassId!=null) ────
+  const turmasOnly = useMemo(
+    () => classesForStudent.filter((c) => !c.parentClassId),
+    [classesForStudent]
+  );
+  const numerosOnly = useMemo(
+    () => classesForStudent.filter((c) => !!c.parentClassId),
+    [classesForStudent]
+  );
+
+  // Stats anuais por class_id (usa freqYearRows já carregadas)
+  const statsByClass = useMemo(() => {
+    const m = new Map<string, { presente: number; falta: number; atrasado: number; justificada: number; total: number }>();
+    for (const r of freqYearRows) {
+      if (!r.finalized_at) continue;
+      const cur = m.get(r.class_id) || { presente: 0, falta: 0, atrasado: 0, justificada: 0, total: 0 };
+      cur.total += 1;
+      if (r.status === "presente") cur.presente += 1;
+      else if (r.status === "falta") cur.falta += 1;
+      else if (r.status === "atrasado") cur.atrasado += 1;
+      else if (r.status === "justificada") cur.justificada += 1;
+      m.set(r.class_id, cur);
+    }
+    return m;
+  }, [freqYearRows]);
+
   const freqYearChartData = useMemo(() => {
     const year = new Date().getFullYear();
     const labels = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -371,6 +403,19 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     {student.status}
                   </Badge>
                 </div>
+                {freqAnnualTotals.total > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-emerald-500/30 text-white border-none font-black gap-1">
+                      ✓ {freqAnnualTotals.presente + freqAnnualTotals.atrasado} presenças
+                    </Badge>
+                    <Badge className="bg-rose-500/30 text-white border-none font-black gap-1">
+                      ✗ {freqAnnualTotals.falta} faltas
+                    </Badge>
+                    <Badge className="bg-white/20 text-white border-none font-black">
+                      {Math.round((freqAnnualTotals.presente + freqAnnualTotals.atrasado) / freqAnnualTotals.total * 100)}% frequência
+                    </Badge>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -378,7 +423,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
               <div className="flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 border border-white/15">
                 <Layers className="h-4 w-4 text-white/80" />
                 <span className="text-sm font-bold text-white/90">
-                  Turmas: {classesForStudent.length}
+                  Turmas: {turmasOnly.length} · Números: {numerosOnly.length}
                 </span>
               </div>
 
@@ -692,7 +737,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 </div>
               </TabsContent>
 
-              <TabsContent value="turmas" className="mt-6 space-y-4">
+              <TabsContent value="turmas" className="mt-6 space-y-6">
                 {classesForStudent.length === 0 ? (
                   <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50 p-10 text-center">
                     <GraduationCap className="h-10 w-10 text-slate-200 mx-auto mb-3" />
@@ -701,39 +746,130 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     </p>
                   </div>
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {classesForStudent.map((c) => (
-                      <div
-                        key={c.id}
-                        className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-lg font-black text-primary leading-tight">
-                              {c.name}
-                            </p>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <Badge className="bg-secondary text-primary border-none font-black">
-                                {c.period}
-                              </Badge>
-                              <Badge variant="outline" className="rounded-full">
-                                <Clock className="h-3.5 w-3.5 mr-1" />
-                                {c.startTime}–{c.endTime}
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                              Vagas
-                            </p>
-                            <p className="text-sm font-bold text-slate-700">
-                              {c.capacity === 0 ? "Ilimitado" : c.capacity}
-                            </p>
-                          </div>
+                  <>
+                    {/* ── Turmas ─────────────────────────────────── */}
+                    {turmasOnly.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                          Turmas ({turmasOnly.length})
+                        </p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {turmasOnly.map((c) => {
+                            const st = statsByClass.get(c.id);
+                            const presencas = (st?.presente || 0) + (st?.atrasado || 0);
+                            const freqPct = st && st.total > 0 ? Math.round(presencas / st.total * 100) : null;
+                            return (
+                              <div key={c.id} className="rounded-[2rem] border border-slate-100 bg-white p-5 shadow-sm">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div>
+                                    <p className="text-lg font-black text-primary leading-tight">{c.name}</p>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Badge className="bg-secondary text-primary border-none font-black">{c.period}</Badge>
+                                      <Badge variant="outline" className="rounded-full">
+                                        <Clock className="h-3.5 w-3.5 mr-1" />
+                                        {c.startTime}–{c.endTime}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  {freqPct !== null && (
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                                      <p className="text-2xl font-black text-primary">{freqPct}%</p>
+                                    </div>
+                                  )}
+                                </div>
+                                {st && st.total > 0 && (
+                                  <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-emerald-700">Presenças</p>
+                                      <p className="text-lg font-black text-emerald-700">{presencas}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-rose-700">Faltas</p>
+                                      <p className="text-lg font-black text-rose-700">{st.falta}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-violet-700">Justif.</p>
+                                      <p className="text-lg font-black text-violet-700">{st.justificada}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-100 border border-slate-200 p-2">
+                                      <p className="text-[9px] font-black uppercase text-slate-600">Total</p>
+                                      <p className="text-lg font-black text-slate-700">{st.total}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {/* ── Números ──────────────────────────────── */}
+                    {numerosOnly.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                          Números ({numerosOnly.length})
+                        </p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {numerosOnly.map((c) => {
+                            const st = statsByClass.get(c.id);
+                            const presencas = (st?.presente || 0) + (st?.atrasado || 0);
+                            const freqPct = st && st.total > 0 ? Math.round(presencas / st.total * 100) : null;
+                            const turmaPai = turmasOnly.find((t) => t.id === c.parentClassId);
+                            return (
+                              <div key={c.id} className="rounded-[2rem] border-2 border-amber-200 bg-amber-50/30 p-5 shadow-sm">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <p className="text-lg font-black text-amber-700 leading-tight">{c.name}</p>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Badge className="bg-amber-500 text-white border-none font-black">NÚMERO</Badge>
+                                      {turmaPai && (
+                                        <Badge variant="outline" className="rounded-full text-xs">
+                                          {turmaPai.name}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {freqPct !== null ? (
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                                      <p className="text-2xl font-black text-amber-700">{freqPct}%</p>
+                                    </div>
+                                  ) : (
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessões</p>
+                                      <p className="text-sm font-bold text-slate-500">Nenhuma</p>
+                                    </div>
+                                  )}
+                                </div>
+                                {st && st.total > 0 && (
+                                  <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-emerald-700">Presenças</p>
+                                      <p className="text-lg font-black text-emerald-700">{presencas}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-rose-700">Faltas</p>
+                                      <p className="text-lg font-black text-rose-700">{st.falta}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-2">
+                                      <p className="text-[9px] font-black uppercase text-violet-700">Justif.</p>
+                                      <p className="text-lg font-black text-violet-700">{st.justificada}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-slate-100 border border-slate-200 p-2">
+                                      <p className="text-[9px] font-black uppercase text-slate-600">Total</p>
+                                      <p className="text-lg font-black text-slate-700">{st.total}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
 
@@ -849,7 +985,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 {/* Totais do mês */}
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Totais do mês</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     {[
                       { label: "Presenças", value: freqMonthTotals.presente, cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
                       { label: "Faltas", value: freqMonthTotals.falta, cls: "bg-rose-500/10 text-rose-700 border-rose-500/20" },
@@ -866,6 +1002,17 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                         )}
                       </div>
                     ))}
+                    {freqMonthTotals.total > 0 && (
+                      <div className="rounded-2xl border p-4 bg-primary/10 text-primary border-primary/20">
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Frequência</p>
+                        <p className="text-3xl font-black tracking-tight">
+                          {Math.round((freqMonthTotals.presente + freqMonthTotals.atrasado) / freqMonthTotals.total * 100)}%
+                        </p>
+                        <p className="text-xs font-bold opacity-70 mt-1">
+                          {freqMonthTotals.presente + freqMonthTotals.atrasado}/{freqMonthTotals.total} aulas
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -875,7 +1022,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
                       Totais anuais — {new Date().getFullYear()}
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                       {[
                         { label: "Presenças", value: freqAnnualTotals.presente, cls: "bg-emerald-50 text-emerald-700 border-emerald-100" },
                         { label: "Faltas", value: freqAnnualTotals.falta, cls: "bg-rose-50 text-rose-700 border-rose-100" },
@@ -892,6 +1039,15 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                           )}
                         </div>
                       ))}
+                      <div className="rounded-2xl border p-4 bg-primary/10 text-primary border-primary/20">
+                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Frequência</p>
+                        <p className="text-3xl font-black tracking-tight">
+                          {Math.round((freqAnnualTotals.presente + freqAnnualTotals.atrasado) / freqAnnualTotals.total * 100)}%
+                        </p>
+                        <p className="text-xs font-bold opacity-70 mt-1">
+                          {freqAnnualTotals.presente + freqAnnualTotals.atrasado}/{freqAnnualTotals.total} aulas
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

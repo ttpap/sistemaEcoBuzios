@@ -66,7 +66,18 @@ export default function AdminLogin() {
       if (error) throw error;
       // Redirect acontece via useEffect quando profile carregar.
     } catch (e: any) {
-      showError(e?.message || "Não foi possível entrar.");
+      const msg = String(e?.message || "").toLowerCase();
+      const isNetwork =
+        !navigator.onLine ||
+        msg.includes("failed to fetch") ||
+        msg.includes("networkerror") ||
+        msg.includes("load failed") ||
+        msg.includes("timeout");
+      if (isNetwork) {
+        showError("Problema de conexão. Verifique sua internet e tente novamente.");
+      } else {
+        showError(e?.message || "Não foi possível entrar.");
+      }
     } finally {
       setSubmitting(false);
     }

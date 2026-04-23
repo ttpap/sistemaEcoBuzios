@@ -11,10 +11,30 @@ export type ModeBLoginResult =
   | { ok: true; role: "teacher"; redirectTo: string }
   | { ok: true; role: "coordinator"; redirectTo: string }
   | { ok: true; role: "student"; redirectTo: string }
-  | { ok: false; reason: "invalid_credentials" | "not_assigned" | "ambiguous_login" };
+  | { ok: false; reason: "invalid_credentials" | "not_assigned" | "ambiguous_login" | "network_error" };
 
 function normalizePassword(pw: string) {
   return (pw || "").toLowerCase().replace(/\s+/g, "");
+}
+
+// Detecta erros de rede/conexão (DNS, offline, timeout, CORS)
+// para que o usuário veja "Problema de conexão" em vez de "Senha inválida".
+function isNetworkError(err: any): boolean {
+  if (!err) return false;
+  if (!navigator.onLine) return true;
+  const msg = String(err?.message || err || "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request failed") ||
+    msg.includes("load failed") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("err_name_not_resolved") ||
+    msg.includes("err_internet_disconnected") ||
+    msg.includes("err_connection") ||
+    err?.name === "TypeError" && msg.includes("fetch")
+  );
 }
 
 function clearModeBSessions() {
@@ -42,23 +62,42 @@ export async function modeBLogin(input: {
 
   // 1) Admin via Supabase Auth (email + senha). A validação de role=admin ocorre via AuthContext/AdminGate.
   if (loginRaw.includes("@")) {
-    const { error } = await supabaseAuthService.signInWithPassword({
-      email: loginRaw,
-      password: passwordRaw,
-    });
+    try {
+      const { error } = await supabaseAuthService.signInWithPassword({
+        email: loginRaw,
+        password: passwordRaw,
+      });
 
-    if (!error) {
-      return { ok: true, role: "admin", redirectTo: "/" };
+      if (!error) {
+        return { ok: true, role: "admin", redirectTo: "/" };
+      }
+      if (isNetworkError(error)) {
+        return { ok: false, reason: "network_error" };
+      }
+      // Admin falhou (credencial inválida) → continua para tentar staff.
+    } catch (e: any) {
+      if (isNetworkError(e)) return { ok: false, reason: "network_error" };
+      // Erro não identificado → continua para tentar staff.
     }
-    // Admin falhou → continua para tentar staff (coordenador/professor via RPC).
-    // Permite que coordenadores usem email como auth_login no Modo B.
   }
 
   // 2) Tenta staff (coordenador/professor) via RPC.
-  const { data: staff, error: staffErr } = await supabase.rpc("mode_b_login_staff", {
-    p_login: loginRaw,
-    p_password: passwordRaw,
-  });
+  let staff: any = null;
+  let staffErr: any = null;
+  try {
+    const res = await supabase.rpc("mode_b_login_staff", {
+      p_login: loginRaw,
+      p_password: passwordRaw,
+    });
+    staff = res.data;
+    staffErr = res.error;
+  } catch (e: any) {
+    if (isNetworkError(e)) return { ok: false, reason: "network_error" };
+    staffErr = e;
+  }
+  if (staffErr && isNetworkError(staffErr)) {
+    return { ok: false, reason: "network_error" };
+  }
 
   if (!staffErr && Array.isArray(staff) && staff.length > 0) {
     const row = staff[0] as any;
@@ -152,11 +191,22 @@ export async function modeBLogin(input: {
     return { ok: false, reason: "invalid_credentials" };
   }
 
-  const { data: student, error: studentErr } = await supabase.rpc("mode_b_login_student", {
-    p_registration_or_last4: registrationOrLast4,
-    p_password: DEFAULT_STUDENT_PASSWORD,
-  });
-
+  let student: any = null;
+  let studentErr: any = null;
+  try {
+    const res = await supabase.rpc("mode_b_login_student", {
+      p_registration_or_last4: registrationOrLast4,
+      p_password: DEFAULT_STUDENT_PASSWORD,
+    });
+    student = res.data;
+    studentErr = res.error;
+  } catch (e: any) {
+    if (isNetworkError(e)) return { ok: false, reason: "network_error" };
+    studentErr = e;
+  }
+  if (studentErr && isNetworkError(studentErr)) {
+    return { ok: false, reason: "network_error" };
+  }
   if (studentErr || !Array.isArray(student) || student.length === 0) {
     return { ok: false, reason: "invalid_credentials" };
   }

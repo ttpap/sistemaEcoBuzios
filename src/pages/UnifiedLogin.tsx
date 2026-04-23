@@ -85,6 +85,11 @@ export default function UnifiedLogin() {
 
       const reason = (res as Extract<typeof res, { ok: false }>).reason;
 
+      if (reason === "network_error") {
+        showError("Problema de conexão. Verifique sua internet e tente novamente.");
+        return;
+      }
+
       if (reason === "not_assigned") {
         showError("Acesso ainda não liberado (sem vínculo com projeto/turma). Procure um gestor.");
         return;

@@ -39,12 +39,13 @@ import { certificateService } from "@/services/certificateService";
 import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
 import { generateCertificatePdf } from "@/utils/certificate-pdf";
 import { generateStudentReportPdf } from "@/utils/student-report-pdf";
-import type { StudentReportData } from "@/utils/student-report-pdf";
+import type { StudentReportData, NumeroStats } from "@/utils/student-report-pdf";
 import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
 import {
   fetchClassesRemoteWithMeta,
   fetchEnrollmentsRemoteWithMeta,
   fetchProjectEnrollmentsRemoteWithMeta,
+  fetchProjectNucleosRemote,
 } from "@/services/classesService";
 import { imageFileToCompressedDataUrl } from "@/utils/image-compress";
 import type { CertificateConfig, CertificateSignature } from "@/types/certificate";
@@ -183,8 +184,13 @@ export default function Certificates() {
       }
     });
 
-    fetchClassesRemoteWithMeta(projectId).then(({ classes: cls }) => {
-      setClasses(cls);
+    Promise.all([
+      fetchClassesRemoteWithMeta(projectId).then(({ classes: cls }) => cls),
+      fetchProjectNucleosRemote(projectId),
+    ]).then(([turmas, nucleos]) => {
+      const merged = [...turmas, ...nucleos];
+      const uniq = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+      setClasses(uniq);
     });
 
     fetchProjectEnrollmentsRemoteWithMeta(projectId).then(({ enrollments }) => {
@@ -328,6 +334,53 @@ export default function Certificates() {
   const selectAllReport = () => setSelectedReportIds(new Set(displayedStudents.map((s) => s.id)));
   const clearAllReport = () => setSelectedReportIds(new Set());
 
+  const buildReportData = (student: StudentRegistration, finalized: any[]): StudentReportData => {
+    const studentSessions = finalized.filter((s) => s.studentIds?.includes(student.id));
+    const stats = { totalSessions: studentSessions.length, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+    const perClass = new Map<string, typeof stats>();
+
+    for (const session of studentSessions) {
+      const status = session.records[student.id];
+      if (!status) continue;
+      if (status === "presente") stats.presente++;
+      else if (status === "falta") stats.falta++;
+      else if (status === "atrasado") stats.atrasado++;
+      else if (status === "justificada") stats.justificada++;
+
+      const cid = session.classId;
+      const cur = perClass.get(cid) || { totalSessions: 0, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
+      cur.totalSessions += 1;
+      if (status === "presente") cur.presente++;
+      else if (status === "falta") cur.falta++;
+      else if (status === "atrasado") cur.atrasado++;
+      else if (status === "justificada") cur.justificada++;
+      perClass.set(cid, cur);
+    }
+
+    const classMap = new Map(classes.map((c) => [c.id, c]));
+    const numeros: NumeroStats[] = [];
+    for (const [cid, st] of perClass.entries()) {
+      const cls = classMap.get(cid);
+      if (cls?.parentClassId) {
+        const parent = classMap.get(cls.parentClassId);
+        numeros.push({
+          classId: cid,
+          className: cls.name,
+          parentClassName: parent?.name,
+          stats: st,
+        });
+      }
+    }
+
+    return {
+      studentId: student.id,
+      fullName: student.fullName,
+      socialName: student.socialName || student.preferredName,
+      stats,
+      numeros: numeros.length > 0 ? numeros : undefined,
+    };
+  };
+
   const handlePreviewReport = async () => {
     const targets = displayedStudents.filter((s) => selectedReportIds.has(s.id));
     if (targets.length === 0) {
@@ -340,23 +393,7 @@ export default function Certificates() {
     try {
       const sessions = await fetchAttendanceSessionsRemote(projectId);
       const finalized = sessions.filter((s) => !!s.finalizedAt);
-      const allData: StudentReportData[] = targets.map((student) => {
-        const studentSessions = finalized.filter((s) => s.studentIds?.includes(student.id));
-        const stats = { totalSessions: studentSessions.length, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
-        for (const session of studentSessions) {
-          const status = session.records[student.id];
-          if (status === "presente") stats.presente++;
-          else if (status === "falta") stats.falta++;
-          else if (status === "atrasado") stats.atrasado++;
-          else if (status === "justificada") stats.justificada++;
-        }
-        return {
-          studentId: student.id,
-          fullName: student.fullName,
-          socialName: student.socialName || student.preferredName,
-          stats,
-        };
-      });
+      const allData = targets.map((student) => buildReportData(student, finalized));
       setPreviewReportDataList(allData);
     } finally {
       setLoadingPreviewReport(false);
@@ -378,25 +415,7 @@ export default function Certificates() {
       const sessions = await fetchAttendanceSessionsRemote(projectId);
       const finalized = sessions.filter((s) => !!s.finalizedAt);
 
-      const reportData: StudentReportData[] = targets.map((student) => {
-        const studentSessions = finalized.filter((s) =>
-          s.studentIds?.includes(student.id),
-        );
-        const stats = { totalSessions: studentSessions.length, presente: 0, falta: 0, atrasado: 0, justificada: 0 };
-        for (const session of studentSessions) {
-          const status = session.records[student.id];
-          if (status === "presente") stats.presente++;
-          else if (status === "falta") stats.falta++;
-          else if (status === "atrasado") stats.atrasado++;
-          else if (status === "justificada") stats.justificada++;
-        }
-        return {
-          studentId: student.id,
-          fullName: student.fullName,
-          socialName: student.socialName || student.preferredName,
-          stats,
-        };
-      });
+      const reportData = targets.map((student) => buildReportData(student, finalized));
 
       await generateStudentReportPdf(reportData, projectName, config.logo_top, config.logo_bottom);
       showSuccess(
@@ -1072,6 +1091,21 @@ function DonutChartSvg({ stats }: { stats: StudentReportData["stats"] }) {
     );
   }
 
+  const nonZero = segments.filter((s) => s.value > 0);
+  const pct = Math.round(((stats.presente + stats.atrasado) / total) * 100);
+
+  // Caso 1 segmento só (100%) — círculo cheio, evita arco degenerado
+  if (nonZero.length === 1) {
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        <circle cx={cx} cy={cy} r={r} fill={nonZero[0].color} />
+        <circle cx={cx} cy={cy} r={r * 0.55} fill="white" />
+        <text x={cx} y={cy - 2} textAnchor="middle" fontWeight="bold" fontSize={13} fill="#0f172a">{pct}%</text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fontSize={7} fill="#64748b">freq.</text>
+      </svg>
+    );
+  }
+
   let current = -Math.PI / 2;
   const paths: { d: string; color: string }[] = [];
 
@@ -1086,8 +1120,6 @@ function DonutChartSvg({ stats }: { stats: StudentReportData["stats"] }) {
     paths.push({ d: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`, color: seg.color });
     current += sweep;
   }
-
-  const pct = Math.round(((stats.presente + stats.atrasado) / total) * 100);
 
   return (
     <svg viewBox="0 0 100 100" className="w-full h-full">
@@ -1193,6 +1225,57 @@ function ReportPreview({
             ))}
           </div>
         </div>
+
+        {/* Números participados */}
+        {data.numeros && data.numeros.length > 0 && (
+          <div style={{ marginTop: "3%" }}>
+            <div style={{ fontSize: "1vw", fontWeight: 700, color: "#1e293b", marginBottom: "1.5%" }}>
+              Números participados
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2%" }}>
+              {data.numeros.map((n) => {
+                const nTotal = n.stats.presente + n.stats.falta + n.stats.atrasado + n.stats.justificada;
+                const nFreq = nTotal > 0 ? Math.round(((n.stats.presente + n.stats.atrasado) / nTotal) * 100) : 0;
+                const nHours = (n.stats.presente + n.stats.atrasado) * 2;
+                const numeroCards = [
+                  { label: "Horas", value: `${nHours}h`, bg: "#22c55e" },
+                  { label: "Frequência", value: `${nFreq}%`, bg: "#3b82f6" },
+                  { label: "Presenças", value: String(n.stats.presente + n.stats.atrasado), bg: "#10b981" },
+                  { label: "Faltas", value: String(n.stats.falta), bg: "#ef4444" },
+                  { label: "Justificadas", value: String(n.stats.justificada), bg: "#8b5cf6" },
+                  { label: "Aulas", value: String(nTotal), bg: "#64748b" },
+                ];
+                return (
+                  <div key={n.classId} style={{ border: "2px solid #fbbf24", borderRadius: "6px", padding: "1.5% 2%", background: "#fffbeb" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "1.2%" }}>
+                      <div style={{ fontSize: "1.05vw", fontWeight: 800, color: "#92400e" }}>
+                        {n.className}
+                      </div>
+                      {n.parentClassName && (
+                        <div style={{ fontSize: "0.65vw", color: "#a16207", fontWeight: 600 }}>
+                          Turma: {n.parentClassName}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: "2%", alignItems: "center" }}>
+                      <div style={{ width: "18%", aspectRatio: "1", flexShrink: 0 }}>
+                        <DonutChartSvg stats={n.stats} />
+                      </div>
+                      <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1.5%" }}>
+                        {numeroCards.map((c, i) => (
+                          <div key={i} style={{ background: c.bg, borderRadius: "4px", padding: "1.5% 1%", textAlign: "center" }}>
+                            <div style={{ fontSize: "1.2vw", fontWeight: 700, color: "#fff", lineHeight: 1 }}>{c.value}</div>
+                            <div style={{ fontSize: "0.55vw", color: "rgba(255,255,255,.85)", marginTop: "3px" }}>{c.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{ fontSize: "0.65vw", color: "#94a3b8", textAlign: "center", paddingTop: "2%" }}>

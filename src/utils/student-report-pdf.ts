@@ -13,11 +13,19 @@ export type StudentStats = {
   justificada: number;
 };
 
+export type NumeroStats = {
+  classId: string;
+  className: string;
+  parentClassName?: string;
+  stats: StudentStats;
+};
+
 export type StudentReportData = {
   studentId: string;
   fullName: string;
   socialName?: string;
   stats: StudentStats;
+  numeros?: NumeroStats[];
 };
 
 function loadImageAsDataUrl(src: string): Promise<string | null> {
@@ -289,8 +297,91 @@ export async function generateStudentReportPdf(
       legendY += 11;
     }
 
+    // ── NÚMEROS PARTICIPADOS ───────────────────────────────────────────────
+    cursorY += chartSize + 10;
+    if (student.numeros && student.numeros.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text("Números participados", MARGIN, cursorY);
+      cursorY += 6;
+
+      for (const n of student.numeros) {
+        const nTotal = n.stats.presente + n.stats.falta + n.stats.atrasado + n.stats.justificada;
+        const nFreq = nTotal > 0 ? Math.round(((n.stats.presente + n.stats.atrasado) / nTotal) * 100) : 0;
+        const nHours = (n.stats.presente + n.stats.atrasado) * 2;
+        const blockH = 38;
+
+        // Page break se não cabe
+        if (cursorY + blockH > 280) {
+          doc.addPage();
+          cursorY = MARGIN;
+        }
+
+        // Border amarelo + fundo creme
+        doc.setFillColor(255, 251, 235);
+        doc.setDrawColor(251, 191, 36);
+        doc.setLineWidth(0.6);
+        doc.roundedRect(MARGIN, cursorY, CONTENT_W, blockH, 2, 2, "FD");
+
+        // Título número + turma pai
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(146, 64, 14);
+        doc.text(n.className, MARGIN + 3, cursorY + 5);
+        if (n.parentClassName) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(161, 98, 7);
+          doc.text(`Turma: ${n.parentClassName}`, PAGE_W - MARGIN - 3, cursorY + 5, { align: "right" });
+        }
+
+        // Donut chart (esquerda)
+        const donutSize = 28;
+        const donutX = MARGIN + 3;
+        const donutY = cursorY + 8;
+        const donutDataUrl = drawDonutChart(n.stats);
+        doc.addImage(donutDataUrl, "PNG", donutX, donutY, donutSize, donutSize);
+
+        // Cards 3x2 (direita)
+        const cardsX = donutX + donutSize + 4;
+        const cardsAreaW = CONTENT_W - donutSize - 10;
+        const nCols = 3;
+        const nRows = 2;
+        const nGap = 2;
+        const nCardW = (cardsAreaW - nGap * (nCols - 1)) / nCols;
+        const nCardH = (donutSize - nGap) / nRows;
+        const cards: { label: string; value: string; r: number; g: number; b: number }[] = [
+          { label: "Horas", value: `${nHours}h`, r: 34, g: 197, b: 94 },
+          { label: "Frequência", value: `${nFreq}%`, r: 59, g: 130, b: 246 },
+          { label: "Presenças", value: String(n.stats.presente + n.stats.atrasado), r: 16, g: 185, b: 129 },
+          { label: "Faltas", value: String(n.stats.falta), r: 239, g: 68, b: 68 },
+          { label: "Justificadas", value: String(n.stats.justificada), r: 139, g: 92, b: 246 },
+          { label: "Aulas", value: String(nTotal), r: 100, g: 116, b: 139 },
+        ];
+        for (let ci = 0; ci < cards.length; ci++) {
+          const card = cards[ci];
+          const col = ci % nCols;
+          const row = Math.floor(ci / nCols);
+          const cxCard = cardsX + col * (nCardW + nGap);
+          const cyCard = donutY + row * (nCardH + nGap);
+          doc.setFillColor(card.r, card.g, card.b);
+          doc.roundedRect(cxCard, cyCard, nCardW, nCardH, 2, 2, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.setTextColor(255, 255, 255);
+          doc.text(card.value, cxCard + nCardW / 2, cyCard + nCardH / 2, { align: "center", baseline: "middle" });
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(6);
+          doc.text(card.label, cxCard + nCardW / 2, cyCard + nCardH - 1.5, { align: "center" });
+        }
+
+        cursorY += blockH + 4;
+      }
+      cursorY += 2;
+    }
+
     // Total de aulas
-    cursorY += chartSize + 8;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(100, 116, 139);
