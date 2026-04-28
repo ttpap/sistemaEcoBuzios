@@ -80,14 +80,15 @@ serve(async (req) => {
     // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
 
-    let activeProjectIds: string[] | null = projectIds;
-    if (!activeProjectIds) {
-      const { data: activeProjects } = await client
-        .from("projects")
-        .select("id")
-        .is("finalized_at", null);
-      activeProjectIds = (activeProjects ?? []).map((p: { id: string }) => p.id);
-    }
+    // Always fetch all active projects for projetos_lista (filter buttons)
+    const { data: allActiveProjects } = await client
+      .from("projects")
+      .select("id, name")
+      .is("finalized_at", null);
+    const allActive = allActiveProjects ?? [];
+    const allActiveIds = allActive.map((p: { id: string; name: string }) => p.id);
+
+    const activeProjectIds: string[] = projectIds ?? allActiveIds;
 
     const meetingQuery = client
       .from("meeting_minutes")
@@ -142,6 +143,7 @@ serve(async (req) => {
       ok: true,
       gerado_em: new Date().toISOString(),
       filtro_projetos: projectIds ?? "todos",
+      projetos_lista: allActive.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
       total_alunos_em_turmas: totalAlunos,
       por_projeto: charts.projectCounts ?? [],
       bairros: charts.neighborhoods ?? [],
