@@ -21,6 +21,7 @@ import type { AttendanceSession } from "@/types/attendance";
 import { fetchAttendanceSessionsRemote } from "@/services/attendanceService";
 import { monthlyReportsService } from "@/services/monthlyReportsService";
 import type { MonthlyReport } from "@/types/monthly-report";
+import { fetchMeetingMinutes, type MeetingMinute } from "@/services/meetingMinutesService";
 
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, generateMultiAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
@@ -961,6 +962,7 @@ export default function Reports() {
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
+  const [meetings, setMeetings] = useState<MeetingMinute[]>([]);
 
   const ALL = "__all__";
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(new Set([ALL]));
@@ -1042,14 +1044,23 @@ export default function Reports() {
           } catch {
             setMonthlyReports([]);
           }
+
+          try {
+            const mtgs = await fetchMeetingMinutes(activeProjectId);
+            setMeetings(mtgs);
+          } catch {
+            setMeetings([]);
+          }
         } catch (e: any) {
           showError(e?.message || "Não foi possível carregar os dados do relatório.");
           setAttendanceSessions([]);
           setMonthlyReports([]);
+          setMeetings([]);
         }
       } else {
         setAttendanceSessions([]);
         setMonthlyReports([]);
+        setMeetings([]);
       }
     };
 
@@ -1504,10 +1515,20 @@ export default function Reports() {
             }).sort((a, b) => a.name.localeCompare(b.name));
 
             const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
+            const reportsInYear = monthlyReports.filter(
+              (r) => r.submittedAt && (r.month || "").startsWith(yearFilter),
+            ).length;
+            const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(yearFilter));
+            const meetingsCount = meetingsInYear.length;
+            const meetingsHours = +meetingsInYear
+              .reduce((sum, m) => sum + Number(m.duration_hours || 0), 0)
+              .toFixed(1);
+            const totalHorasGeral = +(grandTotal * 2 + reportsInYear + meetingsHours).toFixed(1);
+            const totalUnidades = grandTotal + reportsInYear + meetingsCount;
 
-            if (rows.length === 0) return (
+            if (rows.length === 0 && reportsInYear === 0 && meetingsCount === 0) return (
               <div className="text-center py-16 text-slate-400">
-                Nenhuma aula finalizada encontrada para {yearFilter}.
+                Nenhuma aula finalizada, relatório ou reunião encontrada para {yearFilter}.
               </div>
             );
 
@@ -1517,7 +1538,10 @@ export default function Reports() {
                   <div>
                     <h2 className="text-lg font-black text-slate-800">Aulas Realizadas — {yearFilter}</h2>
                     <p className="text-sm text-slate-500 mt-0.5">
-                      {grandTotal} aulas · {grandTotal * 2}h no total
+                      {totalUnidades} registros · {totalHorasGeral}h no total
+                      <span className="text-xs text-slate-400 ml-2">
+                        ({grandTotal} aulas + {reportsInYear} relatórios + {meetingsCount} reuniões)
+                      </span>
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -1568,8 +1592,20 @@ export default function Reports() {
                     </div>
                   ))}
                   <div className="p-4 bg-slate-50 flex items-center justify-between">
-                    <span className="font-black text-slate-700">TOTAL</span>
-                    <span className="font-black text-emerald-700">{grandTotal} aulas / {grandTotal * 2}h</span>
+                    <span className="font-black text-slate-700">AULAS</span>
+                    <span className="font-black text-emerald-700">{grandTotal} / {grandTotal * 2}h</span>
+                  </div>
+                  <div className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
+                    <span className="font-black text-slate-700">RELATÓRIOS MENSAIS</span>
+                    <span className="font-black text-emerald-700">{reportsInYear} / {reportsInYear}h</span>
+                  </div>
+                  <div className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
+                    <span className="font-black text-slate-700">REUNIÕES</span>
+                    <span className="font-black text-emerald-700">{meetingsCount} / {meetingsHours}h</span>
+                  </div>
+                  <div className="p-4 bg-emerald-50 flex items-center justify-between border-t-2 border-emerald-200">
+                    <span className="font-black text-emerald-800">TOTAL GERAL</span>
+                    <span className="font-black text-emerald-800">{totalUnidades} / {totalHorasGeral}h</span>
                   </div>
                 </div>
 
@@ -1606,7 +1642,7 @@ export default function Reports() {
                       ))}
                       {/* Total row */}
                       <tr className="bg-slate-50 border-t-2 border-slate-200">
-                        <td className="px-6 py-3 font-bold text-slate-700">TOTAL</td>
+                        <td className="px-6 py-3 font-bold text-slate-700">TOTAL AULAS</td>
                         {months.map((m) => (
                           <td key={m} className="text-center px-4 py-3 font-semibold text-slate-700">
                             {rows.reduce((sum, r) => sum + (r.byMonth[m] ?? 0), 0) || <span className="text-slate-200">—</span>}
@@ -1614,6 +1650,28 @@ export default function Reports() {
                         ))}
                         <td className="text-center px-4 py-3 font-bold text-slate-800">{grandTotal}</td>
                         <td className="text-center px-4 py-3 font-black text-emerald-700">{grandTotal * 2}h</td>
+                      </tr>
+                      <tr className="bg-slate-50">
+                        <td className="px-6 py-3 font-bold text-slate-700">RELATÓRIOS MENSAIS</td>
+                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-400">
+                          1h por relatório enviado
+                        </td>
+                        <td className="text-center px-4 py-3 font-bold text-slate-800">{reportsInYear}</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-700">{reportsInYear}h</td>
+                      </tr>
+                      <tr className="bg-slate-50 border-b-2 border-slate-200">
+                        <td className="px-6 py-3 font-bold text-slate-700">REUNIÕES</td>
+                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-400">
+                          duração registrada por ata
+                        </td>
+                        <td className="text-center px-4 py-3 font-bold text-slate-800">{meetingsCount}</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-700">{meetingsHours}h</td>
+                      </tr>
+                      <tr className="bg-emerald-50">
+                        <td className="px-6 py-3 font-black text-emerald-800">TOTAL GERAL</td>
+                        <td colSpan={months.length} className="text-center px-4 py-3"></td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-800">{totalUnidades}</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-800">{totalHorasGeral}h</td>
                       </tr>
                     </tbody>
                   </table>
