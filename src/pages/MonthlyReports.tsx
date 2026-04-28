@@ -12,6 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +57,8 @@ import {
   ArrowLeft,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  Check,
   FilePlus2,
   Lock,
   Pencil,
@@ -107,6 +118,100 @@ function projectStudentPoolFromIds(ids: Set<string>, allStudents: StudentRegistr
         "pt-BR",
       ),
     );
+}
+
+function normalizeText(s: string) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
+type StudentComboboxProps = {
+  students: StudentRegistration[];
+  value: string | undefined;
+  onChange: (id: string | undefined) => void;
+  disabled?: boolean;
+  placeholder?: string;
+};
+
+function StudentCombobox({ students, value, onChange, disabled, placeholder }: StudentComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const selected = students.find((s) => s.id === value);
+  const selectedLabel = selected ? selected.fullName.trim() : "";
+
+  return (
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "mt-2 flex h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 text-left text-sm font-bold text-slate-800",
+            "focus:outline-none focus:ring-2 focus:ring-primary/30",
+            disabled && "opacity-60 cursor-not-allowed",
+          )}
+        >
+          <span className={cn("truncate", !selected && "text-slate-400 font-normal")}>
+            {selected ? selectedLabel : placeholder || "Selecione um aluno"}
+          </span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0 w-[--radix-popover-trigger-width] min-w-[280px] rounded-2xl"
+        align="start"
+      >
+        <Command
+          filter={(itemValue, search) => {
+            const n = normalizeText(itemValue);
+            const terms = normalizeText(search).split(/\s+/).filter(Boolean);
+            if (!terms.length) return 1;
+            return terms.every((t) => n.includes(t)) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar aluno..." />
+          <CommandList>
+            <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="nenhum"
+                onSelect={() => {
+                  onChange(undefined);
+                  setOpen(false);
+                }}
+              >
+                <Check className={cn("mr-2 h-4 w-4", !value ? "opacity-100" : "opacity-0")} />
+                <span className="font-bold text-slate-700">Nenhum</span>
+              </CommandItem>
+              {students.map((s) => {
+                const social = (s.socialName || s.preferredName || "").trim();
+                const full = s.fullName.trim();
+                const haystack = `${social} ${full}`;
+                return (
+                  <CommandItem
+                    key={s.id}
+                    value={haystack}
+                    onSelect={() => {
+                      onChange(s.id);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn("mr-2 h-4 w-4 shrink-0", value === s.id ? "opacity-100" : "opacity-0")}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-black text-slate-800 truncate">{full}</span>
+                      {social && social !== full && (
+                        <span className="text-xs text-slate-500 truncate">{social}</span>
+                      )}
+                    </div>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function MonthlyReports() {
@@ -465,7 +570,7 @@ export default function MonthlyReports() {
     const next: any = {
       ...(draft as any),
       updatedAt: nowIso,
-      submittedAt: nowIso,
+      submittedAt: (draft as any).submittedAt || nowIso,
     };
 
     try {
@@ -669,52 +774,26 @@ export default function MonthlyReports() {
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno em destaque</p>
-                  <Select
-                    value={draft?.positiveStudentId || NONE}
-                    onValueChange={(v) =>
-                      setDraft((prev) =>
-                        prev ? { ...prev, positiveStudentId: v === NONE ? undefined : v } : prev,
-                      )
+                  <StudentCombobox
+                    students={selectableStudents}
+                    value={draft?.positiveStudentId}
+                    onChange={(id) =>
+                      setDraft((prev) => (prev ? { ...prev, positiveStudentId: id } : prev))
                     }
                     disabled={!canEdit}
-                  >
-                    <SelectTrigger className="mt-2 h-12 rounded-2xl border-slate-200 bg-white">
-                      <SelectValue placeholder="Selecione um aluno" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Nenhum</SelectItem>
-                      {selectableStudents.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {(s.socialName || s.preferredName || s.fullName).trim()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
 
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno reflexivo</p>
-                  <Select
-                    value={draft?.reflexiveStudentId || NONE}
-                    onValueChange={(v) =>
-                      setDraft((prev) =>
-                        prev ? { ...prev, reflexiveStudentId: v === NONE ? undefined : v } : prev,
-                      )
+                  <StudentCombobox
+                    students={selectableStudents}
+                    value={draft?.reflexiveStudentId}
+                    onChange={(id) =>
+                      setDraft((prev) => (prev ? { ...prev, reflexiveStudentId: id } : prev))
                     }
                     disabled={!canEdit}
-                  >
-                    <SelectTrigger className="mt-2 h-12 rounded-2xl border-slate-200 bg-white">
-                      <SelectValue placeholder="Selecione um aluno" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Nenhum</SelectItem>
-                      {selectableStudents.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {(s.socialName || s.preferredName || s.fullName).trim()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
               </div>
             </div>

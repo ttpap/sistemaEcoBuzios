@@ -19,6 +19,8 @@ import { StudentRegistration } from "@/types/student";
 import { AttendanceStatus } from "@/types/attendance";
 import type { AttendanceSession } from "@/types/attendance";
 import { fetchAttendanceSessionsRemote } from "@/services/attendanceService";
+import { monthlyReportsService } from "@/services/monthlyReportsService";
+import type { MonthlyReport } from "@/types/monthly-report";
 
 import { isStudentEnrolledOn, ensureStudentEnrollments } from "@/utils/class-enrollment";
 import { generateAttendancePdf, generateMultiAttendancePdf, AttendanceMatrix } from "@/utils/attendance-pdf";
@@ -958,6 +960,7 @@ export default function Reports() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
 
   const ALL = "__all__";
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(new Set([ALL]));
@@ -1032,12 +1035,21 @@ export default function Reports() {
 
           const remote = await fetchAttendanceSessionsRemote(activeProjectId);
           setAttendanceSessions(remote);
+
+          try {
+            const reports = await monthlyReportsService.fetchReports(activeProjectId);
+            setMonthlyReports(reports);
+          } catch {
+            setMonthlyReports([]);
+          }
         } catch (e: any) {
           showError(e?.message || "Não foi possível carregar os dados do relatório.");
           setAttendanceSessions([]);
+          setMonthlyReports([]);
         }
       } else {
         setAttendanceSessions([]);
+        setMonthlyReports([]);
       }
     };
 
@@ -1665,7 +1677,11 @@ export default function Reports() {
             .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
           const totalSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
-          const totalHours = +hoursRows.reduce((s, r) => s + r.hours, 0).toFixed(1);
+          const baseHours = hoursRows.reduce((s, r) => s + r.hours, 0);
+          const submittedReportsInYear = monthlyReports.filter(
+            (r) => r.submittedAt && (r.month || "").startsWith(prefeituraYear),
+          ).length;
+          const totalHours = +(baseHours + submittedReportsInYear).toFixed(1);
 
           return (
             <div className="space-y-6">

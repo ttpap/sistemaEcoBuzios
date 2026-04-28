@@ -84,10 +84,26 @@ serve(async (req) => {
       ? client.from("meeting_minutes").select("duration_hours").in("project_id", projectIds)
       : client.from("meeting_minutes").select("duration_hours");
 
-    const [chartsResult, freqResult, meetingResult] = await Promise.all([
+    const currentYear = new Date().getFullYear();
+    const monthPrefix = `${currentYear}-`;
+    const reportsQuery = projectIds
+      ? client
+          .from("monthly_reports")
+          .select("month, submitted_at")
+          .not("submitted_at", "is", null)
+          .like("month", `${monthPrefix}%`)
+          .in("project_id", projectIds)
+      : client
+          .from("monthly_reports")
+          .select("month, submitted_at")
+          .not("submitted_at", "is", null)
+          .like("month", `${monthPrefix}%`);
+
+    const [chartsResult, freqResult, meetingResult, reportsResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
       client.rpc("public_attendance_stats", rpcParams),
       meetingQuery,
+      reportsQuery,
     ]);
 
     if (chartsResult.error || !chartsResult.data) {
@@ -103,6 +119,12 @@ serve(async (req) => {
     const meetings = meetingResult.data ?? [];
     const totalReunioes = meetings.length;
     const totalHorasReunioes = meetings.reduce((sum: number, r: { duration_hours: number }) => sum + Number(r.duration_hours), 0);
+
+    const reports = reportsResult.data ?? [];
+    if (reportsResult.error) {
+      console.error("[public-stats-api] query error (monthly_reports)", reportsResult.error);
+    }
+    const totalHorasAula = reports.length;
 
     if (freqResult.error) {
       console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
@@ -125,6 +147,11 @@ serve(async (req) => {
       reunioes: {
         total: totalReunioes,
         total_horas: totalHorasReunioes,
+      },
+      horas_aula: {
+        ano: currentYear,
+        total_relatorios_enviados: reports.length,
+        total_horas: totalHorasAula,
       },
     };
 
