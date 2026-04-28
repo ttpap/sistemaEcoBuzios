@@ -80,24 +80,28 @@ serve(async (req) => {
     // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
 
-    const meetingQuery = projectIds
-      ? client.from("meeting_minutes").select("duration_hours").in("project_id", projectIds)
-      : client.from("meeting_minutes").select("duration_hours");
+    let activeProjectIds: string[] | null = projectIds;
+    if (!activeProjectIds) {
+      const { data: activeProjects } = await client
+        .from("projects")
+        .select("id")
+        .is("finalized_at", null);
+      activeProjectIds = (activeProjects ?? []).map((p: { id: string }) => p.id);
+    }
+
+    const meetingQuery = client
+      .from("meeting_minutes")
+      .select("duration_hours")
+      .in("project_id", activeProjectIds);
 
     const currentYear = new Date().getFullYear();
     const monthPrefix = `${currentYear}-`;
-    const reportsQuery = projectIds
-      ? client
-          .from("monthly_reports")
-          .select("month, submitted_at")
-          .not("submitted_at", "is", null)
-          .like("month", `${monthPrefix}%`)
-          .in("project_id", projectIds)
-      : client
-          .from("monthly_reports")
-          .select("month, submitted_at")
-          .not("submitted_at", "is", null)
-          .like("month", `${monthPrefix}%`);
+    const reportsQuery = client
+      .from("monthly_reports")
+      .select("month, submitted_at")
+      .not("submitted_at", "is", null)
+      .like("month", `${monthPrefix}%`)
+      .in("project_id", activeProjectIds);
 
     const [chartsResult, freqResult, meetingResult, reportsResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
