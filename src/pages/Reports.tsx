@@ -1734,12 +1734,19 @@ export default function Reports() {
             .filter((r) => r.sessions > 0)
             .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
-          const totalSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
+          const baseSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
           const baseHours = hoursRows.reduce((s, r) => s + r.hours, 0);
           const submittedReportsInYear = monthlyReports.filter(
             (r) => r.submittedAt && (r.month || "").startsWith(prefeituraYear),
           ).length;
-          const totalHours = +(baseHours + submittedReportsInYear).toFixed(1);
+          const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(prefeituraYear));
+          const meetingsCount = meetingsInYear.length;
+          const meetingsHours = meetingsInYear.reduce(
+            (sum, m) => sum + Number(m.duration_hours || 0),
+            0,
+          );
+          const totalSessions = baseSessions + submittedReportsInYear + meetingsCount;
+          const totalHours = +(baseHours + submittedReportsInYear + meetingsHours).toFixed(1);
 
           return (
             <div className="space-y-6">
