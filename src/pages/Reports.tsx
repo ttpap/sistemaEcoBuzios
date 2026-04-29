@@ -946,7 +946,13 @@ export default function Reports() {
     profile?.role === "coordinator" ||
     Boolean(getCoordinatorSessionLogin());
 
-  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas">("home");
+  const locationState = location.state as { teacherId?: string; teacherName?: string } | null;
+  const filterTeacherId = locationState?.teacherId ?? null;
+  const filterTeacherName = locationState?.teacherName ?? null;
+
+  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas">(
+    filterTeacherId ? "attendance" : "home"
+  );
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
   const [pcTitle, setPcTitle] = useState("");
@@ -1066,6 +1072,16 @@ export default function Reports() {
 
     void run();
   }, []);
+
+  useEffect(() => {
+    if (!filterTeacherId || classes.length === 0) return;
+    const teacherClassIds = classes
+      .filter((c) => c.teacherIds?.includes(filterTeacherId))
+      .map((c) => c.id);
+    if (teacherClassIds.length > 0) {
+      setSelectedClassIds(new Set(teacherClassIds));
+    }
+  }, [filterTeacherId, classes]);
 
   const monthParts = month.split("-");
   const selectedYear = monthParts[0] || String(now.getFullYear());
@@ -2213,6 +2229,15 @@ export default function Reports() {
               <span className="text-xs font-bold text-slate-400">(em branco = não estava na turma)</span>
             </div>
           </div>
+
+          {filterTeacherName && (
+            <div className="flex items-center gap-3 rounded-[1.5rem] border border-primary/20 bg-primary/5 px-5 py-3">
+              <ClipboardCheck className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-sm font-black text-primary">
+                Filtrando por professor: <span className="font-black">{filterTeacherName}</span>
+              </p>
+            </div>
+          )}
 
           <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
             <div className="p-6 md:p-8 border-b border-slate-100 bg-slate-50/50">

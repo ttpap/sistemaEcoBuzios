@@ -25,7 +25,7 @@ import {
   removeTeacherFromProject,
   resetTeacherPasswordToDefault,
 } from "@/utils/teachers";
-import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, GraduationCap } from "lucide-react";
+import { Copy, Plus, Search, Trash2, UserCog, X, RotateCcw, GraduationCap, ClipboardList } from "lucide-react";
 import { supabaseConfigService } from "@/services/supabaseConfigService";
 
 import { fetchTeachersWithMeta, deleteTeacher } from "@/services/teachersService";
@@ -458,6 +458,17 @@ export default function AdminTeachers() {
                         >
                           <Copy className="h-4 w-4 mr-2" />
                           Credenciais
+                        </Button>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-12 rounded-2xl font-black border-slate-200 bg-white"
+                          onClick={() => navigate("/relatorios", { state: { teacherId: t.id, teacherName: t.fullName } })}
+                          title="Ver chamadas do professor"
+                        >
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          Ver Chamadas
                         </Button>
 
                         <Button

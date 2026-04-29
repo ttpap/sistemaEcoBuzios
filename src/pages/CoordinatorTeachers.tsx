@@ -29,7 +29,7 @@ import {
   resetTeacherPasswordToDefault,
   DEFAULT_TEACHER_PASSWORD,
 } from "@/utils/teachers";
-import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw } from "lucide-react";
+import { Copy, GraduationCap, Plus, Search, Trash2, UserCog, X, RotateCcw, ClipboardList } from "lucide-react";
 import { fetchTeachers } from "@/services/teachersService";
 
 import {
@@ -334,6 +334,15 @@ export default function CoordinatorTeachers() {
                         }}
                       >
                         Credenciais
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-2xl hover:bg-primary/10 hover:text-primary"
+                        onClick={() => navigate("/coordenador/relatorios", { state: { teacherId: t.id, teacherName: t.fullName } })}
+                        title="Ver chamadas"
+                      >
+                        <ClipboardList className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"

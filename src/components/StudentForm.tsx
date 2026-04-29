@@ -792,10 +792,10 @@ const StudentForm = ({
                 <FormItem><FormLabel className="font-bold">Nome Social</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">E-mail</FormLabel><FormControl><Input type="email" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem><FormLabel className="font-bold">E-mail (aluno)</FormLabel><FormControl><Input type="email" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="cpf" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">CPF</FormLabel><FormControl><Input placeholder="000.000.000-00" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem><FormLabel className="font-bold">CPF (aluno)</FormLabel><FormControl><Input placeholder="000.000.000-00" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="birthDate" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
@@ -804,7 +804,7 @@ const StudentForm = ({
                 <FormItem><FormLabel className="font-bold">Idade</FormLabel><FormControl><Input type="number" {...field} disabled className="h-12 rounded-xl bg-slate-100 font-black text-primary" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="cellPhone" render={({ field }) => (
-                <FormItem className="md:col-span-3"><FormLabel className="font-bold">Celular / WhatsApp *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem className="md:col-span-3"><FormLabel className="font-bold">Celular / WhatsApp (aluno) *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
 
               <FormField control={form.control} name="gender" render={({ field }) => (
@@ -830,7 +830,7 @@ const StudentForm = ({
                 <FormItem><FormLabel className="font-bold">Grau de Parentesco</FormLabel><FormControl><Input placeholder="Ex: Mãe, Pai, Avó..." {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="guardianPhone" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Telefone de Contato</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem><FormLabel className="font-bold">Celular / WhatsApp (responsável)</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
 
               <div className="md:col-span-2 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
