@@ -167,7 +167,7 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Outra"
   ],
   none: [
-    "Não estuda no momento"
+    "Comunidade"
   ]
 };
 
@@ -874,7 +874,7 @@ const StudentForm = ({
                     onValueChange={(v) => { 
                       field.onChange(v); 
                       if (v === 'none') {
-                        form.setValue('schoolName', 'Não estuda no momento');
+                        form.setValue('schoolName', 'Comunidade');
                       } else {
                         form.setValue('schoolName', ''); 
                       }
@@ -891,7 +891,7 @@ const StudentForm = ({
                       <SelectItem value="state">Estadual</SelectItem>
                       <SelectItem value="private">Particular</SelectItem>
                       <SelectItem value="higher">Ensino Superior</SelectItem>
-                      <SelectItem value="none" className="font-bold text-red-500">Não estuda</SelectItem>
+                      <SelectItem value="none" className="font-bold text-red-500">Comunidade</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -903,7 +903,7 @@ const StudentForm = ({
                   <Select onValueChange={field.onChange} value={field.value} disabled={!schoolType || schoolType === 'none'}>
                     <FormControl>
                       <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
-                        <SelectValue placeholder={schoolType ? (schoolType === 'none' ? "Não estuda" : "Selecione a escola") : "Selecione a rede primeiro"} />
+                        <SelectValue placeholder={schoolType ? (schoolType === 'none' ? "Comunidade" : "Selecione a escola") : "Selecione a rede primeiro"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

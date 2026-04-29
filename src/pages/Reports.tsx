@@ -1717,7 +1717,7 @@ export default function Reports() {
             { label: "Rede Pública", count: sc.publica, color: "#008ca0" },
             { label: "Particular", count: sc.particular, color: "#f59e0b" },
             { label: "Ensino Superior", count: sc.superior, color: "#6366f1" },
-            { label: "Não estudante", count: sc.naoEstuda, color: "#f43f5e" },
+            { label: "Comunidade", count: sc.naoEstuda, color: "#f43f5e" },
             ...(sc.outros > 0 ? [{ label: "Não informado", count: sc.outros, color: "#cbd5e1" }] : []),
           ].filter((d) => d.count > 0);
 
