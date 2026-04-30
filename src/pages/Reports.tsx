@@ -1797,7 +1797,7 @@ export default function Reports() {
             freqExpected += snapshotIds.length;
             for (const sid of snapshotIds) {
               const st = s.records[sid];
-              if (st === "presente" || st === "atrasado") freqPresent++;
+              if (st === "presente" || st === "atrasado" || st === "justificada") freqPresent++;
             }
           }
           const freqRate = freqExpected > 0 ? +((freqPresent / freqExpected) * 100).toFixed(1) : null;
