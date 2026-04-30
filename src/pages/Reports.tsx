@@ -662,6 +662,9 @@ function printPrefeituraReport(data: {
   totalSessions: number;
   totalHours: number;
   students: { fullName: string; socialName?: string; schoolName: string; age: number; birthDate?: string }[];
+  freqRate: number | null;
+  freqPresent: number;
+  freqExpected: number;
   print: boolean;
 }) {
   const win = window.open("", "_blank");
@@ -669,7 +672,7 @@ function printPrefeituraReport(data: {
 
   const logoUrl = getReportLogoUrl();
   const generatedAt = new Date().toLocaleString("pt-BR");
-  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students } = data;
+  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students, freqRate, freqPresent, freqExpected } = data;
 
   const schoolRows = schoolTypes.map((st) => {
     const pct = total > 0 ? ((st.count / total) * 100).toFixed(1) : "0.0";
@@ -792,6 +795,24 @@ function printPrefeituraReport(data: {
         </div>
       </div>
     </div>
+    <div class="section" style="margin-bottom:14px;">
+      <div class="section-title">Taxa de Frequência nas Oficinas</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;">
+        <div style="padding:18px 14px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:38px;font-weight:950;color:#10b981;line-height:1;">${freqRate !== null ? freqRate + "%" : "—"}</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px;">taxa de frequência</div>
+        </div>
+        <div style="padding:18px 14px;text-align:center;border-right:1px solid var(--border);">
+          <div style="font-size:38px;font-weight:950;color:#008ca0;line-height:1;">${freqPresent}</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px;">presenças registradas</div>
+        </div>
+        <div style="padding:18px 14px;text-align:center;">
+          <div style="font-size:38px;font-weight:950;color:#64748b;line-height:1;">${freqExpected}</div>
+          <div style="font-size:11px;font-weight:800;color:var(--muted);margin-top:4px;">presenças esperadas</div>
+        </div>
+      </div>
+    </div>
+
     <div style="page-break-before:always;">
       <div class="section-title" style="border-radius:12px 12px 0 0;margin-bottom:0;">Lista de Alunos Matriculados</div>
       <table style="width:100%;border-collapse:collapse;font-size:9.5px;">
@@ -1764,6 +1785,23 @@ export default function Reports() {
           const totalSessions = baseSessions + submittedReportsInYear + meetingsCount;
           const totalHours = +(baseHours + submittedReportsInYear + meetingsHours).toFixed(1);
 
+          const yearSessions = attendanceSessions.filter(
+            (s) => s.date.startsWith(prefeituraYear) && s.finalizedAt,
+          );
+          let freqPresent = 0;
+          let freqExpected = 0;
+          for (const s of yearSessions) {
+            const snapshotIds = s.studentIds?.length
+              ? s.studentIds
+              : (classes.find((c) => c.id === s.classId)?.studentIds ?? []);
+            freqExpected += snapshotIds.length;
+            for (const sid of snapshotIds) {
+              const st = s.records[sid];
+              if (st === "presente" || st === "atrasado") freqPresent++;
+            }
+          }
+          const freqRate = freqExpected > 0 ? +((freqPresent / freqExpected) * 100).toFixed(1) : null;
+
           return (
             <div className="space-y-6">
               {/* Cabeçalho */}
@@ -1802,6 +1840,9 @@ export default function Reports() {
                         totalSessions,
                         totalHours,
                         students: projectStudents.map(s => ({ fullName: s.fullName, socialName: s.socialName, schoolName: s.schoolName, age: s.age, birthDate: s.birthDate })),
+                        freqRate,
+                        freqPresent,
+                        freqExpected,
                         print: false,
                       })
                     }
@@ -1822,6 +1863,9 @@ export default function Reports() {
                         totalSessions,
                         totalHours,
                         students: projectStudents.map(s => ({ fullName: s.fullName, socialName: s.socialName, schoolName: s.schoolName, age: s.age, birthDate: s.birthDate })),
+                        freqRate,
+                        freqPresent,
+                        freqExpected,
                         print: true,
                       })
                     }
@@ -1947,6 +1991,32 @@ export default function Reports() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Taxa de frequência */}
+              <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Participação</p>
+                  <p className="text-base font-black text-slate-700 mt-0.5">Taxa de Frequência nas Oficinas</p>
+                </div>
+                <CardContent className="p-8 grid grid-cols-3 gap-6">
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    {freqRate !== null ? (
+                      <span className="text-5xl font-black text-emerald-600 leading-none">{freqRate}%</span>
+                    ) : (
+                      <span className="text-3xl font-black text-slate-300 leading-none">—</span>
+                    )}
+                    <span className="text-sm font-bold text-slate-400 mt-1">taxa de frequência</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
+                    <span className="text-5xl font-black text-primary leading-none">{freqPresent}</span>
+                    <span className="text-sm font-bold text-slate-400 mt-1">presenças registradas</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
+                    <span className="text-5xl font-black text-slate-400 leading-none">{freqExpected}</span>
+                    <span className="text-sm font-bold text-slate-400 mt-1">presenças esperadas</span>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           );
         })()
