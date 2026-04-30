@@ -1794,10 +1794,12 @@ export default function Reports() {
             const snapshotIds = s.studentIds?.length
               ? s.studentIds
               : (classes.find((c) => c.id === s.classId)?.studentIds ?? []);
-            freqExpected += snapshotIds.length;
             for (const sid of snapshotIds) {
               const st = s.records[sid];
-              if (st === "presente" || st === "atrasado" || st === "justificada") freqPresent++;
+              if (st !== undefined) {
+                freqExpected++;
+                if (st === "presente" || st === "atrasado" || st === "justificada") freqPresent++;
+              }
             }
           }
           const freqRate = freqExpected > 0 ? +((freqPresent / freqExpected) * 100).toFixed(1) : null;
