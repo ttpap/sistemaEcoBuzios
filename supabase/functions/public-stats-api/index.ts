@@ -106,11 +106,18 @@ serve(async (req) => {
       .like("month", `${monthPrefix}%`)
       .in("project_id", activeProjectIds);
 
-    const [chartsResult, freqResult, meetingResult, reportsResult] = await Promise.all([
+    const prestacaoQuery = client
+      .from("prestacao_contas_reports")
+      .select("month")
+      .like("month", `${monthPrefix}%`)
+      .in("project_id", activeProjectIds);
+
+    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
       client.rpc("public_attendance_stats", rpcParams),
       meetingQuery,
       reportsQuery,
+      prestacaoQuery,
     ]);
 
     if (chartsResult.error || !chartsResult.data) {
@@ -132,6 +139,12 @@ serve(async (req) => {
       console.error("[public-stats-api] query error (monthly_reports)", reportsResult.error);
     }
     const totalHorasAula = reports.length;
+
+    const prestacaoReports = prestacaoResult.data ?? [];
+    if (prestacaoResult.error) {
+      console.error("[public-stats-api] query error (prestacao_contas_reports)", prestacaoResult.error);
+    }
+    const totalPrestacaoContas = prestacaoReports.length;
 
     if (freqResult.error) {
       console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
@@ -159,7 +172,8 @@ serve(async (req) => {
       horas_aula: {
         ano: currentYear,
         total_relatorios_enviados: reports.length,
-        total_horas: totalHorasAula,
+        total_prestacao_contas: totalPrestacaoContas,
+        total_horas: totalHorasAula + totalPrestacaoContas,
       },
     };
 

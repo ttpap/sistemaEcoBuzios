@@ -1793,8 +1793,11 @@ export default function Reports() {
             (sum, m) => sum + Number(m.duration_hours || 0),
             0,
           );
-          const totalSessions = baseSessions + submittedReportsInYear + meetingsCount;
-          const totalHours = +(baseHours + submittedReportsInYear + meetingsHours).toFixed(1);
+          const prestacaoContasCount = pcSavedReports.filter(
+            (r) => (r.month || "").startsWith(prefeituraPrefix),
+          ).length;
+          const totalSessions = baseSessions + submittedReportsInYear + meetingsCount + prestacaoContasCount;
+          const totalHours = +(baseHours + submittedReportsInYear + meetingsHours + prestacaoContasCount).toFixed(1);
 
           const yearSessions = attendanceSessions.filter(
             (s) => s.date.startsWith(prefeituraPrefix) && s.finalizedAt,
