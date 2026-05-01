@@ -655,6 +655,7 @@ function printClassesYearReport(
 
 function printPrefeituraReport(data: {
   projectName: string;
+  period: string;
   total: number;
   schoolTypes: { label: string; count: number; color: string }[];
   ageGroups: { label: string; count: number }[];
@@ -672,7 +673,7 @@ function printPrefeituraReport(data: {
 
   const logoUrl = getReportLogoUrl();
   const generatedAt = new Date().toLocaleString("pt-BR");
-  const { projectName, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students, freqRate, freqPresent, freqExpected } = data;
+  const { projectName, period, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students, freqRate, freqPresent, freqExpected } = data;
 
   const schoolRows = schoolTypes.map((st) => {
     const pct = total > 0 ? ((st.count / total) * 100).toFixed(1) : "0.0";
@@ -743,7 +744,7 @@ function printPrefeituraReport(data: {
               <div class="title">RELATÓRIO PREFEITURA</div>
             </div>
           </div>
-          <div style="display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-weight:900;font-size:10px;border:1px solid rgba(0,140,160,0.22);background:rgba(0,140,160,0.08);color:var(--primary);">Dados do Projeto</div>
+          <div style="display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;font-weight:900;font-size:10px;border:1px solid rgba(0,140,160,0.22);background:rgba(0,140,160,0.08);color:var(--primary);">${period}</div>
         </div>
         <div class="meta">
           <div>Gerado em <strong>${generatedAt}</strong></div>
@@ -976,6 +977,7 @@ export default function Reports() {
   );
   const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
   const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
+  const [prefeituraMonth, setPrefeituraMonth] = useState<string>("");
   const [pcTitle, setPcTitle] = useState("");
   const [pcMonth, setPcMonth] = useState<string>(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
   const [pcText, setPcText] = useState("");
@@ -1757,6 +1759,15 @@ export default function Reports() {
             }
           }
 
+          const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+          const prefeituraPrefix = prefeituraMonth ? `${prefeituraYear}-${prefeituraMonth}` : prefeituraYear;
+          const periodoLabel = prefeituraMonth
+            ? `${MESES_PT[parseInt(prefeituraMonth, 10) - 1]} ${prefeituraYear}`
+            : prefeituraYear;
+          const availableMonths = [...new Set(
+            attendanceSessions.filter(s => s.date.startsWith(prefeituraYear)).map(s => s.date.slice(5, 7))
+          )].sort();
+
           const hoursRows = classes
             .map((c) => {
               const dur =
@@ -1764,7 +1775,7 @@ export default function Reports() {
                   ? Math.max(0, parseTimeHours(c.endTime) - parseTimeHours(c.startTime))
                   : 2;
               const sess = attendanceSessions.filter(
-                (s) => s.classId === c.id && s.date.startsWith(prefeituraYear)
+                (s) => s.classId === c.id && s.date.startsWith(prefeituraPrefix)
               ).length;
               return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * dur).toFixed(1) };
             })
@@ -1774,9 +1785,9 @@ export default function Reports() {
           const baseSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
           const baseHours = hoursRows.reduce((s, r) => s + r.hours, 0);
           const submittedReportsInYear = monthlyReports.filter(
-            (r) => r.submittedAt && (r.month || "").startsWith(prefeituraYear),
+            (r) => r.submittedAt && (r.month || "").startsWith(prefeituraPrefix),
           ).length;
-          const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(prefeituraYear));
+          const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(prefeituraPrefix));
           const meetingsCount = meetingsInYear.length;
           const meetingsHours = meetingsInYear.reduce(
             (sum, m) => sum + Number(m.duration_hours || 0),
@@ -1786,7 +1797,7 @@ export default function Reports() {
           const totalHours = +(baseHours + submittedReportsInYear + meetingsHours).toFixed(1);
 
           const yearSessions = attendanceSessions.filter(
-            (s) => s.date.startsWith(prefeituraYear) && s.finalizedAt,
+            (s) => s.date.startsWith(prefeituraPrefix) && s.finalizedAt,
           );
           let freqPresent = 0;
           let freqExpected = 0;
@@ -1820,11 +1831,24 @@ export default function Reports() {
                     <span className="text-sm font-bold text-slate-500">Ano:</span>
                     <select
                       value={prefeituraYear}
-                      onChange={(e) => setPrefeituraYear(e.target.value)}
+                      onChange={(e) => { setPrefeituraYear(e.target.value); setPrefeituraMonth(""); }}
                       className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
                     >
                       {Array.from(new Set(attendanceSessions.map((s) => s.date.slice(0, 4)))).sort().reverse().map((y) => (
                         <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-slate-500">Mês:</span>
+                    <select
+                      value={prefeituraMonth}
+                      onChange={(e) => setPrefeituraMonth(e.target.value)}
+                      className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
+                    >
+                      <option value="">Todos</option>
+                      {availableMonths.map((m) => (
+                        <option key={m} value={m}>{MESES_PT[parseInt(m, 10) - 1]}</option>
                       ))}
                     </select>
                   </div>
@@ -1835,6 +1859,7 @@ export default function Reports() {
                     onClick={() =>
                       printPrefeituraReport({
                         projectName: getReportProjectName(),
+                        period: periodoLabel,
                         total,
                         schoolTypes,
                         ageGroups,
@@ -1858,6 +1883,7 @@ export default function Reports() {
                     onClick={() =>
                       printPrefeituraReport({
                         projectName: getReportProjectName(),
+                        period: periodoLabel,
                         total,
                         schoolTypes,
                         ageGroups,
