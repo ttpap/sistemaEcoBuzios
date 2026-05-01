@@ -90,13 +90,15 @@ serve(async (req) => {
 
     const activeProjectIds: string[] = projectIds ?? allActiveIds;
 
+    const currentYear = new Date().getFullYear();
+    const monthPrefix = `${currentYear}-`;
+
     const meetingQuery = client
       .from("meeting_minutes")
       .select("duration_hours")
-      .in("project_id", activeProjectIds);
-
-    const currentYear = new Date().getFullYear();
-    const monthPrefix = `${currentYear}-`;
+      .in("project_id", activeProjectIds)
+      .gte("meeting_date", `${currentYear}-01-01`)
+      .lte("meeting_date", `${currentYear}-12-31`);
     const reportsQuery = client
       .from("monthly_reports")
       .select("month, submitted_at")
