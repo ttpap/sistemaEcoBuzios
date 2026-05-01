@@ -1080,6 +1080,13 @@ export default function Reports() {
           } catch {
             setMeetings([]);
           }
+
+          try {
+            const { data } = await supabase.rpc("list_prestacao_contas_reports", { p_project_id: activeProjectId });
+            if (data) setPcSavedReports(data as typeof pcSavedReports);
+          } catch {
+            setPcSavedReports([]);
+          }
         } catch (e: any) {
           showError(e?.message || "Não foi possível carregar os dados do relatório.");
           setAttendanceSessions([]);
