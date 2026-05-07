@@ -680,7 +680,6 @@ function printPrefeituraReport(data: {
     const pct = schoolBase > 0 ? ((st.count / schoolBase) * 100).toFixed(1) : "0.0";
     return `<tr>
       <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${st.label}</td>
-      <td style="text-align:center;padding:7px 10px;font-weight:900;color:#1e293b;">${st.count}</td>
       <td style="text-align:center;padding:7px 10px;font-weight:900;color:${st.color};">${pct}%</td>
     </tr>`;
   }).join("");
@@ -767,7 +766,7 @@ function printPrefeituraReport(data: {
         <div class="section">
           <div class="section-title">Distribuição por Rede de Ensino</div>
           <table>
-            <thead><tr><th class="left">Rede</th><th>Alunos</th><th>%</th></tr></thead>
+            <thead><tr><th class="left">Rede</th><th>%</th></tr></thead>
             <tbody>${schoolRows}</tbody>
           </table>
         </div>
