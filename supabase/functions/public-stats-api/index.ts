@@ -90,26 +90,25 @@ serve(async (req) => {
 
     const activeProjectIds: string[] = projectIds ?? allActiveIds;
 
-    const currentYear = new Date().getFullYear();
-    const monthPrefix = `${currentYear}-`;
+    // Pesos fixos de carga horária (1 aula = 2h, demais = 1h flat)
+    const HORAS_POR_AULA = 2;
+    const HORAS_POR_RELATORIO = 1;
+    const HORAS_POR_REUNIAO = 1;
+    const HORAS_POR_PRESTACAO = 1;
 
     const meetingQuery = client
       .from("meeting_minutes")
-      .select("duration_hours")
-      .in("project_id", activeProjectIds)
-      .gte("meeting_date", `${currentYear}-01-01`)
-      .lte("meeting_date", `${currentYear}-12-31`);
+      .select("id")
+      .in("project_id", activeProjectIds);
     const reportsQuery = client
       .from("monthly_reports")
-      .select("month, submitted_at")
+      .select("id")
       .not("submitted_at", "is", null)
-      .like("month", `${monthPrefix}%`)
       .in("project_id", activeProjectIds);
 
     const prestacaoQuery = client
       .from("prestacao_contas_reports")
-      .select("month")
-      .like("month", `${monthPrefix}%`)
+      .select("id")
       .in("project_id", activeProjectIds);
 
     const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult] = await Promise.all([
@@ -132,19 +131,21 @@ serve(async (req) => {
     const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
     const meetings = meetingResult.data ?? [];
     const totalReunioes = meetings.length;
-    const totalHorasReunioes = meetings.reduce((sum: number, r: { duration_hours: number }) => sum + Number(r.duration_hours), 0);
+    const totalHorasReunioes = totalReunioes * HORAS_POR_REUNIAO;
 
     const reports = reportsResult.data ?? [];
     if (reportsResult.error) {
       console.error("[public-stats-api] query error (monthly_reports)", reportsResult.error);
     }
-    const totalHorasAula = reports.length;
+    const totalRelatorios = reports.length;
+    const totalHorasRelatorios = totalRelatorios * HORAS_POR_RELATORIO;
 
     const prestacaoReports = prestacaoResult.data ?? [];
     if (prestacaoResult.error) {
       console.error("[public-stats-api] query error (prestacao_contas_reports)", prestacaoResult.error);
     }
     const totalPrestacaoContas = prestacaoReports.length;
+    const totalHorasPrestacoes = totalPrestacaoContas * HORAS_POR_PRESTACAO;
 
     if (freqResult.error) {
       console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
@@ -170,10 +171,9 @@ serve(async (req) => {
         total_horas: totalHorasReunioes,
       },
       horas_aula: {
-        ano: currentYear,
-        total_relatorios_enviados: reports.length,
+        total_relatorios_enviados: totalRelatorios,
         total_prestacao_contas: totalPrestacaoContas,
-        total_horas: totalHorasAula + totalPrestacaoContas,
+        total_horas: totalHorasRelatorios + totalHorasPrestacoes,
       },
     };
 
