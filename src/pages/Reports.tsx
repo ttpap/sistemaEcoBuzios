@@ -1750,7 +1750,7 @@ export default function Reports() {
 
           const hoursRows = classes
             .map((c) => {
-              const sess = attendanceSessions.filter((s) => s.classId === c.id).length;
+              const sess = attendanceSessions.filter((s) => s.classId === c.id && s.finalizedAt).length;
               return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * HORAS_POR_AULA).toFixed(1) };
             })
             .filter((r) => r.sessions > 0)
