@@ -63,10 +63,10 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 
-function parseTimeHours(t: string): number {
-  const parts = t.split(":").map(Number);
-  return (parts[0] || 0) + (parts[1] || 0) / 60;
-}
+const HORAS_POR_AULA = 2;
+const HORAS_POR_RELATORIO = 1;
+const HORAS_POR_REUNIAO = 1;
+const HORAS_POR_PRESTACAO = 1;
 
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
@@ -436,7 +436,7 @@ async function downloadClassesYearPdf(
   rows: { classId: string; name: string; period: string; total: number; byMonth: Record<string, number> }[],
   months: string[],
   grandTotal: number,
-  yearFilter: string,
+  periodLabel: string,
 ) {
   const jsPDF = (await import("jspdf")).default;
   const autoTable = (await import("jspdf-autotable")).default;
@@ -484,7 +484,7 @@ async function downloadClassesYearPdf(
   doc.setFontSize(16);
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
-  doc.text(`AULAS REALIZADAS — ${yearFilter}`, textX, 22);
+  doc.text(`AULAS REALIZADAS — ${periodLabel}`, textX, 22);
 
   doc.setFontSize(9);
   doc.setTextColor(100, 116, 139);
@@ -534,14 +534,14 @@ async function downloadClassesYearPdf(
     },
   });
 
-  doc.save(`aulas-realizadas-${yearFilter}.pdf`);
+  doc.save(`aulas-realizadas-${periodLabel.toLowerCase().replace(/\s+/g, "-")}.pdf`);
 }
 
 function printClassesYearReport(
   rows: { classId: string; name: string; period: string; total: number; byMonth: Record<string, number> }[],
   months: string[],
   grandTotal: number,
-  yearFilter: string,
+  periodLabel: string,
 ) {
   const win = window.open("", "_blank");
   if (!win) return;
@@ -573,7 +573,7 @@ function printClassesYearReport(
 
   const html = `<html>
     <head>
-      <title>Aulas Realizadas ${yearFilter}</title>
+      <title>Aulas Realizadas ${periodLabel}</title>
       <style>
         :root { --primary: #008ca0; --slate: #0f172a; --muted: #64748b; --border: #e2e8f0; --soft: #f8fafc; }
         * { box-sizing: border-box; }
@@ -613,7 +613,7 @@ function printClassesYearReport(
               <img class="logo" src="${logoUrl}" alt="Logo" />
               <div>
                 <div class="proj">${projectName}</div>
-                <p class="header">AULAS REALIZADAS — ${yearFilter}</p>
+                <p class="header">AULAS REALIZADAS — ${periodLabel}</p>
                 <div class="sub">${grandTotal} aulas · ${grandTotal * 2}h no total</div>
               </div>
             </div>
@@ -675,8 +675,9 @@ function printPrefeituraReport(data: {
   const generatedAt = new Date().toLocaleString("pt-BR");
   const { projectName, period, total, schoolTypes, ageGroups, hoursRows, totalSessions, totalHours, students, freqRate, freqPresent, freqExpected } = data;
 
+  const schoolBase = schoolTypes.reduce((s, st) => s + st.count, 0);
   const schoolRows = schoolTypes.map((st) => {
-    const pct = total > 0 ? ((st.count / total) * 100).toFixed(1) : "0.0";
+    const pct = schoolBase > 0 ? ((st.count / schoolBase) * 100).toFixed(1) : "0.0";
     return `<tr>
       <td style="padding:7px 10px;font-weight:800;color:#1e293b;">${st.label}</td>
       <td style="text-align:center;padding:7px 10px;font-weight:900;color:#1e293b;">${st.count}</td>
@@ -975,9 +976,6 @@ export default function Reports() {
   const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas">(
     filterTeacherId ? "attendance" : "home"
   );
-  const [yearFilter, setYearFilter] = useState<string>(String(new Date().getFullYear()));
-  const [prefeituraYear, setPrefeituraYear] = useState<string>(String(new Date().getFullYear()));
-  const [prefeituraMonth, setPrefeituraMonth] = useState<string>("");
   const [pcTitle, setPcTitle] = useState("");
   const [pcMonth, setPcMonth] = useState<string>(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
   const [pcText, setPcText] = useState("");
@@ -1440,9 +1438,9 @@ export default function Reports() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
-                  <p className="text-lg font-black text-primary">Aulas Dadas no Ano</p>
+                  <p className="text-lg font-black text-primary">Aulas Dadas no Projeto</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
-                    Total de aulas realizadas por turma no ano, com carga horária (2h por aula).
+                    Total de aulas realizadas por turma no projeto inteiro, com carga horária (2h por aula).
                   </p>
                 </div>
               </div>
@@ -1514,7 +1512,7 @@ export default function Reports() {
           ) : null}
         </div>
       ) : report === "classes-year" ? (
-        /* ── Relatório: Aulas Dadas no Ano ── */
+        /* ── Relatório: Aulas Dadas — Total do Projeto ── */
         <div className="space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <Button
@@ -1524,24 +1522,10 @@ export default function Reports() {
             >
               <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
             </Button>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-500">Ano:</span>
-              <select
-                value={yearFilter}
-                onChange={(e) => setYearFilter(e.target.value)}
-                className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
-              >
-                {Array.from(new Set(attendanceSessions.map((s) => s.date.slice(0, 4)))).sort().reverse().map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {(() => {
-            const filtered = attendanceSessions.filter(
-              (s) => s.finalizedAt && s.date.startsWith(yearFilter)
-            );
+            const filtered = attendanceSessions.filter((s) => s.finalizedAt);
 
             // Months present in filtered data
             const months = [...new Set(filtered.map((s) => s.date.slice(0, 7)))].sort();
@@ -1561,20 +1545,18 @@ export default function Reports() {
             }).sort((a, b) => a.name.localeCompare(b.name));
 
             const grandTotal = rows.reduce((sum, r) => sum + r.total, 0);
-            const reportsInYear = monthlyReports.filter(
-              (r) => r.submittedAt && (r.month || "").startsWith(yearFilter),
-            ).length;
-            const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(yearFilter));
-            const meetingsCount = meetingsInYear.length;
-            const meetingsHours = +meetingsInYear
-              .reduce((sum, m) => sum + Number(m.duration_hours || 0), 0)
-              .toFixed(1);
-            const totalHorasGeral = +(grandTotal * 2 + reportsInYear + meetingsHours).toFixed(1);
-            const totalUnidades = grandTotal + reportsInYear + meetingsCount;
+            const reportsTotal = monthlyReports.filter((r) => r.submittedAt).length;
+            const meetingsCount = meetings.length;
+            const horasAulas = grandTotal * HORAS_POR_AULA;
+            const horasRelatorios = reportsTotal * HORAS_POR_RELATORIO;
+            const horasReunioes = meetingsCount * HORAS_POR_REUNIAO;
+            const totalHorasGeral = +(horasAulas + horasRelatorios + horasReunioes).toFixed(1);
+            const totalUnidades = grandTotal + reportsTotal + meetingsCount;
+            const periodoLabel = "Total do projeto";
 
-            if (rows.length === 0 && reportsInYear === 0 && meetingsCount === 0) return (
+            if (rows.length === 0 && reportsTotal === 0 && meetingsCount === 0) return (
               <div className="text-center py-16 text-slate-400">
-                Nenhuma aula finalizada, relatório ou reunião encontrada para {yearFilter}.
+                Nenhuma aula finalizada, relatório ou reunião encontrada no projeto.
               </div>
             );
 
@@ -1582,11 +1564,11 @@ export default function Reports() {
               <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                 <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-black text-slate-800">Aulas Realizadas — {yearFilter}</h2>
+                    <h2 className="text-lg font-black text-slate-800">Aulas Realizadas — Total do Projeto</h2>
                     <p className="text-sm text-slate-500 mt-0.5">
                       {totalUnidades} registros · {totalHorasGeral}h no total
                       <span className="text-xs text-slate-400 ml-2">
-                        ({grandTotal} aulas + {reportsInYear} relatórios + {meetingsCount} reuniões)
+                        ({grandTotal} aulas + {reportsTotal} relatórios + {meetingsCount} reuniões)
                       </span>
                     </p>
                   </div>
@@ -1595,7 +1577,7 @@ export default function Reports() {
                       variant="outline"
                       size="sm"
                       className="rounded-2xl font-bold gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => printClassesYearReport(rows, months, grandTotal, yearFilter)}
+                      onClick={() => printClassesYearReport(rows, months, grandTotal, periodoLabel)}
                     >
                       <Printer className="h-4 w-4" /> Imprimir
                     </Button>
@@ -1603,7 +1585,7 @@ export default function Reports() {
                       variant="outline"
                       size="sm"
                       className="rounded-2xl font-bold gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => void downloadClassesYearPdf(rows, months, grandTotal, yearFilter)}
+                      onClick={() => void downloadClassesYearPdf(rows, months, grandTotal, periodoLabel)}
                     >
                       <FileDown className="h-4 w-4" /> PDF
                     </Button>
@@ -1643,11 +1625,11 @@ export default function Reports() {
                   </div>
                   <div className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
                     <span className="font-black text-slate-700">RELATÓRIOS MENSAIS</span>
-                    <span className="font-black text-emerald-700">{reportsInYear} / {reportsInYear}h</span>
+                    <span className="font-black text-emerald-700">{reportsTotal} / {horasRelatorios}h</span>
                   </div>
                   <div className="p-4 bg-slate-50 flex items-center justify-between border-t border-slate-100">
                     <span className="font-black text-slate-700">REUNIÕES</span>
-                    <span className="font-black text-emerald-700">{meetingsCount} / {meetingsHours}h</span>
+                    <span className="font-black text-emerald-700">{meetingsCount} / {horasReunioes}h</span>
                   </div>
                   <div className="p-4 bg-emerald-50 flex items-center justify-between border-t-2 border-emerald-200">
                     <span className="font-black text-emerald-800">TOTAL GERAL</span>
@@ -1702,8 +1684,8 @@ export default function Reports() {
                         <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-400">
                           1h por relatório enviado
                         </td>
-                        <td className="text-center px-4 py-3 font-bold text-slate-800">{reportsInYear}</td>
-                        <td className="text-center px-4 py-3 font-black text-emerald-700">{reportsInYear}h</td>
+                        <td className="text-center px-4 py-3 font-bold text-slate-800">{reportsTotal}</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-700">{horasRelatorios}h</td>
                       </tr>
                       <tr className="bg-slate-50 border-b-2 border-slate-200">
                         <td className="px-6 py-3 font-bold text-slate-700">REUNIÕES</td>
@@ -1711,7 +1693,7 @@ export default function Reports() {
                           duração registrada por ata
                         </td>
                         <td className="text-center px-4 py-3 font-bold text-slate-800">{meetingsCount}</td>
-                        <td className="text-center px-4 py-3 font-black text-emerald-700">{meetingsHours}h</td>
+                        <td className="text-center px-4 py-3 font-black text-emerald-700">{horasReunioes}h</td>
                       </tr>
                       <tr className="bg-emerald-50">
                         <td className="px-6 py-3 font-black text-emerald-800">TOTAL GERAL</td>
@@ -1747,9 +1729,8 @@ export default function Reports() {
             { label: "Rede Pública", count: sc.publica, color: "#008ca0" },
             { label: "Particular", count: sc.particular, color: "#f59e0b" },
             { label: "Ensino Superior", count: sc.superior, color: "#6366f1" },
-            { label: "Comunidade", count: sc.naoEstuda, color: "#f43f5e" },
-            ...(sc.outros > 0 ? [{ label: "Não informado", count: sc.outros, color: "#cbd5e1" }] : []),
           ].filter((d) => d.count > 0);
+          const schoolBase = schoolTypes.reduce((s, st) => s + st.count, 0);
 
           const ageGroups = [
             { label: "Até 9 anos", min: 0, max: 9, count: 0 },
@@ -1766,52 +1747,33 @@ export default function Reports() {
             }
           }
 
-          const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-          const prefeituraPrefix = prefeituraMonth ? `${prefeituraYear}-${prefeituraMonth}` : prefeituraYear;
-          const periodoLabel = prefeituraMonth
-            ? `${MESES_PT[parseInt(prefeituraMonth, 10) - 1]} ${prefeituraYear}`
-            : prefeituraYear;
-          const availableMonths = [...new Set(
-            attendanceSessions.filter(s => s.date.startsWith(prefeituraYear)).map(s => s.date.slice(5, 7))
-          )].sort();
+          const periodoLabel = "Total do projeto";
 
           const hoursRows = classes
             .map((c) => {
-              const dur =
-                c.startTime && c.endTime
-                  ? Math.max(0, parseTimeHours(c.endTime) - parseTimeHours(c.startTime))
-                  : 2;
-              const sess = attendanceSessions.filter(
-                (s) => s.classId === c.id && s.date.startsWith(prefeituraPrefix)
-              ).length;
-              return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * dur).toFixed(1) };
+              const sess = attendanceSessions.filter((s) => s.classId === c.id).length;
+              return { name: c.name, period: c.period || "", sessions: sess, hours: +(sess * HORAS_POR_AULA).toFixed(1) };
             })
             .filter((r) => r.sessions > 0)
             .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
           const baseSessions = hoursRows.reduce((s, r) => s + r.sessions, 0);
           const baseHours = hoursRows.reduce((s, r) => s + r.hours, 0);
-          const submittedReportsInYear = monthlyReports.filter(
-            (r) => r.submittedAt && (r.month || "").startsWith(prefeituraPrefix),
-          ).length;
-          const meetingsInYear = meetings.filter((m) => (m.meeting_date || "").startsWith(prefeituraPrefix));
-          const meetingsCount = meetingsInYear.length;
-          const meetingsHours = meetingsInYear.reduce(
-            (sum, m) => sum + Number(m.duration_hours || 0),
-            0,
-          );
-          const prestacaoContasCount = pcSavedReports.filter(
-            (r) => (r.month || "").startsWith(prefeituraPrefix),
-          ).length;
-          const totalSessions = baseSessions + submittedReportsInYear + meetingsCount + prestacaoContasCount;
-          const totalHours = +(baseHours + submittedReportsInYear + meetingsHours + prestacaoContasCount).toFixed(1);
+          const submittedReportsTotal = monthlyReports.filter((r) => r.submittedAt).length;
+          const meetingsCount = meetings.length;
+          const prestacaoContasCount = pcSavedReports.length;
+          const totalSessions = baseSessions + submittedReportsTotal + meetingsCount + prestacaoContasCount;
+          const totalHours = +(
+            baseHours
+            + submittedReportsTotal * HORAS_POR_RELATORIO
+            + meetingsCount * HORAS_POR_REUNIAO
+            + prestacaoContasCount * HORAS_POR_PRESTACAO
+          ).toFixed(1);
 
-          const yearSessions = attendanceSessions.filter(
-            (s) => s.date.startsWith(prefeituraPrefix) && s.finalizedAt,
-          );
+          const projectSessions = attendanceSessions.filter((s) => s.finalizedAt);
           let freqPresent = 0;
           let freqExpected = 0;
-          for (const s of yearSessions) {
+          for (const s of projectSessions) {
             const snapshotIds = s.studentIds?.length
               ? s.studentIds
               : (classes.find((c) => c.id === s.classId)?.studentIds ?? []);
@@ -1837,31 +1799,6 @@ export default function Reports() {
                   <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
                 </Button>
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-500">Ano:</span>
-                    <select
-                      value={prefeituraYear}
-                      onChange={(e) => { setPrefeituraYear(e.target.value); setPrefeituraMonth(""); }}
-                      className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
-                    >
-                      {Array.from(new Set(attendanceSessions.map((s) => s.date.slice(0, 4)))).sort().reverse().map((y) => (
-                        <option key={y} value={y}>{y}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-500">Mês:</span>
-                    <select
-                      value={prefeituraMonth}
-                      onChange={(e) => setPrefeituraMonth(e.target.value)}
-                      className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 bg-white focus:outline-none"
-                    >
-                      <option value="">Todos</option>
-                      {availableMonths.map((m) => (
-                        <option key={m} value={m}>{MESES_PT[parseInt(m, 10) - 1]}</option>
-                      ))}
-                    </select>
-                  </div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -1954,13 +1891,12 @@ export default function Reports() {
                       <p className="text-slate-400 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
                     ) : (
                       schoolTypes.map((st) => {
-                        const pct = total > 0 ? (st.count / total) * 100 : 0;
+                        const pct = schoolBase > 0 ? (st.count / schoolBase) * 100 : 0;
                         return (
                           <div key={st.label} className="space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-black text-slate-700">{st.label}</span>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-bold text-slate-500">{st.count} aluno{st.count !== 1 ? "s" : ""}</span>
                                 <span className="text-sm font-black w-12 text-right" style={{ color: st.color }}>{pct.toFixed(1)}%</span>
                               </div>
                             </div>
@@ -2019,11 +1955,11 @@ export default function Reports() {
                   </div>
                   <CardContent className="p-8 grid grid-cols-2 gap-6">
                     <div className="flex flex-col items-center justify-center gap-1">
-                      <span className="text-5xl font-black text-emerald-600 leading-none">{totalSessions}</span>
+                      <span className="text-5xl font-black text-emerald-600 leading-none">{baseSessions}</span>
                       <span className="text-sm font-bold text-slate-400 mt-1">aulas dadas</span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
-                      <span className="text-5xl font-black text-primary leading-none">{totalHours}</span>
+                      <span className="text-5xl font-black text-primary leading-none">{baseHours}</span>
                       <span className="text-sm font-bold text-slate-400 mt-1">horas de aula</span>
                     </div>
                   </CardContent>
