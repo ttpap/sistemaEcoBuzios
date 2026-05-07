@@ -1954,11 +1954,11 @@ export default function Reports() {
                   </div>
                   <CardContent className="p-8 grid grid-cols-2 gap-6">
                     <div className="flex flex-col items-center justify-center gap-1">
-                      <span className="text-5xl font-black text-emerald-600 leading-none">{baseSessions}</span>
+                      <span className="text-5xl font-black text-emerald-600 leading-none">{totalSessions}</span>
                       <span className="text-sm font-bold text-slate-400 mt-1">aulas dadas</span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
-                      <span className="text-5xl font-black text-primary leading-none">{baseHours}</span>
+                      <span className="text-5xl font-black text-primary leading-none">{totalHours}</span>
                       <span className="text-sm font-bold text-slate-400 mt-1">horas de aula</span>
                     </div>
                   </CardContent>
