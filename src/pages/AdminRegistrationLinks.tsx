@@ -3,11 +3,12 @@
 import React, { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, Link2, User, Users, Users2, KeyRound } from "lucide-react";
+import { Copy, Link2, User, Users, Users2, KeyRound, Camera } from "lucide-react";
 import Logo from "@/components/Logo";
 import { showError, showSuccess } from "@/utils/toast";
 import { copyToClipboard } from "@/utils/clipboard";
 import { createStaffPublicInvite } from "@/services/staffInvitesService";
+import { createPhotographerInvite } from "@/services/photographerInvitesService";
 
 function makeUrl(path: string) {
   try {
@@ -18,8 +19,8 @@ function makeUrl(path: string) {
 }
 
 export default function AdminRegistrationLinks() {
-  const [staffLinks, setStaffLinks] = useState<{ teacher?: string; coordinator?: string }>({});
-  const [loading, setLoading] = useState<{ teacher?: boolean; coordinator?: boolean }>({});
+  const [staffLinks, setStaffLinks] = useState<{ teacher?: string; coordinator?: string; photographer?: string }>({});
+  const [loading, setLoading] = useState<{ teacher?: boolean; coordinator?: boolean; photographer?: boolean }>({});
 
   const links = useMemo(
     () => [
@@ -43,6 +44,13 @@ export default function AdminRegistrationLinks() {
         subtitle: "Link público (com token)",
         path: "/inscricao-coordenador",
         icon: Users2,
+      },
+      {
+        key: "fotografo",
+        title: "Inscrição do fotógrafo",
+        subtitle: "Link público (com token)",
+        path: "/inscricao-fotografo",
+        icon: Camera,
       },
     ],
     [],
@@ -69,6 +77,20 @@ export default function AdminRegistrationLinks() {
       showError(e?.message || "Não foi possível gerar o link.");
     } finally {
       setLoading((s) => ({ ...s, [role]: false }));
+    }
+  };
+
+  const generatePhotographerLink = async () => {
+    setLoading((s) => ({ ...s, photographer: true }));
+    try {
+      const invite = await createPhotographerInvite();
+      const url = makeUrl(`/inscricao-fotografo?token=${encodeURIComponent(invite.token)}`);
+      setStaffLinks((s) => ({ ...s, photographer: url }));
+      await copy(url);
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível gerar o link.");
+    } finally {
+      setLoading((s) => ({ ...s, photographer: false }));
     }
   };
 
@@ -115,7 +137,9 @@ export default function AdminRegistrationLinks() {
               ? staffLinks.teacher || "(gere um link)"
               : l.key === "coordenador"
                 ? staffLinks.coordinator || "(gere um link)"
-                : makeUrl(l.path);
+                : l.key === "fotografo"
+                  ? staffLinks.photographer || "(gere um link)"
+                  : makeUrl(l.path);
 
           const canCopy = url && !url.startsWith("(");
 
@@ -159,6 +183,16 @@ export default function AdminRegistrationLinks() {
                       <KeyRound className="h-4 w-4 mr-2" />
                       {loading.coordinator ? "Gerando..." : "Gerar e copiar link"}
                     </Button>
+                  ) : l.key === "fotografo" ? (
+                    <Button
+                      className="mt-4 w-full rounded-2xl font-black"
+                      type="button"
+                      onClick={generatePhotographerLink}
+                      disabled={!!loading.photographer}
+                    >
+                      <KeyRound className="h-4 w-4 mr-2" />
+                      {loading.photographer ? "Gerando..." : "Gerar e copiar link"}
+                    </Button>
                   ) : (
                     <Button
                       className="mt-4 w-full rounded-2xl font-black"
@@ -171,7 +205,7 @@ export default function AdminRegistrationLinks() {
                     </Button>
                   )}
 
-                  {(l.key === "professor" || l.key === "coordenador") && canCopy ? (
+                  {(l.key === "professor" || l.key === "coordenador" || l.key === "fotografo") && canCopy ? (
                     <Button
                       variant="outline"
                       className="mt-3 w-full rounded-2xl font-black"

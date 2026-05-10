@@ -28,13 +28,14 @@ import {
   ExternalLink,
   ImageOff,
   Layers,
+  Camera,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
 import { clearActiveProjectId, getActiveProject, getActiveProjectId } from '@/utils/projects';
 import { supabaseAuthService } from '@/services/supabaseAuthService';
 
-const SISTEMA_PATHS = ['/professores', '/coordenadores', '/api-keys', '/links-inscricao', '/supabase', '/conta'];
+const SISTEMA_PATHS = ['/professores', '/coordenadores', '/fotografos', '/api-keys', '/links-inscricao', '/supabase', '/conta'];
 const PROJECT_PATHS = ['/', '/escalas', '/turmas', '/numeros', '/alunos', '/relatorios', '/ata-reuniao', '/certificados', '/autorizar-imagem'];
 
 const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"; onNavigate?: () => void }) => {
@@ -65,6 +66,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
   const sistemaItems = [
     { icon: Users, label: 'Professores', path: '/professores' },
     { icon: Users2, label: 'Coordenadores', path: '/coordenadores' },
+    { icon: Camera, label: 'Fotógrafos', path: '/fotografos' },
     { icon: GraduationCap, label: 'Todos os alunos', path: '/alunos' },
     { icon: KeyRound, label: 'Chaves de API', path: '/api-keys' },
     { icon: Link2, label: 'Links de inscrição', path: '/links-inscricao' },

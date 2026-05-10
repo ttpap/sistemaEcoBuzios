@@ -17,6 +17,7 @@ import AdminGate from "@/components/AdminGate";
 import TeacherGate from "@/components/TeacherGate";
 import CoordinatorGate from "@/components/CoordinatorGate";
 import StudentGate from "@/components/StudentGate";
+import PhotographerGate from "@/components/PhotographerGate";
 import ActiveProjectGate from "@/components/ActiveProjectGate";
 import TeacherActiveProjectGate from "@/components/TeacherActiveProjectGate";
 import CoordinatorActiveProjectGate from "@/components/CoordinatorActiveProjectGate";
@@ -80,6 +81,11 @@ const AtaReuniaoViewer            = lazy(() => import("./pages/AtaReuniaoViewer"
 const AdminApiKeys                = lazy(() => import("@/pages/AdminApiKeys"));
 const ImageAuthorization          = lazy(() => import("@/pages/ImageAuthorization"));
 const Numeros                     = lazy(() => import("@/pages/Numeros"));
+const AdminPhotographers          = lazy(() => import("@/pages/AdminPhotographers"));
+const PhotographerLogin           = lazy(() => import("@/pages/PhotographerLogin"));
+const PhotographerDashboard       = lazy(() => import("@/pages/PhotographerDashboard"));
+const PhotosReport                = lazy(() => import("@/pages/PhotosReport"));
+const PublicPhotographerRegistration = lazy(() => import("@/pages/PublicPhotographerRegistration"));
 
 // Spinner simples enquanto o chunk carrega
 function PageLoader() {
@@ -108,6 +114,7 @@ const App = () => (
               <Route path="/inscricao" element={<PublicStudentRegistration />} />
               <Route path="/inscricao-professor" element={<PublicTeacherRegistration />} />
               <Route path="/inscricao-coordenador" element={<PublicCoordinatorRegistration />} />
+              <Route path="/inscricao-fotografo" element={<PublicPhotographerRegistration />} />
               <Route path="/graficos" element={<PublicCharts />} />
               <Route path="/db-status" element={<DbStatus />} />
 
@@ -115,6 +122,17 @@ const App = () => (
               <Route path="/aluno/login" element={<StudentLogin />} />
               <Route path="/professor/login" element={<TeacherLogin />} />
               <Route path="/coordenador/login" element={<CoordinatorLogin />} />
+              <Route path="/fotografo/login" element={<PhotographerLogin />} />
+
+              {/* Área do fotógrafo (auth próprio, sem AppShell) */}
+              <Route
+                path="/fotografo"
+                element={
+                  <PhotographerGate>
+                    <PhotographerDashboard />
+                  </PhotographerGate>
+                }
+              />
 
               {/* Rotas do Aluno */}
               <Route
@@ -326,6 +344,8 @@ const App = () => (
                         <Route path="/coordenadores" element={<AdminCoordinators />} />
                         <Route path="/coordenadores/novo" element={<NewCoordinator />} />
                         <Route path="/coordenadores/editar/:id" element={<EditCoordinator />} />
+                        <Route path="/fotografos" element={<AdminPhotographers />} />
+                        <Route path="/relatorios/fotos" element={<PhotosReport />} />
                         <Route
                           path="/"
                           element={
@@ -630,6 +650,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <EnelReport />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="relatorios/fotos"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <PhotosReport />
                             </CoordinatorActiveProjectGate>
                           }
                         />

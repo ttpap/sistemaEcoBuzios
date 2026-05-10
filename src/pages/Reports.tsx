@@ -59,6 +59,7 @@ import {
   Save,
   FolderOpen,
   ChevronDown,
+  Camera,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -1503,6 +1504,28 @@ export default function Reports() {
                     <p className="text-lg font-black text-primary">Prestação de Contas</p>
                     <p className="text-sm font-bold text-slate-500 mt-1">
                       Relatório de objeto com fotos e descrição.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {canSeeEnel ? (
+            <Card
+              className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+              onClick={() => navigate(`${base}/relatorios/fotos`)}
+            >
+              <CardContent className="p-8">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-3xl bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200 group-hover:scale-110 transition-transform">
+                    <Camera className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-lg font-black text-primary">Fotos</p>
+                    <p className="text-sm font-bold text-slate-500 mt-1">
+                      Links de fotos enviados pelos fotógrafos, agrupados por ano e mês.
                     </p>
                   </div>
                 </div>
