@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Plus, Search, Trash2, X, RotateCcw, Copy } from "lucide-react";
+import { Camera, Plus, Search, Trash2, X, RotateCcw, Copy, Link2, KeyRound } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
 import { fetchProjects } from "@/utils/projects";
 import { copyToClipboard } from "@/utils/clipboard";
+import { createPhotographerInvite } from "@/services/photographerInvitesService";
 import type { Project } from "@/types/project";
 import {
   assignPhotographerToProject,
@@ -29,6 +30,14 @@ function maskedPassword(pw?: string) {
   return "•".repeat(Math.min(10, Math.max(6, pw.length)));
 }
 
+function makeUrl(path: string) {
+  try {
+    return `${window.location.origin}${path}`;
+  } catch {
+    return path;
+  }
+}
+
 export default function AdminPhotographers() {
   const [photographers, setPhotographers] = useState<Photographer[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -44,6 +53,10 @@ export default function AdminPhotographers() {
 
   const [credOpen, setCredOpen] = useState(false);
   const [credPhoto, setCredPhoto] = useState<Photographer | null>(null);
+
+  const [inviteLink, setInviteLink] = useState<string>("");
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const loginUrl = makeUrl("/fotografo/login");
 
   const refresh = async () => {
     try {
@@ -174,6 +187,20 @@ export default function AdminPhotographers() {
     }
   };
 
+  const onGenerateInvite = async () => {
+    setGeneratingInvite(true);
+    try {
+      const inv = await createPhotographerInvite();
+      const url = makeUrl(`/inscricao-fotografo?token=${encodeURIComponent(inv.token)}`);
+      setInviteLink(url);
+      await copy(url);
+    } catch (err: any) {
+      showError(err?.message || "Erro ao gerar link.");
+    } finally {
+      setGeneratingInvite(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Dialog criar */}
@@ -273,6 +300,66 @@ export default function AdminPhotographers() {
             <RotateCcw className="h-4 w-4" /> Atualizar
           </Button>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Link2 className="h-5 w-5 text-primary" />
+              <p className="font-black text-primary">Link de acesso do fotógrafo</p>
+            </div>
+            <p className="text-xs font-bold text-slate-500">
+              Envie este link para os fotógrafos já cadastrados fazerem login.
+            </p>
+            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 break-all text-sm font-black text-slate-800">
+              {loginUrl}
+            </div>
+            <Button
+              type="button"
+              onClick={() => copy(loginUrl)}
+              className="mt-3 w-full rounded-2xl font-black gap-2"
+            >
+              <Copy className="h-4 w-4" /> Copiar link de login
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <KeyRound className="h-5 w-5 text-primary" />
+              <p className="font-black text-primary">Link de auto-cadastro</p>
+            </div>
+            <p className="text-xs font-bold text-slate-500">
+              Gere um link único (válido 14 dias) para o fotógrafo criar a própria conta.
+            </p>
+            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 break-all text-sm font-black text-slate-800 min-h-[3rem]">
+              {inviteLink || "(clique em gerar)"}
+            </div>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                onClick={onGenerateInvite}
+                disabled={generatingInvite}
+                className="w-full rounded-2xl font-black gap-2"
+              >
+                <KeyRound className="h-4 w-4" />
+                {generatingInvite ? "Gerando..." : "Gerar e copiar"}
+              </Button>
+              {inviteLink ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => copy(inviteLink)}
+                  className="w-full rounded-2xl font-black gap-2"
+                >
+                  <Copy className="h-4 w-4" /> Copiar
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
