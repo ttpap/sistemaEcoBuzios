@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Layers, Users, Clock, Search, AlertCircle, Plus } from "lucide-react";
+import { Layers, Users, Clock, Search, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +22,7 @@ import {
   fetchProjectEnrollmentsRemoteWithMeta,
   fetchClassesRemoteWithMeta,
   upsertClassRemote,
+  deleteClassRemote,
 } from '@/services/classesService';
 
 import { getTeacherSessionPassword } from "@/utils/teacher-auth";
@@ -146,6 +147,18 @@ const Numeros = () => {
     }
   };
 
+  const deleteNumero = async (nucleo: SchoolClass, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Excluir o número "${nucleo.name}"?`)) return;
+    try {
+      await deleteClassRemote(nucleo.id);
+      showSuccess("Número excluído.");
+      await loadData();
+    } catch (err: any) {
+      showError(err?.message || "Não foi possível excluir o número.");
+    }
+  };
+
   const filtered = nucleos.filter(n =>
     n.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -249,9 +262,20 @@ const Numeros = () => {
                 <CardHeader className={`${color.header} p-6`}>
                   <div className="flex items-center justify-between">
                     <CardTitle className={`text-lg font-black tracking-tight ${color.text}`}>{nucleo.name}</CardTitle>
-                    <Badge className={`rounded-full font-black border-none px-3 ${color.badge}`}>
-                      {nucleo.period}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={`rounded-full font-black border-none px-3 ${color.badge}`}>
+                        {nucleo.period}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-xl text-white/70 hover:text-white hover:bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => void deleteNumero(nucleo, e)}
+                        title="Excluir número"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-6">
