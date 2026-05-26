@@ -41,6 +41,7 @@ import {
   FolderOpen,
   UserCheck,
   AlertCircle,
+  TrendingUp,
 } from "lucide-react";
 import { SchoolClass } from "@/types/class";
 import { TeacherRegistration } from "@/types/teacher";
@@ -694,6 +695,15 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
 
   // ── Gráficos globais admin ────────────────────────────────────────────────
 
+  const newStudentsLast2Months = useMemo(() => {
+    const cutoff = new Date(today);
+    cutoff.setMonth(cutoff.getMonth() - 2);
+    return allAdminStudents.filter((s) => {
+      if (!s.registrationDate) return false;
+      return new Date(s.registrationDate) >= cutoff;
+    }).length;
+  }, [allAdminStudents]);
+
   const adminChartStudents = useMemo(() => {
     if (adminChartProjectFilter === "all") return allAdminStudents;
     return adminStudentsByProject[adminChartProjectFilter] || [];
@@ -1079,7 +1089,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 whitespace-nowrap">Visão geral do sistema</span>
             <div className="flex-1 h-px bg-teal-100" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {[
               {
                 label: "Projetos",
@@ -1104,6 +1114,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 value: adminStats?.justificationsThisMonth ?? 0,
                 icon: <AlertCircle className="h-5 w-5" />,
                 bg: "bg-amber-500/10 text-amber-700 border-amber-500/15",
+              },
+              {
+                label: "Novos alunos (2 meses)",
+                value: newStudentsLast2Months,
+                icon: <TrendingUp className="h-5 w-5" />,
+                bg: "bg-emerald-500/10 text-emerald-700 border-emerald-500/15",
               },
             ].map((k) => (
               <Card key={k.label} className="border-none shadow-md shadow-slate-100/60 bg-white rounded-[2rem]">

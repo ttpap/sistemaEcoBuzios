@@ -69,6 +69,7 @@ import {
   ExternalLink,
   CheckCircle2,
   PlayCircle,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Project } from "@/types/project";
@@ -503,6 +504,64 @@ export default function Projects() {
       })
       .sort((a, b) => a.project.name.localeCompare(b.project.name, "pt-BR"));
   }, [projects, activeId, enrollmentsByProject]);
+
+  const newStudentsLastMonth = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 1);
+    return students.filter((s) => {
+      if (!s.registrationDate) return false;
+      return new Date(s.registrationDate) >= cutoff;
+    });
+  }, [students]);
+
+  const newStudentsSchoolTypeData = useMemo(() => {
+    const counts: Record<string, number> = { publica: 0, private: 0, higher: 0, none: 0, outros: 0 };
+    for (const s of newStudentsLastMonth) {
+      const raw = (s.schoolType || "").toLowerCase().trim();
+      if (raw === "municipal" || raw === "state") counts.publica += 1;
+      else if (raw === "private") counts.private += 1;
+      else if (raw === "higher") counts.higher += 1;
+      else if (raw === "none") counts.none += 1;
+      else counts.outros += 1;
+    }
+    return [
+      { name: "Rede Pública", value: counts.publica, color: "#008ca0" },
+      { name: "Particular", value: counts.private, color: "#f59e0b" },
+      { name: "Ens. Superior", value: counts.higher, color: "#6366f1" },
+      { name: "Não estuda", value: counts.none, color: "#f43f5e" },
+      { name: "Não informado", value: counts.outros, color: "#cbd5e1" },
+    ].filter((d) => d.value > 0);
+  }, [newStudentsLastMonth]);
+
+  const newStudentsNeighborhoodsData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of newStudentsLastMonth) {
+      const key = (s.neighborhood || "").trim() || "Não informado";
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [newStudentsLastMonth]);
+
+  const newStudentsAgeRangeData = useMemo(() => {
+    const buckets: Record<string, number> = { "Até 10": 0, "11–14": 0, "15–17": 0, "18–24": 0, "25–35": 0, "36+": 0 };
+    const currentYear = new Date().getFullYear();
+    for (const s of newStudentsLastMonth) {
+      const parts = (s.birthDate || "").split("-");
+      if (parts.length !== 3) continue;
+      const age = currentYear - Number(parts[0]);
+      if (!Number.isFinite(age) || age < 0) continue;
+      if (age <= 10) buckets["Até 10"] += 1;
+      else if (age <= 14) buckets["11–14"] += 1;
+      else if (age <= 17) buckets["15–17"] += 1;
+      else if (age <= 24) buckets["18–24"] += 1;
+      else if (age <= 35) buckets["25–35"] += 1;
+      else buckets["36+"] += 1;
+    }
+    return Object.entries(buckets).map(([name, value]) => ({ name, value })).filter((x) => x.value > 0);
+  }, [newStudentsLastMonth]);
 
   const studentsFiltered = useMemo(() => {
     const q = studentsSearch.trim().toLowerCase();
@@ -952,7 +1011,7 @@ export default function Projects() {
             </Button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.25rem] overflow-hidden">
               <CardHeader className="p-6 pb-3">
                 <CardTitle className="text-sm font-black text-slate-500 flex items-center gap-2">
@@ -979,6 +1038,20 @@ export default function Projects() {
               </CardContent>
             </Card>
 
+            <Card className="border-none shadow-xl shadow-emerald-100/60 bg-white rounded-[2.25rem] overflow-hidden">
+              <CardHeader className="p-6 pb-3">
+                <CardTitle className="text-sm font-black text-slate-500 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-emerald-600" /> Novos (1 mês)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="text-4xl font-black text-emerald-600 tracking-tight">{newStudentsLastMonth.length}</div>
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  Alunos cadastrados no último mês.
+                </p>
+              </CardContent>
+            </Card>
+
             <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.25rem] overflow-hidden">
               <CardHeader className="p-6 pb-3">
                 <CardTitle className="text-sm font-black text-slate-500 flex items-center gap-2">
@@ -993,6 +1066,95 @@ export default function Projects() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Perfil dos novos alunos do último mês */}
+          {newStudentsLastMonth.length > 0 && (
+            <div className="rounded-[2.5rem] border border-emerald-200/60 bg-emerald-50/40 p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                  Perfil dos novos alunos — último mês ({newStudentsLastMonth.length})
+                </span>
+                <div className="flex-1 h-px bg-emerald-200" />
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                {/* Instituição */}
+                <Card className="border-none shadow-md bg-white rounded-[2rem] overflow-hidden">
+                  <CardHeader className="p-5 pb-2">
+                    <CardTitle className="text-sm font-black text-slate-700">Instituição</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-2 space-y-2">
+                    {newStudentsSchoolTypeData.map((d) => {
+                      const total = newStudentsSchoolTypeData.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: d.color }} />
+                            {d.name}
+                          </div>
+                          <span className="font-black text-slate-800 shrink-0 ml-2">
+                            {d.value} · {Math.round((d.value / total) * 100)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Bairro */}
+                <Card className="border-none shadow-md bg-white rounded-[2rem] overflow-hidden">
+                  <CardHeader className="p-5 pb-2">
+                    <CardTitle className="text-sm font-black text-slate-700">Bairro</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-2 space-y-2">
+                    {newStudentsNeighborhoodsData.map((d, i) => {
+                      const COLORS = ["#008ca0", "#0ea5e9", "#6366f1", "#f59e0b", "#f43f5e", "#34d399", "#a78bfa", "#fb923c"];
+                      const total = newStudentsNeighborhoodsData.reduce((s, x) => s + x.value, 0);
+                      return (
+                        <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                            <span className="truncate max-w-[130px]">{d.name}</span>
+                          </div>
+                          <span className="font-black text-slate-800 shrink-0 ml-2">
+                            {d.value} · {Math.round((d.value / total) * 100)}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                {/* Faixa etária */}
+                <Card className="border-none shadow-md bg-white rounded-[2rem] overflow-hidden">
+                  <CardHeader className="p-5 pb-2">
+                    <CardTitle className="text-sm font-black text-slate-700">Faixa de idade</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-2">
+                    <div className="h-[160px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={newStudentsAgeRangeData} margin={{ left: 0, right: 4, top: 14 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 10, fontWeight: 900 }} />
+                          <YAxis axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 10, fontWeight: 900 }} />
+                          <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }} />
+                          <Bar dataKey="value" radius={[10, 10, 4, 4]}>
+                            {newStudentsAgeRangeData.map((_, i) => (
+                              <Cell key={i} fill={["#008ca0", "#0ea5e9", "#6366f1", "#f59e0b", "#f43f5e", "#34d399"][i % 6]} opacity={0.9} />
+                            ))}
+                            <LabelList dataKey="value" position="top" style={{ fill: "#475569", fontSize: 9, fontWeight: 900 }} />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
