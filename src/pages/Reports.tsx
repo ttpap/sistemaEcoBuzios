@@ -864,6 +864,7 @@ function printPrestacaoContasReport(data: {
   month: string;
   text: string;
   photos: { name: string; dataUrl: string }[];
+  signerName: string;
   print: boolean;
 }) {
   const win = window.open("", "_blank");
@@ -871,7 +872,7 @@ function printPrestacaoContasReport(data: {
 
   const logoUrl = getReportLogoUrl();
   const generatedAt = new Date().toLocaleString("pt-BR");
-  const { projectName, title, month, text, photos } = data;
+  const { projectName, title, month, text, photos, signerName } = data;
   const monthLabel = month
     ? new Date(month + "-02").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
     : "";
@@ -948,6 +949,17 @@ function printPrestacaoContasReport(data: {
     </div>
 
     ${photosHtml}
+
+    <div style="margin-top:32px;page-break-inside:avoid;">
+      <div style="font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.1em;color:#008ca0;margin-bottom:16px;">Assinatura</div>
+      <div style="display:flex;justify-content:flex-start;">
+        <div style="text-align:center;min-width:260px;">
+          <div style="border-bottom:2px solid #0f172a;height:48px;margin-bottom:8px;"></div>
+          <div style="font-size:11px;font-weight:900;color:#1e293b;">${signerName || "_____________________________"}</div>
+          <div style="font-size:9px;font-weight:700;color:#64748b;margin-top:3px;">Responsável pelo relatório</div>
+        </div>
+      </div>
+    </div>
   </body>
 </html>`;
 
@@ -964,6 +976,7 @@ export default function Reports() {
   const isTeacherArea = useMemo(() => location.pathname.startsWith("/professor"), [location.pathname]);
 
   const { profile } = useAuth();
+  const signerName = profile?.full_name || getCoordinatorSessionLogin() || "";
   const canSeeEnel =
     profile?.role === "admin" ||
     profile?.role === "coordinator" ||
@@ -2061,6 +2074,7 @@ export default function Reports() {
                     month: pcMonth,
                     text: pcText,
                     photos: pcPhotos,
+                    signerName,
                     print: false,
                   })
                 }
@@ -2078,6 +2092,7 @@ export default function Reports() {
                     month: pcMonth,
                     text: pcText,
                     photos: pcPhotos,
+                    signerName,
                     print: true,
                   })
                 }
@@ -2095,6 +2110,7 @@ export default function Reports() {
                     month: pcMonth,
                     text: pcText,
                     photos: pcPhotos,
+                    signerName,
                     print: true,
                   })
                 }
