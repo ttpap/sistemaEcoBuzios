@@ -8,16 +8,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, KeyRound, Save, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CalendarDays, KeyRound, Save, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AdminAccount() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, user, reloadProfile } = useAuth();
 
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const [birthDate, setBirthDate] = useState(profile?.birth_date ?? "");
+  const [savingBirth, setSavingBirth] = useState(false);
+
+  React.useEffect(() => {
+    setBirthDate(profile?.birth_date ?? "");
+  }, [profile?.birth_date]);
+
+  const onSaveBirthDate = async () => {
+    if (!user?.id) return;
+    if (!birthDate) {
+      showError("Informe sua data de nascimento.");
+      return;
+    }
+    setSavingBirth(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ birth_date: birthDate })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      await reloadProfile();
+      showSuccess("Data de nascimento salva!");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível salvar a data de nascimento.");
+    } finally {
+      setSavingBirth(false);
+    }
+  };
 
   const onSave = async () => {
     if (pw1.length < 6) {
@@ -63,6 +92,30 @@ export default function AdminAccount() {
           </p>
         </CardHeader>
         <CardContent className="p-6 md:p-8 space-y-5">
+          <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
+            <Label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-primary" /> Data de nascimento
+            </Label>
+            <div className="mt-3 grid gap-3 sm:max-w-xs">
+              <Input
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                className="h-12 rounded-2xl border-slate-100 bg-white"
+              />
+            </div>
+            <div className="mt-4">
+              <Button
+                type="button"
+                className="h-12 rounded-2xl font-black shadow-lg shadow-primary/20 gap-2"
+                onClick={onSaveBirthDate}
+                disabled={savingBirth}
+              >
+                <Save className="h-4 w-4" /> {savingBirth ? "Salvando..." : "Salvar data de nascimento"}
+              </Button>
+            </div>
+          </div>
+
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
             <Label className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
               <KeyRound className="h-4 w-4 text-primary" /> Alterar senha

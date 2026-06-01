@@ -7,6 +7,7 @@ export interface CoordinatorRegistration {
   email: string;
   cellPhone: string;
   gender: "Feminino" | "Masculino" | "Outro";
+  birthDate?: string;
   photo?: string;
 
   // Endereço

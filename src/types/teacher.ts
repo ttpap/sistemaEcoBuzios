@@ -7,6 +7,7 @@ export interface TeacherRegistration {
   email: string;
   cellPhone: string;
   gender: 'Feminino' | 'Masculino' | 'Outro';
+  birthDate?: string;
   photo?: string;
 
   // Endereço

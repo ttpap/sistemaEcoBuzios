@@ -147,6 +147,7 @@ export function mapTeacherRowToModel(row: any): TeacherRegistration {
     email: row.email,
     cellPhone: row.cell_phone,
     gender: row.gender,
+    birthDate: row.birth_date ?? undefined,
     photo: row.photo ?? undefined,
 
     cep: row.cep,
@@ -180,6 +181,7 @@ export function mapTeacherModelToRow(values: TeacherRegistration) {
     email: values.email,
     cell_phone: values.cellPhone,
     gender: values.gender,
+    birth_date: values.birthDate || null,
     photo: values.photo ?? null,
 
     cep: values.cep,
@@ -213,6 +215,7 @@ export function mapCoordinatorRowToModel(row: any): CoordinatorRegistration {
     email: row.email,
     cellPhone: row.cell_phone,
     gender: row.gender,
+    birthDate: row.birth_date ?? undefined,
     photo: row.photo ?? undefined,
 
     cep: row.cep,
@@ -246,6 +249,7 @@ export function mapCoordinatorModelToRow(values: CoordinatorRegistration) {
     email: values.email,
     cell_phone: values.cellPhone,
     gender: values.gender,
+    birth_date: values.birthDate || null,
     photo: values.photo ?? null,
 
     cep: values.cep,

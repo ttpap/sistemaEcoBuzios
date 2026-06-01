@@ -11,6 +11,7 @@ import TeacherSidebar from "@/components/layout/TeacherSidebar";
 import CoordinatorSidebar from "@/components/layout/CoordinatorSidebar";
 import StudentSidebar from "@/components/layout/StudentSidebar";
 import AppShell from "@/components/layout/AppShell";
+import BirthDateReminder from "@/components/BirthDateReminder";
 import ProjectTheme from "@/components/ProjectTheme";
 import { AuthProvider } from "@/context/AuthContext";
 import AdminGate from "@/components/AdminGate";
@@ -185,6 +186,7 @@ const App = () => (
                   <TeacherGate>
                     <AppShell
                       title="Área do professor"
+                      banner={<BirthDateReminder variant="teacher" />}
                       sidebar={({ mode, onNavigate }) => (
                         <TeacherSidebar mode={mode} onNavigate={onNavigate} />
                       )}
@@ -328,6 +330,7 @@ const App = () => (
                   <AdminGate>
                     <AppShell
                       title="Admin"
+                      banner={<BirthDateReminder variant="admin" />}
                       sidebar={({ mode, onNavigate }) => (
                         <Sidebar mode={mode} onNavigate={onNavigate} />
                       )}
@@ -478,6 +481,7 @@ const App = () => (
                   <CoordinatorGate>
                     <AppShell
                       title="Área do coordenador"
+                      banner={<BirthDateReminder variant="coordinator" />}
                       sidebar={({ mode, onNavigate }) => (
                         <CoordinatorSidebar mode={mode} onNavigate={onNavigate} />
                       )}

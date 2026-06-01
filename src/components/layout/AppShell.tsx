@@ -9,13 +9,15 @@ import Logo from "@/components/Logo";
 type Props = {
   sidebar: (props: { mode: "desktop" | "mobile"; onNavigate?: () => void }) => React.ReactNode;
   title?: string;
+  /** Faixa de aviso fixa exibida acima do conteúdo (ex.: lembrete de dados pendentes). */
+  banner?: React.ReactNode;
   children: React.ReactNode;
 };
 
 /**
  * Shell responsivo: sidebar fixa no desktop e menu lateral (Sheet) no mobile.
  */
-export default function AppShell({ sidebar, title, children }: Props) {
+export default function AppShell({ sidebar, title, banner, children }: Props) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -61,7 +63,10 @@ export default function AppShell({ sidebar, title, children }: Props) {
        */}
       <div className="md:flex">
         <div className="hidden md:block shrink-0">{sidebar({ mode: "desktop" })}</div>
-        <main className="md:flex-1 min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 md:px-8 md:py-8">{children}</main>
+        <main className="md:flex-1 min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 md:px-8 md:py-8">
+          {banner}
+          {children}
+        </main>
       </div>
     </div>
   );

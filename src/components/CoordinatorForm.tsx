@@ -43,6 +43,7 @@ const formSchema = z.object({
   email: z.string().email("E-mail inválido"),
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.enum(["Feminino", "Masculino", "Outro"]),
+  birthDate: z.string().min(1, "Obrigatório"),
   photo: z.string().min(1, "Foto obrigatória"),
 
   cep: z.string().min(8, "CEP inválido"),
@@ -305,6 +306,19 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted, 
                     <FormLabel className="font-bold">Celular *</FormLabel>
                     <FormControl>
                       <Input placeholder="(00) 00000-0000" {...field} className="rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="birthDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Data de Nascimento *</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} className="rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

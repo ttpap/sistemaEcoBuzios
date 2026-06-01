@@ -13,6 +13,7 @@ export type Profile = {
   teacher_id: string | null;
   coordinator_id: string | null;
   student_id: string | null;
+  birth_date: string | null;
 };
 
 type AuthState = {
@@ -21,6 +22,7 @@ type AuthState = {
   user: User | null;
   profile: Profile | null;
   profileError: string | null;
+  reloadProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -84,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, role, full_name, teacher_id, coordinator_id, student_id")
+      .select("user_id, role, full_name, teacher_id, coordinator_id, student_id, birth_date")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -198,12 +200,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const reloadProfile = React.useCallback(async () => {
+    const userId = sessionRef.current?.user?.id;
+    if (!userId) return;
+    try {
+      const p = await loadProfile(userId);
+      if (sessionRef.current?.user?.id !== userId) return;
+      setProfile(p);
+      setProfileError(null);
+    } catch (e: any) {
+      console.warn("[AuthContext] reloadProfile_failed", e);
+    }
+  }, [loadProfile]);
+
   const value: AuthState = {
     loading,
     session,
     user: session?.user ?? null,
     profile,
     profileError,
+    reloadProfile,
     signOut,
   };
 
