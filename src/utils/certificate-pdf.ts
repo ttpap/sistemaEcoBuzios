@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import type { CertificateConfig } from "@/types/certificate";
+import { buildBorderFrame } from "@/utils/certificate-texture";
 
 // A4 landscape: 297 x 210 mm
 const PAGE_W = 297;
@@ -125,8 +126,9 @@ export async function generateCertificatePdf(
     ),
   );
 
-  // Textura/moldura da borda (opcional) — desenhada full-bleed cobrindo a página
-  const borderTextureUrl = await loadImageAsDataUrl(config.border_texture || "");
+  // Textura/moldura da borda (opcional) — aplicada SÓ na faixa das bordas (centro limpo)
+  const rawTextureUrl = await loadImageAsDataUrl(config.border_texture || "");
+  const borderFrameUrl = rawTextureUrl ? await buildBorderFrame(rawTextureUrl) : null;
 
   for (let i = 0; i < students.length; i++) {
     if (i > 0) doc.addPage();
@@ -136,9 +138,9 @@ export async function generateCertificatePdf(
       ? `${student.fullName} (${student.socialName})`
       : student.fullName;
 
-    // Borda — textura (moldura) tem prioridade; senão desenha as linhas
-    if (borderTextureUrl) {
-      doc.addImage(borderTextureUrl, getImageFormat(borderTextureUrl), 0, 0, PAGE_W, PAGE_H);
+    // Borda — moldura de textura tem prioridade; senão desenha as linhas
+    if (borderFrameUrl) {
+      doc.addImage(borderFrameUrl, "PNG", 0, 0, PAGE_W, PAGE_H);
     } else {
       drawBorder(doc, borderColor, config.border_style);
     }

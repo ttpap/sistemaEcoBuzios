@@ -38,6 +38,7 @@ import { getActiveProjectId, getActiveProject } from "@/utils/projects";
 import { certificateService } from "@/services/certificateService";
 import { fetchStudentsRemoteWithMeta } from "@/services/studentsService";
 import { generateCertificatePdf } from "@/utils/certificate-pdf";
+import { buildBorderFrame } from "@/utils/certificate-texture";
 import { generateStudentReportPdf } from "@/utils/student-report-pdf";
 import type { StudentReportData, NumeroStats } from "@/utils/student-report-pdf";
 import { fetchAttendanceSessionsRemote } from "@/integrations/supabase/attendance";
@@ -851,7 +852,7 @@ export default function Certificates() {
                   value={config.border_texture}
                   onChange={(v) => setConfig((c) => ({ ...c, border_texture: v }))}
                   maxSide={1600}
-                  hint="PNG de moldura (centro transparente) cobrindo a página A4 paisagem. Quando enviada, substitui a borda colorida acima."
+                  hint="Imagem de textura (madeira, dourado, padrão...). Aplicada só na faixa das bordas — o centro fica limpo. Substitui a borda colorida acima."
                 />
               </div>
             </CardContent>
@@ -1331,7 +1332,22 @@ function CertificatePreview({
   const before = parts[0] ?? "";
   const after = parts[1] ?? "";
 
-  const hasTexture = !!config.border_texture;
+  const [frameUrl, setFrameUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!config.border_texture) {
+      setFrameUrl(null);
+      return;
+    }
+    buildBorderFrame(config.border_texture).then((url) => {
+      if (alive) setFrameUrl(url);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [config.border_texture]);
+
+  const hasTexture = !!frameUrl;
   const borderStyle = isDouble
     ? `4px double ${borderColor}`
     : `3px solid ${borderColor}`;
@@ -1353,7 +1369,7 @@ function CertificatePreview({
             : isDouble
               ? `inset 0 0 0 3px ${borderColor}`
               : `inset 0 0 0 2px ${borderColor}`,
-          backgroundImage: hasTexture ? `url(${config.border_texture})` : undefined,
+          backgroundImage: hasTexture ? `url(${frameUrl})` : undefined,
           backgroundSize: "100% 100%",
           backgroundRepeat: "no-repeat",
           padding: "3% 4%",
