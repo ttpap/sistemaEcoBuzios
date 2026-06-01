@@ -125,6 +125,9 @@ export async function generateCertificatePdf(
     ),
   );
 
+  // Textura/moldura da borda (opcional) — desenhada full-bleed cobrindo a página
+  const borderTextureUrl = await loadImageAsDataUrl(config.border_texture || "");
+
   for (let i = 0; i < students.length; i++) {
     if (i > 0) doc.addPage();
 
@@ -133,8 +136,12 @@ export async function generateCertificatePdf(
       ? `${student.fullName} (${student.socialName})`
       : student.fullName;
 
-    // Borda
-    drawBorder(doc, borderColor, config.border_style);
+    // Borda — textura (moldura) tem prioridade; senão desenha as linhas
+    if (borderTextureUrl) {
+      doc.addImage(borderTextureUrl, getImageFormat(borderTextureUrl), 0, 0, PAGE_W, PAGE_H);
+    } else {
+      drawBorder(doc, borderColor, config.border_style);
+    }
 
     let cursorY = 16;
 

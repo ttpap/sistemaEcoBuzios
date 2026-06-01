@@ -58,11 +58,13 @@ function ImageUploadField({
   value,
   onChange,
   hint,
+  maxSide = 800,
 }: {
   label: string;
   value: string;
   onChange: (dataUrl: string) => void;
   hint?: string;
+  maxSide?: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -71,7 +73,7 @@ function ImageUploadField({
     if (!file) return;
     try {
       const dataUrl = await imageFileToCompressedDataUrl(file, {
-        maxSide: 800,
+        maxSide,
         outputType: "image/png",
       });
       onChange(dataUrl);
@@ -843,6 +845,15 @@ export default function Certificates() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="col-span-2">
+                <ImageUploadField
+                  label="Textura / moldura da borda (opcional)"
+                  value={config.border_texture}
+                  onChange={(v) => setConfig((c) => ({ ...c, border_texture: v }))}
+                  maxSide={1600}
+                  hint="PNG de moldura (centro transparente) cobrindo a página A4 paisagem. Quando enviada, substitui a borda colorida acima."
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -1320,6 +1331,7 @@ function CertificatePreview({
   const before = parts[0] ?? "";
   const after = parts[1] ?? "";
 
+  const hasTexture = !!config.border_texture;
   const borderStyle = isDouble
     ? `4px double ${borderColor}`
     : `3px solid ${borderColor}`;
@@ -1335,8 +1347,15 @@ function CertificatePreview({
         className="w-full bg-white overflow-hidden flex flex-col"
         style={{
           aspectRatio: "297 / 210",
-          border: borderStyle,
-          boxShadow: isDouble ? `inset 0 0 0 3px ${borderColor}` : `inset 0 0 0 2px ${borderColor}`,
+          border: hasTexture ? "none" : borderStyle,
+          boxShadow: hasTexture
+            ? "none"
+            : isDouble
+              ? `inset 0 0 0 3px ${borderColor}`
+              : `inset 0 0 0 2px ${borderColor}`,
+          backgroundImage: hasTexture ? `url(${config.border_texture})` : undefined,
+          backgroundSize: "100% 100%",
+          backgroundRepeat: "no-repeat",
           padding: "3% 4%",
         }}
       >

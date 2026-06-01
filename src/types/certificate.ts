@@ -10,6 +10,7 @@ export type CertificateConfig = {
   text_template: string;
   border_color: string;
   border_style: "solid" | "double";
+  border_texture: string; // base64 data URL — moldura/textura na borda (opcional)
   logo_top: string;
   logo_bottom: string;
   signatures_count: number;
