@@ -18,12 +18,12 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 
 /**
  * @param textureDataUrl textura (data URL ou URL)
- * @param band espessura da faixa como fração do menor lado (0–0.5). Default 0.09.
+ * @param band espessura da faixa como fração do menor lado (0–0.5). Default 0.03 (fina/discreta).
  * @returns data URL PNG da moldura (centro transparente) ou null
  */
 export async function buildBorderFrame(
   textureDataUrl: string,
-  band = 0.09,
+  band = 0.03,
 ): Promise<string | null> {
   if (!textureDataUrl) return null;
 
