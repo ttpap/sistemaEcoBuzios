@@ -440,7 +440,7 @@ export default function Projects() {
       setEnrolledStudentsData([]);
       return;
     }
-    void fetchStudentsByIds(Array.from(allEnrolledStudentIds))
+    void fetchStudentsByIds(Array.from(allEnrolledStudentIds), { includePhoto: true })
       .then(setEnrolledStudentsData)
       .catch(() => {});
   }, [allEnrolledStudentIds]);

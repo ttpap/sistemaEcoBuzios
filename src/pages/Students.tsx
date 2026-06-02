@@ -67,7 +67,7 @@ const Students = () => {
         // Admin: lista global (todos os alunos do sistema), independente de projeto.
         if (effectiveRole === 'admin') {
           try {
-            const remote = await fetchStudents();
+            const remote = await fetchStudents({ includePhoto: true });
             if (remote.length > 0) {
               const normalized = normalizeStudentRegistrations(remote);
               const finalList = normalized.changed ? normalized.students : remote;
@@ -116,7 +116,7 @@ const Students = () => {
         setAllowedIds(ids);
 
         // 3) Students
-        const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
+        const studentsRes = await fetchStudentsRemoteWithMeta(projectId, { includePhoto: true });
         if (studentsRes.issue === 'not_allowed') {
           showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
         }

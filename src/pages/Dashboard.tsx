@@ -53,6 +53,7 @@ import {
   printSchoolTypeReport,
 } from "@/utils/dashboard-reports";
 import StudentDetailsDialog from "@/components/StudentDetailsDialog";
+import StudentAvatar from "@/components/StudentAvatar";
 import { readGlobalStudents, readScoped, writeScoped } from "@/utils/storage";
 import { getActiveProjectId } from "@/utils/projects";
 import {
@@ -1034,18 +1035,16 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                     ].join(" ")}
                   >
                     {/* Foto / avatar */}
-                    <div className={[
-                      "w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-black text-sm",
-                      isToday ? "ring-2 ring-white/50" : "ring-1 ring-amber-100",
-                    ].join(" ")}>
-                      {student.photo ? (
-                        <img src={student.photo} alt={name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className={["w-full h-full flex items-center justify-center font-black text-sm", isToday ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"].join(" ")}>
-                          {(name || "A").charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <StudentAvatar
+                      studentId={student.id}
+                      name={name}
+                      initialPhoto={student.photo}
+                      className={[
+                        "w-10 h-10 rounded-xl overflow-hidden shrink-0 flex items-center justify-center font-black text-sm",
+                        isToday ? "ring-2 ring-white/50" : "ring-1 ring-amber-100",
+                      ].join(" ")}
+                      fallbackClassName={["w-full h-full flex items-center justify-center font-black text-sm", isToday ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"].join(" ")}
+                    />
 
                     <div className="min-w-0 flex-1">
                       <p className={["text-sm font-black truncate", isToday ? "text-white" : "text-slate-800"].join(" ")}>

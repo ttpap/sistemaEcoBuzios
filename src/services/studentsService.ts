@@ -4,9 +4,11 @@ export {
   fetchStudentsByIds,
   fetchStudentsRemote,
   fetchStudentsRemoteWithMeta,
+  fetchStudentPhotosByIds,
   deleteStudent,
   type FetchStudentsIssue,
   type FetchStudentsResult,
+  type FetchStudentsOpts,
 } from "@/integrations/supabase/students";
 
 import { supabase } from "@/integrations/supabase/client";

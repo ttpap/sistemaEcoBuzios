@@ -52,6 +52,7 @@ import { readScoped } from "@/utils/storage";
 import { Button } from "@/components/ui/button";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { resetStudentPassword } from "@/utils/student-auth";
+import { getStudentPhoto } from "@/utils/student-photo-cache";
 import { showSuccess, showError } from "@/utils/toast";
 
 interface StudentDetailsDialogProps {
@@ -326,7 +327,18 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
   const [photoOpen, setPhotoOpen] = useState(false);
 
+  // Foto carregada sob demanda quando a lista não trouxe a foto (boot leve).
+  const [lazyPhoto, setLazyPhoto] = useState<string | null>(null);
+  useEffect(() => {
+    if (!student || !isOpen || student.photo) { setLazyPhoto(null); return; }
+    let active = true;
+    void getStudentPhoto(student.id).then((p) => { if (active) setLazyPhoto(p); });
+    return () => { active = false; };
+  }, [student?.id, student?.photo, isOpen]);
+
   if (!student) return null;
+
+  const photoSrc = student.photo ?? lazyPhoto ?? null;
 
   const onEdit = () => {
     onClose();
@@ -359,13 +371,13 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
             <div className="flex items-center gap-5 sm:gap-6">
               <button
                 className="h-40 w-40 sm:h-48 sm:w-48 overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] border-4 border-white/30 bg-white/20 shadow-xl flex items-center justify-center shrink-0 cursor-zoom-in"
-                onClick={() => student.photo && setPhotoOpen(true)}
+                onClick={() => photoSrc && setPhotoOpen(true)}
                 title="Ampliar foto"
                 type="button"
               >
-                {student.photo ? (
+                {photoSrc ? (
                   <img
-                    src={student.photo}
+                    src={photoSrc}
                     alt={student.fullName}
                     className="h-full w-full object-cover"
                   />
@@ -375,13 +387,13 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
               </button>
 
               {/* Lightbox */}
-              {photoOpen && student.photo && (
+              {photoOpen && photoSrc && (
                 <div
                   className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm"
                   onClick={() => setPhotoOpen(false)}
                 >
                   <img
-                    src={student.photo}
+                    src={photoSrc}
                     alt={student.fullName}
                     className="h-[95dvh] w-[95dvw] rounded-[2rem] shadow-2xl object-contain"
                     onClick={(e) => e.stopPropagation()}

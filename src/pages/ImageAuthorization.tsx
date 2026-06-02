@@ -70,7 +70,7 @@ const ImageAuthorization = () => {
         setAllowedIds(ids);
         setEnrollments(enrRes.enrollments as Array<{ student_id: string; class_id: string }>);
 
-        const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
+        const studentsRes = await fetchStudentsRemoteWithMeta(projectId, { includePhoto: true });
         if (studentsRes.issue === 'not_allowed') {
           showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
         }
