@@ -89,6 +89,48 @@ export async function fetchStudents(opts?: FetchStudentsOpts): Promise<StudentRe
   return all;
 }
 
+// Campos mínimos usados pelos gráficos globais do admin (bairro, tipo de
+// escola, idade, data de inscrição). Evita baixar ~50 colunas pesadas
+// (saúde, endereço, observações) de milhares de alunos só para agregar.
+export type StudentChartLite = Pick<
+  StudentRegistration,
+  "id" | "neighborhood" | "schoolType" | "schoolName" | "schoolOther" | "birthDate" | "registrationDate"
+>;
+
+export async function fetchStudentsForCharts(): Promise<StudentChartLite[]> {
+  if (!supabase) return [];
+
+  const cols = "id,neighborhood,school_type,school_name,school_other,birth_date,registration_date";
+  const PAGE_SIZE = 1000;
+  const all: StudentChartLite[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("students")
+      .select(cols)
+      .order("registration_date", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error || !data || data.length === 0) break;
+    all.push(
+      ...(data as any[]).map((r) => ({
+        id: r.id,
+        neighborhood: r.neighborhood ?? "",
+        schoolType: r.school_type ?? "",
+        schoolName: r.school_name ?? "",
+        schoolOther: r.school_other ?? "",
+        birthDate: r.birth_date ?? "",
+        registrationDate: r.registration_date ?? "",
+      })),
+    );
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return all;
+}
+
 export async function fetchStudentsByIds(ids: string[], opts?: FetchStudentsOpts): Promise<StudentRegistration[]> {
   if (!supabase || ids.length === 0) return [];
   const { data, error } = await supabase

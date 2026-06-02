@@ -66,7 +66,7 @@ import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { fetchStudentsRemoteWithMeta, fetchStudents } from "@/services/studentsService";
+import { fetchStudentsRemoteWithMeta, fetchStudentsForCharts } from "@/services/studentsService";
 import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
@@ -483,10 +483,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           // ignore
         }
 
-          // Todos os alunos do sistema (para gráficos globais)
+          // Todos os alunos do sistema (para gráficos globais).
+          // Fetch enxuto: só os campos agregados (bairro/escola/idade/data),
+          // sem as ~50 colunas pesadas — boot do dashboard muito mais rápido.
           try {
-            const all = await fetchStudents();
-            setAllAdminStudents(all);
+            const all = await fetchStudentsForCharts();
+            setAllAdminStudents(all as unknown as StudentRegistration[]);
           } catch {
             // ignore
           }

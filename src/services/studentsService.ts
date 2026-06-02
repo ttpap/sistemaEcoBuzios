@@ -1,11 +1,13 @@
 export {
   fetchStudents,
+  fetchStudentsForCharts,
   fetchStudentsCount,
   fetchStudentsByIds,
   fetchStudentsRemote,
   fetchStudentsRemoteWithMeta,
   fetchStudentPhotosByIds,
   deleteStudent,
+  type StudentChartLite,
   type FetchStudentsIssue,
   type FetchStudentsResult,
   type FetchStudentsOpts,
