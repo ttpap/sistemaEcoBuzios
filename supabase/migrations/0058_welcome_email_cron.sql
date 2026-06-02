@@ -1,4 +1,4 @@
--- Agenda o worker de boas-vindas a cada 5 min (pg_cron + pg_net).
+-- Agenda o worker de boas-vindas a cada 30 min (pg_cron + pg_net).
 -- A Edge Function drena a fila respeitando o teto diário; sem RESEND_API_KEY
 -- (no cofre app_secrets) ela retorna skipped sem efeito.
 
@@ -9,7 +9,7 @@ select cron.unschedule(jobid) from cron.job where jobname = 'send_student_welcom
 
 select cron.schedule(
   'send_student_welcome',
-  '*/5 * * * *',
+  '*/30 * * * *',
   $$
   select net.http_post(
     url := 'https://ixgujnhdjrgoakqzdkgx.supabase.co/functions/v1/send-student-welcome',
