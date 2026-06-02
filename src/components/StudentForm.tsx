@@ -197,7 +197,7 @@ const schema = z.object({
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.string().min(1, "Obrigatório"),
   race: z.string().min(1, "Obrigatório"),
-  photo: z.string().min(1, "Foto obrigatória"),
+  photo: z.string().optional().or(z.literal("")),
 
   // 2. Responsável
   guardianName: z.string().optional(),
@@ -774,7 +774,7 @@ const StudentForm = ({
             </button>
             <input ref={photoInputRef} type="file" className="sr-only" accept="image/*" onChange={handlePhotoUpload} />
           </div>
-          <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno <span className="text-rose-500">*</span></p>
+          <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno <span className="text-slate-300 normal-case">(opcional)</span></p>
           {form.formState.errors.photo && (
             <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
           )}
