@@ -82,16 +82,33 @@ Deno.serve(async (req) => {
     return json({ error: "unauthorized" }, 401);
   }
 
-  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  if (!RESEND_API_KEY) {
-    // Ainda não configurado: não falha, só informa.
-    return json({ skipped: true, reason: "RESEND_API_KEY ausente" });
-  }
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+
+  // Chave do Resend: env (secret) OU cofre app_secrets.
+  let RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+  if (!RESEND_API_KEY) {
+    const { data: sec } = await supabase
+      .from("app_secrets").select("value").eq("key", "RESEND_API_KEY").maybeSingle();
+    RESEND_API_KEY = (sec?.value ?? "").trim();
+  }
+  if (!RESEND_API_KEY) {
+    return json({ skipped: true, reason: "RESEND_API_KEY ausente" });
+  }
+
+  // Remetente: env OU cofre OU padrão.
+  let fromEmail = FROM_EMAIL;
+  {
+    const envFrom = Deno.env.get("WELCOME_FROM_EMAIL");
+    if (envFrom) fromEmail = envFrom;
+    else {
+      const { data: f } = await supabase
+        .from("app_secrets").select("value").eq("key", "WELCOME_FROM_EMAIL").maybeSingle();
+      if (f?.value) fromEmail = f.value.trim();
+    }
+  }
 
   // Quanto já foi enviado nas últimas 24h → cota restante hoje.
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -138,7 +155,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { "Authorization": `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: FROM_EMAIL,
+          from: fromEmail,
           to: [email],
           subject: "Bem-vindo(a) ao EcoBúzios — seu acesso ao sistema",
           html,
