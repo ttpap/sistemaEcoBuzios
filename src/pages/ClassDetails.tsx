@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   ArrowLeft, Users, GraduationCap, Info, Plus, Trash2,
-  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck
+  Save, Search, UserPlus, BookOpen, Clock, X, Eye, ClipboardCheck,
+  PhoneCall, CheckCircle2, ListOrdered, Mail, Phone
 } from 'lucide-react';
 import { SchoolClass } from '@/types/class';
 import { TeacherRegistration } from '@/types/teacher';
@@ -46,6 +47,14 @@ import { readGlobalTeachers } from "@/utils/teachers";
 import { fetchTeachers } from "@/services/teachersService";
 import { fetchStudents, fetchStudentsRemote, fetchStudentsByIds } from "@/services/studentsService";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  fetchWaitlistRemote,
+  addToWaitlistRemote,
+  updateWaitlistStatusRemote,
+  removeFromWaitlistRemote,
+  promoteFromWaitlistRemote,
+  type WaitlistEntry,
+} from "@/integrations/supabase/waitlist";
 
 const ClassDetails = () => {
   const { id } = useParams();
@@ -65,6 +74,9 @@ const ClassDetails = () => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [nucleoSummaries, setNucleoSummaries] = useState<Array<{ id: string; name: string }>>([]);
   const [projectStudentIds, setProjectStudentIds] = useState<Set<string> | null>(null);
+  const isAdmin = base === "";
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [fullPrompt, setFullPrompt] = useState<{ studentId: string; studentName: string } | null>(null);
 
   useEffect(() => {
     if (!activeProjectId) { setProjectStudentIds(null); return; }
@@ -83,6 +95,17 @@ const ClassDetails = () => {
     })();
     return () => { cancelled = true; };
   }, [activeProjectId]);
+
+  const reloadWaitlist = React.useCallback(async () => {
+    if (!schoolClass?.id) { setWaitlist([]); return; }
+    try {
+      setWaitlist(await fetchWaitlistRemote(schoolClass.id));
+    } catch {
+      /* silencioso: lista de espera é secundária */
+    }
+  }, [schoolClass?.id]);
+
+  useEffect(() => { void reloadWaitlist(); }, [reloadWaitlist]);
 
   useEffect(() => {
     const run = async () => {
@@ -349,6 +372,18 @@ const ClassDetails = () => {
     saveClass(updated);
   };
 
+  const doEnroll = async (studentId: string) => {
+    if (!schoolClass) return;
+    try {
+      await enrollStudentRemote(schoolClass.id, studentId);
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível sincronizar a matrícula no servidor. Ela ficará salva só neste dispositivo.");
+    }
+    const updated = enrollStudent(schoolClass, studentId);
+    saveClass(updated);
+    showSuccess("Aluno matriculado!");
+  };
+
   const addStudent = (studentId: string) => {
     const run = async () => {
       if (!schoolClass) return;
@@ -357,22 +392,59 @@ const ClassDetails = () => {
       const currentCount = (schoolClass.studentIds || []).length;
       const cap = schoolClass.capacity ?? 0;
       if (cap > 0 && currentCount >= cap) {
-        showError(`Turma lotada! Limite de ${cap} aluno${cap > 1 ? "s" : ""} atingido.`);
+        // Turma lotada: abre o aviso com opção de lista de espera (ou furar vaga, só admin).
+        const st = allStudents.find((x) => x.id === studentId);
+        setFullPrompt({ studentId, studentName: st?.fullName || "este aluno" });
         return;
       }
 
-      try {
-        await enrollStudentRemote(schoolClass.id, studentId);
-      } catch (e: any) {
-        showError(e?.message || "Não foi possível sincronizar a matrícula no servidor. Ela ficará salva só neste dispositivo.");
-      }
-
-      const updated = enrollStudent(schoolClass, studentId);
-      saveClass(updated);
-      showSuccess("Aluno matriculado!");
+      await doEnroll(studentId);
     };
 
     void run();
+  };
+
+  const addToWaitlist = async (studentId: string) => {
+    if (!schoolClass) return;
+    try {
+      await addToWaitlistRemote(schoolClass.id, studentId);
+      await reloadWaitlist();
+      showSuccess("Aluno adicionado à lista de espera.");
+    } catch (e: any) {
+      showError(e?.message === "not_allowed" ? "Sem permissão para esta turma." : (e?.message || "Não foi possível adicionar à lista de espera."));
+    }
+  };
+
+  const handleWaitlistStatus = async (entryId: string, status: WaitlistEntry["status"]) => {
+    try {
+      await updateWaitlistStatusRemote(entryId, status);
+      await reloadWaitlist();
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível atualizar o status.");
+    }
+  };
+
+  const handleWaitlistRemove = async (entryId: string) => {
+    try {
+      await removeFromWaitlistRemote(entryId);
+      await reloadWaitlist();
+      showSuccess("Removido da lista de espera.");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível remover.");
+    }
+  };
+
+  const handlePromote = async (entry: WaitlistEntry) => {
+    if (!schoolClass) return;
+    try {
+      await promoteFromWaitlistRemote(entry.id, schoolClass.id, entry.studentId);
+      const updated = enrollStudent(schoolClass, entry.studentId);
+      saveClass(updated);
+      await reloadWaitlist();
+      showSuccess("Aluno promovido para vaga!");
+    } catch (e: any) {
+      showError(e?.message || "Não foi possível promover o aluno.");
+    }
   };
 
   const removeStudent = (studentId: string) => {
@@ -442,6 +514,20 @@ const ClassDetails = () => {
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
   })();
 
+  const waitlistActive = waitlist.filter((w) => w.status === "aguardando" || w.status === "chamado");
+
+  const calcAge = (entry: WaitlistEntry): number | null => {
+    if (typeof entry.age === "number" && entry.age > 0) return entry.age;
+    if (!entry.birthDate) return null;
+    const b = new Date(entry.birthDate);
+    if (Number.isNaN(b.getTime())) return null;
+    const now = new Date();
+    let a = now.getFullYear() - b.getFullYear();
+    const m = now.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < b.getDate())) a--;
+    return a;
+  };
+
   const handleDeleteClass = async () => {
     if (!schoolClass || !window.confirm(`Tem certeza que deseja excluir a turma "${schoolClass.name}"?`)) return;
     try {
@@ -499,6 +585,14 @@ const ClassDetails = () => {
           <TabsTrigger value="geral" className="rounded-xl font-black">Geral</TabsTrigger>
           <TabsTrigger value="chamada" className="rounded-xl font-black">
             <ClipboardCheck className="h-4 w-4 mr-2" /> Chamada
+          </TabsTrigger>
+          <TabsTrigger value="espera" className="rounded-xl font-black">
+            <ListOrdered className="h-4 w-4 mr-2" /> Espera
+            {waitlistActive.length > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-amber-100 text-amber-700 text-xs font-black">
+                {waitlistActive.length}
+              </span>
+            )}
           </TabsTrigger>
           {base === "" && (
             <TabsTrigger value="dashboard" className="rounded-xl font-black">
@@ -733,6 +827,107 @@ const ClassDetails = () => {
           />
         </TabsContent>
 
+        <TabsContent value="espera" className="mt-8">
+          <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem]">
+            <CardHeader className="p-5 pb-3 sm:p-8 sm:pb-4">
+              <CardTitle className="text-lg font-black text-primary flex items-center gap-2">
+                <ListOrdered className="h-5 w-5" /> Lista de Espera
+                {waitlistActive.length > 0 && (
+                  <span className="ml-1 text-sm font-black px-3 py-1 rounded-full bg-amber-100 text-amber-700">
+                    {waitlistActive.length} na fila
+                  </span>
+                )}
+              </CardTitle>
+              <p className="text-sm font-medium text-slate-500 mt-1">
+                Ordem de chegada. Chame o aluno pelo telefone/email e use <strong>Promover</strong> quando ele confirmar a vaga.
+              </p>
+            </CardHeader>
+            <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
+              {waitlist.length === 0 ? (
+                <p className="text-slate-400 text-sm italic">Ninguém na lista de espera.</p>
+              ) : (
+                <div className="space-y-3">
+                  {waitlist.map((w, idx) => {
+                    const active = w.status === "aguardando" || w.status === "chamado";
+                    const order = waitlist.slice(0, idx + 1).filter((x) => x.status === "aguardando" || x.status === "chamado").length;
+                    const age = calcAge(w);
+                    const name = w.socialName || w.fullName;
+                    return (
+                      <div
+                        key={w.id}
+                        className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                          active ? "bg-slate-50 border-slate-100" : "bg-slate-50/40 border-slate-100 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm shrink-0">
+                            {active ? order : "—"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-black text-slate-800 truncate">{name}</p>
+                              {typeof age === "number" && (
+                                <span className="text-xs font-bold text-slate-500">{age} anos</span>
+                              )}
+                              {w.status === "chamado" && (
+                                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Chamado</span>
+                              )}
+                              {w.status === "matriculado" && (
+                                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Matriculado</span>
+                              )}
+                              {w.status === "desistiu" && (
+                                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Desistiu</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mt-1 flex-wrap">
+                              {w.cellPhone && (
+                                <a href={`tel:${w.cellPhone}`} className="text-xs font-bold text-slate-600 hover:text-primary flex items-center gap-1">
+                                  <Phone className="h-3 w-3" /> {w.cellPhone}
+                                </a>
+                              )}
+                              {w.email && (
+                                <a href={`mailto:${w.email}`} className="text-xs font-bold text-slate-600 hover:text-primary flex items-center gap-1 truncate">
+                                  <Mail className="h-3 w-3" /> {w.email}
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {w.status === "aguardando" && (
+                            <Button size="sm" variant="ghost" className="rounded-xl text-sky-600 hover:bg-sky-50 gap-1"
+                              onClick={() => handleWaitlistStatus(w.id, "chamado")} title="Marcar como chamado">
+                              <PhoneCall className="h-4 w-4" /> Chamar
+                            </Button>
+                          )}
+                          {active && (
+                            <Button size="sm" className="rounded-xl gap-1"
+                              onClick={() => handlePromote(w)} title="Promover para vaga (matricula)">
+                              <CheckCircle2 className="h-4 w-4" /> Promover
+                            </Button>
+                          )}
+                          {w.status === "chamado" && (
+                            <Button size="sm" variant="ghost" className="rounded-xl text-amber-600 hover:bg-amber-50"
+                              onClick={() => handleWaitlistStatus(w.id, "desistiu")} title="Marcar que desistiu">
+                              Desistiu
+                            </Button>
+                          )}
+                          <Button size="icon" variant="ghost"
+                            className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => handleWaitlistRemove(w.id)} title="Remover da lista">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
 
 
         {base === "" && (
@@ -773,6 +968,51 @@ const ClassDetails = () => {
         isOpen={isStudentDetailsOpen}
         onClose={() => setIsStudentDetailsOpen(false)}
       />
+
+      {/* Aviso: turma lotada ao tentar matricular */}
+      <Dialog open={!!fullPrompt} onOpenChange={(open) => { if (!open) setFullPrompt(null); }}>
+        <DialogContent className="rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black text-primary">Turma lotada</DialogTitle>
+          </DialogHeader>
+          <div className="mt-2 space-y-4">
+            <p className="text-sm font-medium text-slate-600">
+              A turma <strong>{schoolClass.name}</strong> atingiu o limite de {schoolClass.capacity} vaga{schoolClass.capacity > 1 ? "s" : ""}.
+              O que deseja fazer com <strong>{fullPrompt?.studentName}</strong>?
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                className="rounded-xl gap-2 font-black"
+                onClick={async () => {
+                  const id = fullPrompt?.studentId;
+                  setFullPrompt(null);
+                  if (id) await addToWaitlist(id);
+                }}
+              >
+                <ListOrdered className="h-4 w-4" /> Pôr na lista de espera
+              </Button>
+
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  className="rounded-xl gap-2 font-bold border-slate-200"
+                  onClick={async () => {
+                    const id = fullPrompt?.studentId;
+                    setFullPrompt(null);
+                    if (id) await doEnroll(id);
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" /> Matricular mesmo assim (furar vaga)
+                </Button>
+              )}
+
+              <Button variant="ghost" className="rounded-xl font-bold text-slate-500" onClick={() => setFullPrompt(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
