@@ -122,8 +122,8 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted, 
     try {
       const { imageFileToCompressedDataUrl } = await import("@/utils/image-compress");
       const dataUrl = await imageFileToCompressedDataUrl(file, {
-        maxSide: 1024,
-        quality: 0.82,
+        maxSide: 400,
+        quality: 0.7,
         outputType: "image/jpeg",
       });
       setPhotoPreview(dataUrl);

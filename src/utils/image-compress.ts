@@ -6,12 +6,12 @@ export async function imageFileToCompressedDataUrl(
     outputType?: "image/jpeg" | "image/png";
   },
 ): Promise<string> {
-  const maxSide = opts?.maxSide ?? 1024;
+  const maxSide = opts?.maxSide ?? 512;
 
   const outType: "image/jpeg" | "image/png" =
     opts?.outputType ?? (file.type === "image/png" ? "image/png" : "image/jpeg");
 
-  const quality = outType === "image/jpeg" ? (opts?.quality ?? 0.82) : undefined;
+  const quality = outType === "image/jpeg" ? (opts?.quality ?? 0.7) : undefined;
 
   // iPhone costuma gerar HEIC/HEIF — convertemos para JPEG no browser antes de comprimir.
   const normalizedFile = await normalizeHeicIfNeeded(file);
