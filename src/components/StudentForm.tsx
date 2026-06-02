@@ -30,6 +30,7 @@ import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
 import { studentsService } from "@/services/studentsService";
 import { supabase } from "@/integrations/supabase/client";
+import { getStudentPhoto } from "@/utils/student-photo-cache";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
 import { getCoordinatorSessionLogin, getCoordinatorSessionPassword } from "@/utils/coordinator-auth";
@@ -344,6 +345,21 @@ const StudentForm = ({
   const cep = form.watch('cep');
   const schoolType = form.watch('schoolType');
   const schoolName = form.watch('schoolName');
+
+  // Edição: a foto não vem mais na ficha (fica em student_photos). Carrega sob demanda.
+  useEffect(() => {
+    const sid = initialData?.id;
+    if (!sid || photoPreview) return;
+    let active = true;
+    void getStudentPhoto(sid).then((p) => {
+      if (active && p) {
+        setPhotoPreview(p);
+        form.setValue("photo", p);
+      }
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData?.id]);
 
   useEffect(() => {
     if (birthDate) {

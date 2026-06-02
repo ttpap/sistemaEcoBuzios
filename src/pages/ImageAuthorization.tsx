@@ -16,6 +16,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { StudentRegistration } from '@/types/student';
 import { SchoolClass } from '@/types/class';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
+import StudentAvatar from '@/components/StudentAvatar';
+import { getStudentPhoto } from '@/utils/student-photo-cache';
 import { showError } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
@@ -70,7 +72,7 @@ const ImageAuthorization = () => {
         setAllowedIds(ids);
         setEnrollments(enrRes.enrollments as Array<{ student_id: string; class_id: string }>);
 
-        const studentsRes = await fetchStudentsRemoteWithMeta(projectId, { includePhoto: true });
+        const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
         if (studentsRes.issue === 'not_allowed') {
           showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
         }
@@ -196,20 +198,20 @@ const ImageAuthorization = () => {
                   <TableCell className="pl-6">
                     <button
                       type="button"
-                      className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0"
-                      onClick={
-                        student.photo
-                          ? () => setPhotoZoom({ src: student.photo!, name: student.fullName })
-                          : () => { setSelectedStudent(student); setIsDetailsOpen(true); }
-                      }
-                      title={student.photo ? 'Ampliar foto' : 'Ver ficha'}
-                      style={student.photo ? { cursor: 'zoom-in' } : undefined}
+                      className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0 cursor-zoom-in"
+                      onClick={async () => {
+                        const p = student.photo ?? (await getStudentPhoto(student.id));
+                        if (p) setPhotoZoom({ src: p, name: student.fullName });
+                        else { setSelectedStudent(student); setIsDetailsOpen(true); }
+                      }}
+                      title="Ampliar foto / ver ficha"
                     >
-                      {student.photo ? (
-                        <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
-                      ) : (
-                        <GraduationCap className="h-6 w-6" />
-                      )}
+                      <StudentAvatar
+                        studentId={student.id}
+                        name={student.fullName}
+                        initialPhoto={student.photo}
+                        className="w-full h-full flex items-center justify-center"
+                      />
                     </button>
                   </TableCell>
 

@@ -39,10 +39,20 @@ export type FetchStudentsOpts = { includePhoto?: boolean };
 // miniaturas sob demanda, fora do caminho crítico do boot.
 export async function fetchStudentPhotosByIds(ids: string[]): Promise<Record<string, string | null>> {
   if (!supabase || ids.length === 0) return {};
-  const { data, error } = await supabase.from("students").select("id,photo").in("id", ids);
-  if (error || !data) return {};
   const out: Record<string, string | null> = {};
-  for (const r of data as any[]) out[r.id] = r.photo ?? null;
+
+  // Fonte principal: tabela separada student_photos (mantém students leve).
+  const { data: sp } = await supabase.from("student_photos").select("student_id,photo").in("student_id", ids);
+  for (const r of (sp as any[]) || []) out[r.student_id] = r.photo ?? null;
+
+  // Fallback: alunos cuja foto ainda esteja em students.photo (período de migração).
+  const missing = ids.filter((id) => !(id in out));
+  if (missing.length) {
+    const { data: s } = await supabase.from("students").select("id,photo").in("id", missing);
+    for (const r of (s as any[]) || []) {
+      if (r.photo) out[r.id] = r.photo;
+    }
+  }
   return out;
 }
 

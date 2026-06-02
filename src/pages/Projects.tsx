@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import StudentAvatar from "@/components/StudentAvatar";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
@@ -440,7 +441,7 @@ export default function Projects() {
       setEnrolledStudentsData([]);
       return;
     }
-    void fetchStudentsByIds(Array.from(allEnrolledStudentIds), { includePhoto: true })
+    void fetchStudentsByIds(Array.from(allEnrolledStudentIds))
       .then(setEnrolledStudentsData)
       .catch(() => {});
   }, [allEnrolledStudentIds]);
@@ -1439,13 +1440,12 @@ export default function Projects() {
                           <TableRow key={s.id} className="border-slate-100">
                             <TableCell className="px-6 py-4">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0">
-                                  {s.photo ? (
-                                    <img src={s.photo} alt={s.fullName} className="h-full w-full object-cover" />
-                                  ) : (
-                                    (s.fullName || "A").charAt(0)
-                                  )}
-                                </div>
+                                <StudentAvatar
+                                  studentId={s.id}
+                                  name={s.fullName}
+                                  initialPhoto={s.photo}
+                                  className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0"
+                                />
                                 <div className="min-w-0">
                                   <p className="font-black text-slate-800 truncate">{s.fullName}</p>
                                   <p className="text-xs font-bold text-slate-500 truncate">

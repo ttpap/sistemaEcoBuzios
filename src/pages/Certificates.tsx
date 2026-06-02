@@ -201,7 +201,7 @@ export default function Certificates() {
     });
 
     setLoadingStudents(true);
-    fetchStudentsRemoteWithMeta(projectId, { includePhoto: true })
+    fetchStudentsRemoteWithMeta(projectId)
       .then(({ students: s }) => {
         setStudents(s);
       })

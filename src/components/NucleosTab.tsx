@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import StudentAvatar from "@/components/StudentAvatar";
 import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
@@ -349,15 +350,13 @@ const NucleosTab: React.FC<Props> = ({
                           availableStudents.map((s) => (
                             <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl gap-3">
                               <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-12 w-12 rounded-full overflow-hidden bg-slate-200 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                                  {s.photo ? (
-                                    <img src={s.photo} alt={s.fullName} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-sm font-black text-slate-500">
-                                      {s.fullName.trim().charAt(0).toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
+                                <StudentAvatar
+                                  studentId={s.id}
+                                  name={s.fullName}
+                                  initialPhoto={s.photo}
+                                  className="h-12 w-12 rounded-full overflow-hidden bg-slate-200 border border-slate-200 flex-shrink-0 flex items-center justify-center"
+                                  fallbackClassName="text-sm font-black text-slate-500"
+                                />
                                 <div className="min-w-0">
                                   <p className="font-black text-slate-800 truncate">{s.fullName}</p>
                                   <p className="text-xs font-bold text-slate-500">{s.registration}</p>
@@ -382,15 +381,13 @@ const NucleosTab: React.FC<Props> = ({
                     nucleoStudents.map((s) => (
                       <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-12 w-12 rounded-full overflow-hidden bg-slate-200 border border-slate-200 flex-shrink-0 flex items-center justify-center">
-                            {s.photo ? (
-                              <img src={s.photo} alt={s.fullName} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-sm font-black text-slate-500">
-                                {s.fullName.trim().charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                          <StudentAvatar
+                            studentId={s.id}
+                            name={s.fullName}
+                            initialPhoto={s.photo}
+                            className="h-12 w-12 rounded-full overflow-hidden bg-slate-200 border border-slate-200 flex-shrink-0 flex items-center justify-center"
+                            fallbackClassName="text-sm font-black text-slate-500"
+                          />
                           <div className="min-w-0">
                             <p className="font-black text-slate-700 truncate">{s.fullName}</p>
                             <p className="text-xs font-bold text-slate-500">{s.registration}</p>
