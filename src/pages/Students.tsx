@@ -20,6 +20,8 @@ import { StudentRegistration } from '@/types/student';
 import { SchoolClass } from '@/types/class';
 
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
+import StudentAvatar from '@/components/StudentAvatar';
+import { getStudentPhoto } from '@/utils/student-photo-cache';
 import { showError, showSuccess } from '@/utils/toast';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
@@ -67,7 +69,7 @@ const Students = () => {
         // Admin: lista global (todos os alunos do sistema), independente de projeto.
         if (effectiveRole === 'admin') {
           try {
-            const remote = await fetchStudents({ includePhoto: true });
+            const remote = await fetchStudents();
             if (remote.length > 0) {
               const normalized = normalizeStudentRegistrations(remote);
               const finalList = normalized.changed ? normalized.students : remote;
@@ -116,7 +118,7 @@ const Students = () => {
         setAllowedIds(ids);
 
         // 3) Students
-        const studentsRes = await fetchStudentsRemoteWithMeta(projectId, { includePhoto: true });
+        const studentsRes = await fetchStudentsRemoteWithMeta(projectId);
         if (studentsRes.issue === 'not_allowed') {
           showError('Acesso bloqueado: este usuário não está alocado neste projeto.');
         }
@@ -263,13 +265,18 @@ const Students = () => {
                 <button
                   type="button"
                   className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0"
-                  onClick={student.photo ? () => setPhotoZoom({ src: student.photo!, name: student.fullName }) : () => openDetails(student)}
+                  onClick={async () => {
+                    const p = student.photo ?? (await getStudentPhoto(student.id));
+                    if (p) setPhotoZoom({ src: p, name: student.fullName });
+                    else openDetails(student);
+                  }}
                 >
-                  {student.photo ? (
-                    <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
-                  ) : (
-                    <GraduationCap className="h-6 w-6" />
-                  )}
+                  <StudentAvatar
+                    studentId={student.id}
+                    name={student.fullName}
+                    initialPhoto={student.photo}
+                    className="w-full h-full flex items-center justify-center"
+                  />
                 </button>
                 <button
                   type="button"
@@ -366,16 +373,20 @@ const Students = () => {
                       title="Ver ficha do aluno"
                     >
                       <div
-                        className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0"
-                        onClick={student.photo ? (e) => { e.stopPropagation(); setPhotoZoom({ src: student.photo!, name: student.fullName }); } : undefined}
-                        title={student.photo ? "Ampliar foto" : undefined}
-                        style={student.photo ? { cursor: 'zoom-in' } : undefined}
+                        className="h-10 w-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden flex-shrink-0 cursor-zoom-in"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const p = student.photo ?? (await getStudentPhoto(student.id));
+                          if (p) setPhotoZoom({ src: p, name: student.fullName });
+                        }}
+                        title="Ampliar foto"
                       >
-                        {student.photo ? (
-                          <img src={student.photo} alt={student.fullName} className="w-full h-full object-cover" />
-                        ) : (
-                          <GraduationCap className="h-5 w-5" />
-                        )}
+                        <StudentAvatar
+                          studentId={student.id}
+                          name={student.fullName}
+                          initialPhoto={student.photo}
+                          className="w-full h-full flex items-center justify-center"
+                        />
                       </div>
                       <div className="min-w-0">
                         <div className="text-slate-700 truncate underline-offset-2 hover:underline">{student.fullName}</div>
