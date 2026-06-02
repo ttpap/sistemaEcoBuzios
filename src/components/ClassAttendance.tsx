@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import StudentAvatar from "@/components/StudentAvatar";
+import { getStudentPhoto, primeStudentPhoto } from "@/utils/student-photo-cache";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -181,6 +183,15 @@ export default function ClassAttendance({
       });
     });
   }, []);
+
+  // Chamada: pré-carrega as fotos da turma (lista pequena) para o professor
+  // reconhecer os alunos de imediato pela miniatura, sem esperar o scroll.
+  useEffect(() => {
+    for (const st of students) {
+      if (st.photo) primeStudentPhoto(st.id, st.photo);
+      else void getStudentPhoto(st.id);
+    }
+  }, [students]);
 
   useEffect(() => {
     const run = async () => {
@@ -781,14 +792,19 @@ export default function ClassAttendance({
                         <div className="flex items-center gap-4 min-w-0">
                           <button
                             className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0 cursor-zoom-in"
-                            onClick={() => st.photo ? setPhotoLightbox({ src: st.photo, name: st.fullName }) : openStudentDetails(st)}
-                            title={st.photo ? "Ampliar foto" : "Abrir ficha do aluno"}
+                            onClick={async () => {
+                              const p = st.photo ?? (await getStudentPhoto(st.id));
+                              if (p) setPhotoLightbox({ src: p, name: st.fullName });
+                              else openStudentDetails(st);
+                            }}
+                            title="Ampliar foto / abrir ficha"
                           >
-                            {st.photo ? (
-                              <img src={st.photo} alt={st.fullName} className="w-full h-full object-cover" />
-                            ) : (
-                              st.fullName.charAt(0)
-                            )}
+                            <StudentAvatar
+                              studentId={st.id}
+                              name={st.fullName}
+                              initialPhoto={st.photo}
+                              className="w-full h-full flex items-center justify-center"
+                            />
                           </button>
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
