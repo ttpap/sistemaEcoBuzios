@@ -26,6 +26,16 @@ export default function UnifiedLogin() {
     if (st?.prefill?.login) setLogin(String(st.prefill.login));
   }, [location.state]);
 
+  // Prefill por query param (link do email de boas-vindas):
+  // /aluno/login?matricula=2026-0096&senha=EcoBuzios123
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const m = params.get("matricula") || params.get("login");
+    const s = params.get("senha") || params.get("password");
+    if (m) setLogin(m);
+    if (s) setPassword(s);
+  }, [location.search]);
+
   useEffect(() => {
     const run = async () => {
       if (!pendingAdminRedirect) return;

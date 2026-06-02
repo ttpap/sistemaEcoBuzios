@@ -15,18 +15,14 @@ const ACCESS_URL = Deno.env.get("STUDENT_LOGIN_URL") ?? "https://ecobuziossistem
 const FROM_EMAIL = Deno.env.get("WELCOME_FROM_EMAIL") ?? "EcoBúzios <boas-vindas@ecobuziossistema.com.br>";
 const DEFAULT_PASSWORD = "EcoBuzios123";
 
-function loginFromRegistration(registration: string) {
-  const reg = (registration || "").trim();
-  const last = reg.includes("-") ? reg.split("-").pop() || "" : reg;
-  return last.trim().padStart(4, "0");
-}
-
 function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function buildEmail(fullName: string, login: string) {
   const nome = escapeHtml((fullName || "").split(" ")[0] || "aluno(a)");
+  // Link com matrícula + senha já preenchidas na tela de login.
+  const prefillUrl = `${ACCESS_URL}?matricula=${encodeURIComponent(login)}&senha=${encodeURIComponent(DEFAULT_PASSWORD)}`;
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f5f3ef;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
   <div style="max-width:560px;margin:0 auto;padding:24px">
     <div style="background:#ffffff;border-radius:20px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.06)">
@@ -40,8 +36,8 @@ function buildEmail(fullName: string, login: string) {
         <p style="margin:10px 0 0;font-size:13px;color:#6b7280">Recomendamos trocar a senha no primeiro acesso.</p>
       </div>
 
-      <a href="${ACCESS_URL}" style="display:inline-block;background:#b9824b;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:12px;font-size:15px">Acessar o sistema</a>
-      <p style="font-size:12px;color:#6b7280;margin:8px 0 0">ou copie o link: ${escapeHtml(ACCESS_URL)}</p>
+      <a href="${prefillUrl}" style="display:inline-block;background:#b9824b;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:12px;font-size:15px">Acessar o sistema</a>
+      <p style="font-size:12px;color:#6b7280;margin:8px 0 0">ao clicar, login e senha já vêm preenchidos. Ou acesse: ${escapeHtml(ACCESS_URL)}</p>
 
       <h2 style="font-size:16px;color:#1f2937;margin:22px 0 8px">O que você encontra no sistema</h2>
       <ul style="font-size:14px;line-height:1.7;padding-left:18px;margin:0">
@@ -55,8 +51,8 @@ function buildEmail(fullName: string, login: string) {
   </div></body></html>`;
   const text = `Bem-vindo(a) ao EcoBúzios, ${fullName}!
 
-Sua matrícula foi confirmada. Acesse o sistema do aluno:
-${ACCESS_URL}
+Sua matrícula foi confirmada. Acesse o sistema do aluno (login e senha já preenchidos):
+${prefillUrl}
 
 Login: ${login}
 Senha: ${DEFAULT_PASSWORD} (troque no primeiro acesso)
@@ -147,7 +143,9 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const login = loginFromRegistration(s?.registration || "");
+    // Login = matrícula completa. O RPC mode_b_login_student aceita full ou last4,
+    // mas o sistema do aluno espera o número completo, então enviamos ele inteiro.
+    const login = (s?.registration || "").trim();
     const { html, text } = buildEmail(s?.full_name || "", login);
 
     try {
