@@ -183,7 +183,7 @@ const DOCUMENTS = [
   "Declaração Escolar",
   "Atestado Médico",
   "CPF do Aluno",
-  "CPF do Responsável",
+  "Autorização do Responsável",
 ];
 
 const schema = z.object({
