@@ -191,7 +191,8 @@ export async function fetchProjectEnrollmentsRemoteWithMeta(projectId: string): 
   const { data, error } = await supabase
     .from("class_student_enrollments")
     .select("class_id,student_id,classes!inner(project_id)")
-    .eq("classes.project_id", projectId);
+    .eq("classes.project_id", projectId)
+    .is("removed_at", null);
 
   if (!error && data && data.length > 0) {
     return {
