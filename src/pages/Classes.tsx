@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle, Layers } from "lucide-react";
+import { Plus, BookOpen, Users, Clock, Trash2, Edit2, Search, AlertCircle, Layers, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -43,6 +43,7 @@ const Classes = () => {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [nucleosByParent, setNucleosByParent] = useState<Record<string, Array<{ id: string; name: string; count: number }>>>({});
+  const [enrollCountByClass, setEnrollCountByClass] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const run = async () => {
@@ -72,6 +73,9 @@ const Classes = () => {
             (byParent[pid] ||= []).push({ id: n.id, name: n.name, count: counts.get(n.id) || 0 });
           }
           setNucleosByParent(byParent);
+          const countObj: Record<string, number> = {};
+          counts.forEach((v, k) => { countObj[k] = v; });
+          setEnrollCountByClass(countObj);
         } catch {
           // ignore
         }
@@ -179,6 +183,9 @@ const Classes = () => {
         ) : (
           filtered.map((cls, idx) => {
             const color = CLASS_COLORS[idx % CLASS_COLORS.length];
+            const enrolled = enrollCountByClass[cls.id] ?? 0;
+            const livres = cls.capacity > 0 ? cls.capacity - enrolled : null;
+            const lotado = livres !== null && livres <= 0;
             return (
             <Card
               key={cls.id}
@@ -210,6 +217,22 @@ const Classes = () => {
                 <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
                   <AlertCircle className="h-4 w-4 text-secondary" />
                   Limite de {cls.absenceLimit} faltas
+                </div>
+
+                <div className={`flex items-center gap-3 text-xs font-bold uppercase tracking-widest rounded-2xl px-3 py-2 ${
+                  lotado
+                    ? 'bg-red-50 text-red-500'
+                    : livres !== null && livres <= Math.ceil((cls.capacity || 1) * 0.2)
+                    ? 'bg-amber-50 text-amber-600'
+                    : 'bg-emerald-50 text-emerald-600'
+                }`}>
+                  <UserCheck className="h-4 w-4 flex-shrink-0" />
+                  {lotado
+                    ? `Lotado · ${enrolled} matriculados`
+                    : livres !== null
+                    ? `${livres} vaga${livres !== 1 ? 's' : ''} livre${livres !== 1 ? 's' : ''} · ${enrolled}/${cls.capacity}`
+                    : `${enrolled} matriculado${enrolled !== 1 ? 's' : ''}`
+                  }
                 </div>
 
                 {(nucleosByParent[cls.id]?.length ?? 0) > 0 && (
