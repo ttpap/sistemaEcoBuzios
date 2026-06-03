@@ -307,7 +307,7 @@ const StudentForm = ({
       guardianDeclarationConfirmed: Boolean((initialData as any)?.guardianDeclarationConfirmed),
 
       schoolType: initialData?.schoolType || "",
-      schoolName: initialData?.schoolName || "",
+      schoolName: initialData?.schoolName || (initialData?.schoolType === 'none' ? 'Comunidade' : ''),
       schoolOther: initialData?.schoolOther || "",
       
       cep: initialData?.cep || "",
@@ -461,7 +461,7 @@ const StudentForm = ({
         guardian_declaration_confirmed: values.guardianDeclarationConfirmed,
 
         school_type: values.schoolType || null,
-        school_name: finalSchoolName || values.schoolName,
+        school_name: (finalSchoolName || values.schoolName) || (values.schoolType === 'none' ? 'Comunidade' : null),
         school_other: values.schoolName === "Outra" ? (values.schoolOther || null) : null,
 
         cep: values.cep,
