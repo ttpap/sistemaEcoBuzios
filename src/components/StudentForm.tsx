@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -815,7 +816,7 @@ const StudentForm = ({
                 <FormItem><FormLabel className="font-bold">CPF (aluno)</FormLabel><FormControl><Input placeholder="000.000.000-00" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="birthDate" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><Input type="date" {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><DateInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="age" render={({ field }) => (
                 <FormItem><FormLabel className="font-bold">Idade</FormLabel><FormControl><Input type="number" {...field} disabled className="h-12 rounded-xl bg-slate-100 font-black text-primary" /></FormControl></FormItem>

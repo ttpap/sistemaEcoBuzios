@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -267,7 +268,7 @@ const TeacherForm = ({
                 <FormItem><FormLabel className="font-bold">Celular *</FormLabel><FormControl><Input placeholder="(00) 00000-0000" {...field} className="rounded-xl" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="birthDate" render={({ field }) => (
-                <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><Input type="date" {...field} className="rounded-xl" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="font-bold">Data de Nascimento *</FormLabel><FormControl><DateInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} className="rounded-xl" /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="gender" render={({ field }) => (
                 <FormItem className="md:col-span-3"><FormLabel className="font-bold">Gênero *</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-8 mt-2"><div className="flex items-center space-x-2"><RadioGroupItem value="Feminino" id="f" /><label htmlFor="f">Feminino</label></div><div className="flex items-center space-x-2"><RadioGroupItem value="Masculino" id="m" /><label htmlFor="m">Masculino</label></div></RadioGroup></FormControl></FormItem>

@@ -7,6 +7,7 @@ import * as z from "zod";
 import { User, MapPin, Camera, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -318,7 +319,7 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted, 
                   <FormItem>
                     <FormLabel className="font-bold">Data de Nascimento *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} className="rounded-xl" />
+                      <DateInput value={field.value} onChange={field.onChange} onBlur={field.onBlur} name={field.name} ref={field.ref} className="rounded-xl" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
