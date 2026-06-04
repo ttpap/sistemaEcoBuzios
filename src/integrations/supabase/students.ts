@@ -37,11 +37,31 @@ export type FetchStudentsOpts = { includePhoto?: boolean };
 
 // Carrega só as fotos (base64) de um conjunto de alunos — usado para hidratar
 // miniaturas sob demanda, fora do caminho crítico do boot.
-export async function fetchStudentPhotosByIds(ids: string[]): Promise<Record<string, string | null>> {
+export type FetchPhotosOpts = { projectId?: string | null };
+
+export async function fetchStudentPhotosByIds(
+  ids: string[],
+  opts?: FetchPhotosOpts,
+): Promise<Record<string, string | null>> {
   if (!supabase || ids.length === 0) return {};
   const out: Record<string, string | null> = {};
 
-  // Fonte principal: tabela separada student_photos (mantém students leve).
+  // Modo B (professor/coordenador = role anon): a RLS de student_photos é
+  // "to authenticated", então o SELECT direto não retorna nada. Usa a RPC
+  // SECURITY DEFINER, escopada ao projeto que o staff pode acessar.
+  const creds = getModeBStaffCreds();
+  if (creds && opts?.projectId) {
+    const { data } = await supabase.rpc("mode_b_get_student_photos", {
+      p_login: creds.login,
+      p_password: creds.password,
+      p_project_id: opts.projectId,
+      p_ids: ids,
+    });
+    for (const r of (data as any[]) || []) out[r.student_id] = r.photo ?? null;
+    return out;
+  }
+
+  // Admin (JWT autenticado): lê direto da tabela separada student_photos.
   const { data: sp } = await supabase.from("student_photos").select("student_id,photo").in("student_id", ids);
   for (const r of (sp as any[]) || []) out[r.student_id] = r.photo ?? null;
 

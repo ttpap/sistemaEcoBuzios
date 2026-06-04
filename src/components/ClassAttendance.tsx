@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import StudentAvatar from "@/components/StudentAvatar";
-import { getStudentPhoto, primeStudentPhoto } from "@/utils/student-photo-cache";
+import { getStudentPhoto, primeStudentPhoto, setPhotoFetchProject } from "@/utils/student-photo-cache";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -186,12 +186,15 @@ export default function ClassAttendance({
 
   // Chamada: pré-carrega as fotos da turma (lista pequena) para o professor
   // reconhecer os alunos de imediato pela miniatura, sem esperar o scroll.
+  // Em Modo B (anon) a foto vem por RPC escopada ao projeto — registra o projeto
+  // ativo no cache para que o carregamento sob demanda use o caminho certo.
   useEffect(() => {
+    setPhotoFetchProject(activeProjectId ?? null);
     for (const st of students) {
       if (st.photo) primeStudentPhoto(st.id, st.photo);
       else void getStudentPhoto(st.id);
     }
-  }, [students]);
+  }, [students, activeProjectId]);
 
   useEffect(() => {
     const run = async () => {

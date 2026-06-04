@@ -9,6 +9,14 @@ let queue = new Set<string>();
 const waiters = new Map<string, Array<(v: string | null) => void>>();
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+// Contexto de projeto para o Modo B (professor/coordenador = role anon): a foto
+// é lida via RPC SECURITY DEFINER escopada ao projeto. As telas de Modo B (ex.:
+// chamada) registram o projeto ativo aqui antes de pedir as miniaturas.
+let fetchProjectId: string | null = null;
+export function setPhotoFetchProject(projectId: string | null) {
+  fetchProjectId = projectId;
+}
+
 async function flush() {
   timer = null;
   const ids = Array.from(queue);
@@ -20,7 +28,7 @@ async function flush() {
     const chunk = ids.slice(i, i + 200);
     let photos: Record<string, string | null> = {};
     try {
-      photos = await fetchStudentPhotosByIds(chunk);
+      photos = await fetchStudentPhotosByIds(chunk, { projectId: fetchProjectId });
     } catch {
       photos = {};
     }
