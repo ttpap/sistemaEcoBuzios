@@ -35,6 +35,25 @@ function getModeBStaff(): ModeBStaff | null {
   return null;
 }
 
+// Ordem de exibição: quem ainda não foi chamado fica em cima (mais evidente).
+// Ao ser "chamado", a pessoa vai para o fim da fila ativa. Dentro de cada
+// status mantém FIFO (created_at crescente).
+const STATUS_RANK: Record<WaitlistStatus, number> = {
+  aguardando: 0,
+  chamado: 1,
+  matriculado: 2,
+  desistiu: 3,
+};
+
+function sortWaitlist(list: WaitlistEntry[]): WaitlistEntry[] {
+  return [...list].sort((a, b) => {
+    const ra = STATUS_RANK[a.status] ?? 99;
+    const rb = STATUS_RANK[b.status] ?? 99;
+    if (ra !== rb) return ra - rb;
+    return (a.createdAt || "").localeCompare(b.createdAt || "");
+  });
+}
+
 function mapRow(r: any): WaitlistEntry {
   const s = r.students ?? r; // direto (admin join) ou flat (RPC)
   return {
@@ -65,7 +84,7 @@ export async function fetchWaitlistRemote(classId: string): Promise<WaitlistEntr
       p_class_id: classId,
     });
     if (error || !data) return [];
-    return (data as any[]).map(mapRow);
+    return sortWaitlist((data as any[]).map(mapRow));
   }
 
   const { data, error } = await supabase
@@ -76,7 +95,7 @@ export async function fetchWaitlistRemote(classId: string): Promise<WaitlistEntr
     .eq("class_id", classId)
     .order("created_at", { ascending: true });
   if (error || !data) return [];
-  return (data as any[]).map(mapRow);
+  return sortWaitlist((data as any[]).map(mapRow));
 }
 
 export async function addToWaitlistRemote(classId: string, studentId: string): Promise<void> {
