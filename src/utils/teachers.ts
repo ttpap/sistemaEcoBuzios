@@ -14,6 +14,21 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+// Cache local é best-effort. Professores podem ter foto base64, então o
+// JSON pode estourar a quota do localStorage (QuotaExceededError). Nunca
+// deixe a gravação do cache lançar — isso abortaria o carregamento da tela.
+function safeSetItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignora: cache é opcional */
+    }
+  }
+}
+
 function slugifyLoginPart(s: string) {
   return s
     .toLowerCase()
@@ -34,7 +49,7 @@ export function readGlobalTeachers(fallback: TeacherRegistration[] = []) {
 }
 
 export function writeGlobalTeachers(value: TeacherRegistration[]) {
-  localStorage.setItem(GLOBAL_TEACHERS_KEY, JSON.stringify(value));
+  safeSetItem(GLOBAL_TEACHERS_KEY, JSON.stringify(value));
 }
 
 export function getTeacherAssignments(): Record<string, string[]> {
@@ -66,7 +81,7 @@ export function getTeacherAssignments(): Record<string, string[]> {
 }
 
 export function setTeacherAssignments(map: Record<string, string[]>) {
-  localStorage.setItem(TEACHER_ASSIGNMENTS_KEY, JSON.stringify(map));
+  safeSetItem(TEACHER_ASSIGNMENTS_KEY, JSON.stringify(map));
 }
 
 /** Returns all project IDs the teacher is assigned to. */

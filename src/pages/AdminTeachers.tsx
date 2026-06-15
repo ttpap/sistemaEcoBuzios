@@ -41,6 +41,21 @@ function maskedPassword(pw?: string) {
   return "•".repeat(Math.min(10, Math.max(6, pw.length)));
 }
 
+// Cache em localStorage é só conveniência (fallback offline). Professores
+// podem ter foto base64, então o JSON estoura a quota do localStorage
+// (QuotaExceededError). Nunca deixe esse cache derrubar o render da lista.
+function safeLocalSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignora: cache é opcional */
+    }
+  }
+}
+
 export default function AdminTeachers() {
   const navigate = useNavigate();
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
@@ -63,7 +78,7 @@ export default function AdminTeachers() {
         setTeachers(readGlobalTeachers([]));
       } else {
         setDataWarning(null);
-        localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
+        safeLocalSet("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
         setTeachers(remoteTeachers);
       }
 
@@ -80,7 +95,7 @@ export default function AdminTeachers() {
           map[a.teacher_id] = map[a.teacher_id] || [];
           if (!map[a.teacher_id].includes(a.project_id)) map[a.teacher_id].push(a.project_id);
         }
-        localStorage.setItem("ecobuzios_teacher_assignments", JSON.stringify(map));
+        safeLocalSet("ecobuzios_teacher_assignments", JSON.stringify(map));
         setAssignments(map);
       } else {
         setAssignments(getTeacherAssignments());
@@ -102,7 +117,7 @@ export default function AdminTeachers() {
         setTeachers(readGlobalTeachers([]));
       } else {
         setDataWarning(null);
-        localStorage.setItem("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
+        safeLocalSet("ecobuzios_teachers_global", JSON.stringify(remoteTeachers));
         setTeachers(remoteTeachers);
       }
 
@@ -117,7 +132,7 @@ export default function AdminTeachers() {
           map[a.teacher_id] = map[a.teacher_id] || [];
           if (!map[a.teacher_id].includes(a.project_id)) map[a.teacher_id].push(a.project_id);
         }
-        localStorage.setItem("ecobuzios_teacher_assignments", JSON.stringify(map));
+        safeLocalSet("ecobuzios_teacher_assignments", JSON.stringify(map));
         setAssignments(map);
       } else {
         setAssignments(getTeacherAssignments());
