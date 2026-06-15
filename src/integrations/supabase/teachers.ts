@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { TeacherRegistration } from "@/types/teacher";
 import { mapTeacherRowToModel, mapTeacherModelToRow } from "@/integrations/supabase/mappers";
+import { anonRestSelect } from "@/integrations/supabase/rest-fallback";
+
+const TEACHERS_REST = "teachers?select=*&order=registration_date.desc";
 
 export async function fetchTeachers(): Promise<TeacherRegistration[]> {
   if (!supabase) return [];
@@ -9,6 +12,16 @@ export async function fetchTeachers(): Promise<TeacherRegistration[]> {
     .from("teachers")
     .select("*")
     .order("registration_date", { ascending: false });
+
+  if (!error && data && data.length) return data.map(mapTeacherRowToModel);
+
+  // Fallback: tabela é legível por anon; evita lista vazia por glitch do SDK.
+  try {
+    const rows = await anonRestSelect(TEACHERS_REST);
+    if (rows.length) return rows.map(mapTeacherRowToModel);
+  } catch {
+    /* mantém o resultado do SDK abaixo */
+  }
 
   if (error || !data) return [];
   return data.map(mapTeacherRowToModel);
@@ -21,6 +34,19 @@ export async function fetchTeachersWithMeta(): Promise<{ teachers: TeacherRegist
     .from("teachers")
     .select("*")
     .order("registration_date", { ascending: false });
+
+  if (!error && data && data.length) {
+    return { teachers: data.map(mapTeacherRowToModel), error: null };
+  }
+
+  // Fallback via REST anon (teachers tem policy de leitura para anon).
+  // Cobre o caso em que o SDK aborta/retorna vazio mesmo com dados no banco.
+  try {
+    const rows = await anonRestSelect(TEACHERS_REST);
+    if (rows.length) return { teachers: rows.map(mapTeacherRowToModel), error: null };
+  } catch {
+    /* cai no tratamento de erro do SDK abaixo */
+  }
 
   if (error || !data) return { teachers: [], error: error || new Error("Sem dados") };
   return { teachers: data.map(mapTeacherRowToModel), error: null };
