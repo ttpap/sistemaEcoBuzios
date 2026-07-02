@@ -446,8 +446,8 @@ export default function Certificates() {
   const previewStudentName = (() => {
     const s = previewStudents[previewStudentIndex];
     if (!s) return "Nome do Aluno";
-    const social = s.socialName || s.preferredName;
-    return social ? `${s.fullName} (${social})` : s.fullName;
+    // Certificado: só o nome completo (sem apelido entre parênteses).
+    return s.fullName;
   })();
 
   return (
@@ -1159,7 +1159,8 @@ function ReportPreview({
   const total = stats.presente + stats.falta + stats.atrasado + stats.justificada;
   const freqPct = total > 0 ? Math.round(((stats.presente + stats.atrasado) / total) * 100) : 0;
   const totalHours = (stats.presente + stats.atrasado) * 2;
-  const studentName = data.socialName ? `${data.fullName} (${data.socialName})` : data.fullName;
+  // Certificado: só o nome completo (sem apelido entre parênteses).
+  const studentName = data.fullName;
   const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
   const cardData = [

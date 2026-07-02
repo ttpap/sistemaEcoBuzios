@@ -134,9 +134,8 @@ export async function generateCertificatePdf(
     if (i > 0) doc.addPage();
 
     const student = students[i];
-    const studentName = student.socialName
-      ? `${student.fullName} (${student.socialName})`
-      : student.fullName;
+    // No certificado impresso, só o nome completo (sem apelido entre parênteses).
+    const studentName = student.fullName;
 
     // Borda — moldura de textura tem prioridade; senão desenha as linhas
     if (borderFrameUrl) {
