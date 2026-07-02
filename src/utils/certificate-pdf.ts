@@ -173,8 +173,12 @@ export async function generateCertificatePdf(
 
     // Renderiza o texto com nome em negrito/sublinhado
     // Monta linhas manualmente para posicionar o nome
-    const beforeName = parts[0] ?? "";
-    const afterName = parts[1] ?? "";
+    // Garante um espaço antes e depois do nome, mesmo que o texto de
+    // configuração cole o ** no restante (ex.: "que **concluiu").
+    const beforeRaw = parts[0] ?? "";
+    const afterRaw = parts[1] ?? "";
+    const beforeName = /\s$/.test(beforeRaw) || beforeRaw === "" ? beforeRaw : beforeRaw + " ";
+    const afterName = /^\s/.test(afterRaw) || afterRaw === "" ? afterRaw : " " + afterRaw;
 
     // Usa splitTextToSize para calcular linhas
     const linesBefore = doc.splitTextToSize(beforeName + studentName + afterName, maxWidth);

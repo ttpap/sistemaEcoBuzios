@@ -1330,8 +1330,11 @@ function CertificatePreview({
     .replace(/\*\*/g, "[[NOME]]");
 
   const parts = resolvedText.split("[[NOME]]");
-  const before = parts[0] ?? "";
-  const after = parts[1] ?? "";
+  const beforeRaw = parts[0] ?? "";
+  const afterRaw = parts[1] ?? "";
+  // Garante espaço antes e depois do nome, mesmo se o texto colar o ** (ex.: "que **concluiu").
+  const before = /\s$/.test(beforeRaw) || beforeRaw === "" ? beforeRaw : beforeRaw + " ";
+  const after = /^\s/.test(afterRaw) || afterRaw === "" ? afterRaw : " " + afterRaw;
 
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
   useEffect(() => {
