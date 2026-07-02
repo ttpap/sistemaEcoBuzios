@@ -6,6 +6,7 @@ import { getSystemLogo } from "@/utils/system-settings";
 const DEFAULT_LOGO = "https://files.dyad.sh/pasted-image-2026-02-19T16-19-18-020Z.png";
 
 export type EnelRow = {
+  studentId?: string;
   fullName: string;
   socialName?: string;
   cellPhone: string;

@@ -4,7 +4,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileDown, FileText, Loader2, Printer, Zap } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { cn } from "@/lib/utils";
+import { Check, ChevronDown, FileDown, FileText, Loader2, Printer, Zap } from "lucide-react";
 import type { Project } from "@/types/project";
 import type { SchoolClass } from "@/types/class";
 import { useAuth } from "@/context/AuthContext";
@@ -28,7 +38,82 @@ function monthOptions() {
   });
 }
 
-const ALL_CLASSES = "__all__";
+function normalizeText(s: string) {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
+type ClassMultiSelectProps = {
+  classes: SchoolClass[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+  disabled?: boolean;
+};
+
+function ClassMultiSelect({ classes, value, onChange, disabled }: ClassMultiSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selectedSet = new Set(value);
+
+  const label = (() => {
+    if (!value.length) return "Todas as turmas";
+    if (value.length === 1) {
+      return classes.find((c) => c.id === value[0])?.name || "1 turma";
+    }
+    return `${value.length} turmas selecionadas`;
+  })();
+
+  const toggle = (id: string) => {
+    if (selectedSet.has(id)) onChange(value.filter((v) => v !== id));
+    else onChange([...value, id]);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={(o) => !disabled && setOpen(o)}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "flex h-12 w-full items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/60 px-3 text-left text-sm font-bold text-slate-800",
+            "focus:outline-none focus:ring-2 focus:ring-primary/30",
+            disabled && "opacity-60 cursor-not-allowed",
+          )}
+        >
+          <span className={cn("truncate", !value.length && "text-slate-500 font-medium")}>{label}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[260px] rounded-2xl" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            const n = normalizeText(itemValue);
+            const terms = normalizeText(search).split(/\s+/).filter(Boolean);
+            if (!terms.length) return 1;
+            return terms.every((t) => n.includes(t)) ? 1 : 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar turma..." />
+          <CommandList>
+            <CommandEmpty>Nenhuma turma encontrada.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem value="todas as turmas" onSelect={() => onChange([])}>
+                <Check className={cn("mr-2 h-4 w-4", !value.length ? "opacity-100" : "opacity-0")} />
+                <span className="font-bold text-slate-700">Todas as turmas</span>
+              </CommandItem>
+              {classes.map((c) => (
+                <CommandItem key={c.id} value={c.name} onSelect={() => toggle(c.id)}>
+                  <Check
+                    className={cn("mr-2 h-4 w-4 shrink-0", selectedSet.has(c.id) ? "opacity-100" : "opacity-0")}
+                  />
+                  <span className="font-bold text-slate-800 truncate">{c.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function EnelReport() {
   const { profile } = useAuth();
@@ -54,7 +139,7 @@ export default function EnelReport() {
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-  const [selectedClassId, setSelectedClassId] = useState<string>(ALL_CLASSES);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [month, setMonth] = useState<string>(defaultMonth);
 
   const [loading, setLoading] = useState(false);
@@ -137,8 +222,13 @@ export default function EnelReport() {
 
     setLoading(true);
     try {
-      const classId = selectedClassId !== ALL_CLASSES ? selectedClassId : null;
-      const data = await enelReportService.fetchRows({ projectId: selectedProjectId, month, classId });
+      // Filtro por múltiplas turmas é feito no servidor (uma chamada por turma,
+      // deduplicado por aluno). Vazio = todas as turmas.
+      const data = await enelReportService.fetchRowsMulti({
+        projectId: selectedProjectId,
+        month,
+        classIds: selectedClassIds,
+      });
 
       const nextRows = includeEnelNumber
         ? data
@@ -188,7 +278,7 @@ export default function EnelReport() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Projeto</p>
-              <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); setSelectedClassId(ALL_CLASSES); setRows([]); }}>
+              <Select value={selectedProjectId} onValueChange={(v) => { setSelectedProjectId(v); setSelectedClassIds([]); setRows([]); }}>
                 <SelectTrigger className="rounded-2xl h-12 bg-slate-50/60 border-slate-100">
                   <SelectValue placeholder="Selecione o projeto" />
                 </SelectTrigger>
@@ -201,18 +291,13 @@ export default function EnelReport() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Turma</p>
-              <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setRows([]); }}>
-                <SelectTrigger className="rounded-2xl h-12 bg-slate-50/60 border-slate-100">
-                  <SelectValue placeholder="Todas as turmas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_CLASSES}>Todas as turmas</SelectItem>
-                  {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Turmas</p>
+              <ClassMultiSelect
+                classes={classes}
+                value={selectedClassIds}
+                onChange={(ids) => { setSelectedClassIds(ids); setRows([]); }}
+                disabled={!selectedProjectId || !classes.length}
+              />
             </div>
 
             <div className="space-y-2">
@@ -291,8 +376,11 @@ export default function EnelReport() {
             <div className="mt-8">
               <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                 Pré-visualização — {rows.length} aluno(s)
-                {selectedClassId !== ALL_CLASSES && classes.find(c => c.id === selectedClassId)
-                  ? ` · ${classes.find(c => c.id === selectedClassId)!.name}`
+                {selectedClassIds.length
+                  ? ` · ${selectedClassIds
+                      .map((id) => classes.find((c) => c.id === id)?.name)
+                      .filter(Boolean)
+                      .join(", ")}`
                   : " · Todas as turmas"}
               </p>
               {/* Mobile: cards */}

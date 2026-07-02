@@ -49,8 +49,10 @@ import type { StudentRegistration } from "@/types/student";
 import type { MonthlyReport } from "@/types/monthly-report";
 import { getAllMonthlyReports, getMonthlyReportById, upsertMonthlyReport, saveAllMonthlyReports } from "@/utils/monthly-reports";
 import { getAllCoordinatorMonthlyReports, getCoordinatorMonthlyReportById, upsertCoordinatorMonthlyReport, saveAllCoordinatorMonthlyReports } from "@/utils/coordinator-monthly-reports";
-import { readGlobalTeachers } from "@/utils/teachers";
-import { readGlobalCoordinators } from "@/utils/coordinators";
+import { readGlobalTeachers, writeGlobalTeachers } from "@/utils/teachers";
+import { readGlobalCoordinators, writeGlobalCoordinators } from "@/utils/coordinators";
+import { fetchTeachers } from "@/integrations/supabase/teachers";
+import { fetchCoordinators } from "@/integrations/supabase/coordinators";
 import RichTextEditor from "@/components/RichTextEditor";
 import { showError, showSuccess } from "@/utils/toast";
 import {
@@ -230,6 +232,28 @@ export default function MonthlyReports() {
 
   const [projectNonce, setProjectNonce] = useState(0);
   const [reportsNonce, setReportsNonce] = useState(0);
+  const [staffNonce, setStaffNonce] = useState(0);
+
+  // Coordenador/admin precisam do nome do autor do relatório. O mapa abaixo lê
+  // do cache local, que pode estar vazio numa máquina/sessão nova (caindo no
+  // rótulo genérico "Professor"/"Coordenador"). Busca a lista do servidor e
+  // atualiza o cache para que o nome real apareça.
+  React.useEffect(() => {
+    const run = async () => {
+      try {
+        const [teachers, coordinators] = await Promise.all([
+          fetchTeachers(),
+          fetchCoordinators(),
+        ]);
+        if (teachers.length) writeGlobalTeachers(teachers);
+        if (coordinators.length) writeGlobalCoordinators(coordinators);
+        if (teachers.length || coordinators.length) setStaffNonce((x) => x + 1);
+      } catch {
+        // Sem rede: usa o cache local que já existir.
+      }
+    };
+    void run();
+  }, []);
 
   // Em máquina nova: activeProjectId pode estar setado mas lista de projetos vazia no localStorage.
   // Busca projetos do servidor e salva no cache para que getActiveProject() funcione.
@@ -284,16 +308,18 @@ export default function MonthlyReports() {
   const monthKey = `${selectedYear}-${selectedMonthPart}`;
 
   const teachersById = useMemo(() => {
+    void staffNonce;
     const map = new Map<string, string>();
     for (const t of readGlobalTeachers([])) map.set(t.id, t.fullName);
     return map;
-  }, []);
+  }, [staffNonce]);
 
   const coordinatorsById = useMemo(() => {
+    void staffNonce;
     const map = new Map<string, string>();
     for (const c of readGlobalCoordinators([])) map.set(c.id, c.fullName);
     return map;
-  }, []);
+  }, [staffNonce]);
 
   const [classes, setClasses] = useState<SchoolClass[]>(() => readScoped<SchoolClass[]>("classes", []));
   const [students, setStudents] = useState<StudentRegistration[]>(() => readGlobalStudents<StudentRegistration[]>([]));
