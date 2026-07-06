@@ -283,6 +283,9 @@ const StudentForm = ({
   const base = getAreaBaseFromPathname(location.pathname);
   const { session, profile } = useAuth();
   const isAdmin = Boolean(session && profile?.role === "admin");
+  // Foto do aluno é responsabilidade exclusiva da equipe (admin/coordenador/
+  // professor). Na inscrição pública / área do aluno, sem opção de enviar foto.
+  const canEditPhoto = isAdmin || getModeBStaffCreds() !== null;
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(initialData?.photo || null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -770,33 +773,42 @@ const StudentForm = ({
         className="space-y-10 max-w-5xl mx-auto pb-24"
       >
         
-        <div className="flex flex-col items-center justify-center mb-12">
-          <div className="relative group">
-            <div
-              className={`w-40 h-40 rounded-[3rem] border-4 shadow-2xl overflow-hidden flex items-center justify-center cursor-pointer ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}
-              onClick={() => photoInputRef.current?.click()}
-              title="Clique para adicionar foto"
-            >
-              {photoPreview ? (
-                <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-              ) : (
-                <User className={`h-16 w-16 ${form.formState.errors.photo ? "text-rose-300" : "text-slate-300"}`} />
+        {(canEditPhoto || photoPreview) && (
+          <div className="flex flex-col items-center justify-center mb-12">
+            <div className="relative group">
+              <div
+                className={`w-40 h-40 rounded-[3rem] border-4 shadow-2xl overflow-hidden flex items-center justify-center ${canEditPhoto ? "cursor-pointer" : ""} ${form.formState.errors.photo ? "border-rose-400 bg-rose-50" : "border-white bg-slate-100"}`}
+                onClick={canEditPhoto ? () => photoInputRef.current?.click() : undefined}
+                title={canEditPhoto ? "Clique para adicionar foto" : undefined}
+              >
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <User className={`h-16 w-16 ${form.formState.errors.photo ? "text-rose-300" : "text-slate-300"}`} />
+                )}
+              </div>
+              {canEditPhoto && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="absolute bottom-2 right-2 bg-primary text-white p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 transition-transform"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                  <input ref={photoInputRef} type="file" className="sr-only" accept="image/*" onChange={handlePhotoUpload} />
+                </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => photoInputRef.current?.click()}
-              className="absolute bottom-2 right-2 bg-primary text-white p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 transition-transform"
-            >
-              <Camera className="h-5 w-5" />
-            </button>
-            <input ref={photoInputRef} type="file" className="sr-only" accept="image/*" onChange={handlePhotoUpload} />
+            <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">
+              Foto Oficial do Aluno
+              {canEditPhoto && <span className="text-slate-300 normal-case"> (opcional)</span>}
+            </p>
+            {form.formState.errors.photo && (
+              <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
+            )}
           </div>
-          <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">Foto Oficial do Aluno <span className="text-slate-300 normal-case">(opcional)</span></p>
-          {form.formState.errors.photo && (
-            <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
-          )}
-        </div>
+        )}
 
         {/* 1. Dados Gerais */}
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-[3rem] overflow-hidden">

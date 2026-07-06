@@ -794,7 +794,7 @@ export default function ClassAttendance({
                       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="flex items-center gap-4 min-w-0">
                           <button
-                            className="h-14 w-14 rounded-[1.5rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0 cursor-zoom-in"
+                            className="h-20 w-20 sm:h-24 sm:w-24 rounded-[1.75rem] bg-slate-100 ring-1 ring-slate-200 overflow-hidden flex items-center justify-center text-primary font-black shrink-0 cursor-zoom-in text-2xl"
                             onClick={async () => {
                               const p = st.photo ?? (await getStudentPhoto(st.id));
                               if (p) setPhotoLightbox({ src: p, name: st.fullName });
