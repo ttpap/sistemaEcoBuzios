@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Users,
   ImageOff,
+  School,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -95,6 +96,7 @@ export default function CoordinatorSidebar({
         { icon: BarChart3, label: "Relatórios gerais", path: "/coordenador/relatorios" },
         { icon: NotebookPen, label: "Relatório mensal", path: "/coordenador/relatorios/mensais" },
         { icon: FileText, label: "Relatório ENEL", path: "/coordenador/relatorios/enel" },
+        { icon: School, label: "Relatório de Escolas", path: "/coordenador/relatorios/escolas" },
       ]},
       { icon: Award, label: "Certificados", path: "/coordenador/certificados" },
       { icon: ClipboardList, label: "Ata de Reunião", path: "/coordenador/ata-reuniao" },

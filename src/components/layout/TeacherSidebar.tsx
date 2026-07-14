@@ -18,6 +18,7 @@ import {
   CalendarDays,
   ClipboardList,
   ChevronDown,
+  School,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchProjects, getActiveProject, getActiveProjectId, setActiveProjectId } from "@/utils/projects";
@@ -90,6 +91,7 @@ export default function TeacherSidebar({
         { icon: BarChart3, label: "Relatórios gerais", path: "/professor/relatorios" },
         { icon: NotebookPen, label: "Relatório mensal", path: "/professor/relatorios/mensais" },
         { icon: FileText, label: "Relatório ENEL", path: "/professor/relatorios/enel" },
+        { icon: School, label: "Relatório de Escolas", path: "/professor/relatorios/escolas" },
       ]},
       { icon: ClipboardList, label: "Ata de Reunião", path: "/professor/ata-reuniao" },
       { icon: Link2, label: "Links de inscrição", path: "/professor/links-inscricao" },

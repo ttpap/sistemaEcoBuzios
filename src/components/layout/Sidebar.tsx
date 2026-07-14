@@ -29,6 +29,7 @@ import {
   ImageOff,
   Layers,
   Camera,
+  School,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -261,6 +262,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                           { icon: BarChart3, label: 'Relatórios gerais', path: '/relatorios' },
                           { icon: NotebookPen, label: 'Relatório mensal', path: '/relatorios/mensais' },
                           { icon: FileText, label: 'Relatório ENEL', path: '/relatorios/enel' },
+                          { icon: School, label: 'Relatório de Escolas', path: '/relatorios/escolas' },
                         ].map((child) => {
                           const isActive = location.pathname === child.path;
                           return (

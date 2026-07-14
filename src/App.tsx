@@ -70,6 +70,7 @@ const TeacherLogin                = lazy(() => import("./pages/TeacherLogin"));
 const StudentLogin                = lazy(() => import("./pages/StudentLogin"));
 const CoordinatorLogin            = lazy(() => import("@/pages/CoordinatorLogin"));
 const EnelReport                  = lazy(() => import("@/pages/EnelReport"));
+const EscolaReport                = lazy(() => import("@/pages/EscolaReport"));
 const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"));
 const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
@@ -317,6 +318,14 @@ const App = () => (
                             </TeacherActiveProjectGate>
                           }
                         />
+                        <Route
+                          path="relatorios/escolas"
+                          element={
+                            <TeacherActiveProjectGate>
+                              <EscolaReport />
+                            </TeacherActiveProjectGate>
+                          }
+                        />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>
@@ -450,6 +459,14 @@ const App = () => (
                           element={
                             <ActiveProjectGate>
                               <EnelReport />
+                            </ActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="relatorios/escolas"
+                          element={
+                            <ActiveProjectGate>
+                              <EscolaReport />
                             </ActiveProjectGate>
                           }
                         />
@@ -654,6 +671,14 @@ const App = () => (
                           element={
                             <CoordinatorActiveProjectGate>
                               <EnelReport />
+                            </CoordinatorActiveProjectGate>
+                          }
+                        />
+                        <Route
+                          path="relatorios/escolas"
+                          element={
+                            <CoordinatorActiveProjectGate>
+                              <EscolaReport />
                             </CoordinatorActiveProjectGate>
                           }
                         />
