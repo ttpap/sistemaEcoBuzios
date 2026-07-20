@@ -20,7 +20,9 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Building2, Check, ChevronDown, GraduationCap, Loader2, School, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Check, ChevronDown, GraduationCap, Loader2, Printer, School, Users } from "lucide-react";
+import { printEscolaReport } from "@/utils/escola-report-print";
 
 import type { Project } from "@/types/project";
 import type { SchoolClass } from "@/types/class";
@@ -443,7 +445,7 @@ export default function EscolaReport() {
             </div>
           ) : (
             <>
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-2 rounded-2xl bg-primary/10 text-primary border border-primary/15 px-4 py-2 text-sm font-black">
                   <Building2 className="h-4 w-4" /> {totals.escolas} escola(s)
                 </span>
@@ -453,6 +455,20 @@ export default function EscolaReport() {
                 <span className="inline-flex items-center gap-2 rounded-2xl bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2 text-sm font-black">
                   <Users className="h-4 w-4" /> {totals.alunos} aluno(s)
                 </span>
+                <Button
+                  variant="outline"
+                  className="rounded-2xl font-black ml-auto"
+                  disabled={!grouped.length}
+                  onClick={() =>
+                    printEscolaReport({
+                      projectName: projects.find((p) => p.id === selectedProjectId)?.name || "",
+                      totals,
+                      grouped,
+                    })
+                  }
+                >
+                  <Printer className="h-4 w-4 mr-2" /> Imprimir
+                </Button>
               </div>
 
               {grouped.length === 0 ? (
