@@ -114,8 +114,8 @@ serve(async (req) => {
     // Editais não são vinculados a projeto — sempre globais.
     const editaisQuery = client
       .from("editais")
-      .select("title, agency, notice_number, url, amount, submission_date, result_date, status")
-      .order("submission_date", { ascending: false, nullsFirst: false });
+      .select("code, applicant_name, title, status")
+      .order("created_at", { ascending: false });
 
     const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
@@ -160,13 +160,9 @@ serve(async (req) => {
 
     // --- Editais ---
     type EditalRow = {
+      code: string | null;
+      applicant_name: string | null;
       title: string;
-      agency: string | null;
-      notice_number: string | null;
-      url: string | null;
-      amount: number | null;
-      submission_date: string | null;
-      result_date: string | null;
       status: string;
     };
     const editaisRows = (editaisResult.data ?? []) as EditalRow[];
@@ -174,13 +170,8 @@ serve(async (req) => {
       console.error("[public-stats-api] query error (editais)", editaisResult.error);
     }
     const editaisPorStatus = { inscrito: 0, aprovado: 0, reprovado: 0 } as Record<string, number>;
-    let valorTotalPleiteado = 0;
-    let valorTotalAprovado = 0;
     for (const e of editaisRows) {
       editaisPorStatus[e.status] = (editaisPorStatus[e.status] ?? 0) + 1;
-      const val = Number(e.amount) || 0;
-      valorTotalPleiteado += val;
-      if (e.status === "aprovado") valorTotalAprovado += val;
     }
     const editais = {
       total: editaisRows.length,
@@ -189,16 +180,10 @@ serve(async (req) => {
         aprovado: editaisPorStatus.aprovado ?? 0,
         reprovado: editaisPorStatus.reprovado ?? 0,
       },
-      valor_total_pleiteado: valorTotalPleiteado,
-      valor_total_aprovado: valorTotalAprovado,
       lista: editaisRows.map((e) => ({
+        codigo: e.code,
+        nome: e.applicant_name,
         titulo: e.title,
-        orgao: e.agency,
-        numero: e.notice_number,
-        link: e.url,
-        valor: e.amount,
-        data_inscricao: e.submission_date,
-        data_resultado: e.result_date,
         status: e.status,
       })),
     };

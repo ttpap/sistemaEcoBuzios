@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -44,72 +43,32 @@ import {
 } from "@/services/editaisService";
 import {
   CheckCircle2,
-  ExternalLink,
+  Clock,
   FileSignature,
   Loader2,
   Pencil,
   Plus,
   Trash2,
   XCircle,
-  Clock,
 } from "lucide-react";
 
 const STATUS_META: Record<
   EditalStatus,
   { label: string; badge: string; icon: React.ComponentType<{ className?: string }> }
 > = {
-  inscrito: {
-    label: "Inscrito",
-    badge: "bg-sky-100 text-sky-800 border border-sky-200",
-    icon: Clock,
-  },
-  aprovado: {
-    label: "Aprovado",
-    badge: "bg-emerald-600 text-white border-none",
-    icon: CheckCircle2,
-  },
-  reprovado: {
-    label: "Reprovado",
-    badge: "bg-rose-600 text-white border-none",
-    icon: XCircle,
-  },
+  inscrito: { label: "Inscrito", badge: "bg-sky-100 text-sky-800 border border-sky-200", icon: Clock },
+  aprovado: { label: "Aprovado", badge: "bg-emerald-600 text-white border-none", icon: CheckCircle2 },
+  reprovado: { label: "Reprovado", badge: "bg-rose-600 text-white border-none", icon: XCircle },
 };
-
-function formatDate(d?: string | null) {
-  if (!d) return "—";
-  const [y, m, day] = d.split("-");
-  if (!y || !m || !day) return d;
-  return `${day}/${m}/${y}`;
-}
-
-function formatCurrency(v?: number | null) {
-  if (v == null) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-}
 
 type FormState = {
+  code: string;
+  applicant_name: string;
   title: string;
-  agency: string;
-  notice_number: string;
-  url: string;
-  amount: string;
-  submission_date: string;
-  result_date: string;
   status: EditalStatus;
-  notes: string;
 };
 
-const EMPTY_FORM: FormState = {
-  title: "",
-  agency: "",
-  notice_number: "",
-  url: "",
-  amount: "",
-  submission_date: "",
-  result_date: "",
-  status: "inscrito",
-  notes: "",
-};
+const EMPTY_FORM: FormState = { code: "", applicant_name: "", title: "", status: "inscrito" };
 
 export default function Editais() {
   const { profile } = useAuth();
@@ -156,34 +115,24 @@ export default function Editais() {
   const openEdit = (e: Edital) => {
     setEditingId(e.id);
     setForm({
+      code: e.code || "",
+      applicant_name: e.applicant_name || "",
       title: e.title || "",
-      agency: e.agency || "",
-      notice_number: e.notice_number || "",
-      url: e.url || "",
-      amount: e.amount != null ? String(e.amount) : "",
-      submission_date: e.submission_date || "",
-      result_date: e.result_date || "",
       status: e.status,
-      notes: e.notes || "",
     });
     setDialogOpen(true);
   };
 
   const save = async () => {
     if (!form.title.trim()) {
-      showError("Informe o nome do edital.");
+      showError("Informe o título do edital.");
       return;
     }
     const payload: EditalInput = {
+      code: form.code.trim() || null,
+      applicant_name: form.applicant_name.trim() || null,
       title: form.title.trim(),
-      agency: form.agency.trim() || null,
-      notice_number: form.notice_number.trim() || null,
-      url: form.url.trim() || null,
-      amount: form.amount.trim() ? Number(form.amount.replace(",", ".")) : null,
-      submission_date: form.submission_date || null,
-      result_date: form.result_date || null,
       status: form.status,
-      notes: form.notes.trim() || null,
     };
 
     setSaving(true);
@@ -285,63 +234,28 @@ export default function Editais() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-3">
           {editais.map((e) => {
             const meta = STATUS_META[e.status];
             const StatusIcon = meta.icon;
             return (
-              <Card
-                key={e.id}
-                className="border border-slate-100 bg-white rounded-[2rem] overflow-hidden shadow-sm"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-lg font-black text-slate-800 leading-tight">{e.title}</p>
-                      {e.agency && <p className="text-sm font-bold text-slate-500 mt-0.5">{e.agency}</p>}
-                    </div>
+              <Card key={e.id} className="border border-slate-100 bg-white rounded-[1.75rem] overflow-hidden shadow-sm">
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex items-start gap-3">
                     <Badge className={cn("rounded-full font-black shrink-0", meta.badge)}>
                       <StatusIcon className="h-3.5 w-3.5 mr-1" />
                       {meta.label}
                     </Badge>
+                    <p className="min-w-0 flex-1 text-sm md:text-base font-bold text-slate-700 leading-relaxed">
+                      {e.code && <span className="font-black text-slate-900">Código {e.code}</span>}
+                      {e.code && (e.applicant_name || e.title) && <span className="text-slate-300"> — </span>}
+                      {e.applicant_name && <span className="font-black text-primary">{e.applicant_name}</span>}
+                      {e.applicant_name && e.title && <span className="text-slate-300"> — </span>}
+                      <span className="italic">“{e.title}”</span>
+                    </p>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    {e.notice_number && (
-                      <div>
-                        <span className="text-slate-400 font-bold">Nº: </span>
-                        <span className="text-slate-700 font-bold">{e.notice_number}</span>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-slate-400 font-bold">Valor: </span>
-                      <span className="text-slate-700 font-bold">{formatCurrency(e.amount)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 font-bold">Inscrição: </span>
-                      <span className="text-slate-700 font-bold">{formatDate(e.submission_date)}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 font-bold">Resultado: </span>
-                      <span className="text-slate-700 font-bold">{formatDate(e.result_date)}</span>
-                    </div>
-                  </div>
-
-                  {e.notes && (
-                    <p className="mt-3 text-sm text-slate-600 font-medium whitespace-pre-wrap">{e.notes}</p>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {e.url && (
-                      <a
-                        href={e.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600 hover:bg-slate-100"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" /> Abrir edital
-                      </a>
-                    )}
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">
                     {e.status !== "aprovado" && (
                       <Button
                         size="sm"
@@ -362,26 +276,24 @@ export default function Editais() {
                         <XCircle className="h-3.5 w-3.5 mr-1" /> Reprovado
                       </Button>
                     )}
-                    <div className="ml-auto flex items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="rounded-xl h-8 w-8 text-slate-500 hover:bg-slate-100"
-                        onClick={() => openEdit(e)}
-                        title="Editar"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="rounded-xl h-8 w-8 text-rose-500 hover:bg-rose-50"
-                        onClick={() => setDeleteId(e.id)}
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="rounded-xl h-8 w-8 text-slate-500 hover:bg-slate-100"
+                      onClick={() => openEdit(e)}
+                      title="Editar"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="rounded-xl h-8 w-8 text-rose-500 hover:bg-rose-50"
+                      onClick={() => setDeleteId(e.id)}
+                      title="Excluir"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -392,7 +304,7 @@ export default function Editais() {
 
       {/* Form dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="rounded-[2rem] max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="rounded-[2rem] max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-xl font-black text-primary">
               {editingId ? "Editar edital" : "Novo edital"}
@@ -400,64 +312,19 @@ export default function Editais() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Nome do edital *</label>
-              <Input
-                value={form.title}
-                onChange={(ev) => setForm((f) => ({ ...f, title: ev.target.value }))}
-                placeholder="Ex.: Edital de Fomento à Cultura 2026"
-                className="mt-1 h-11 rounded-xl"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Órgão / instituição</label>
+                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Código</label>
                 <Input
-                  value={form.agency}
-                  onChange={(ev) => setForm((f) => ({ ...f, agency: ev.target.value }))}
-                  placeholder="Ex.: FUNARTE"
+                  value={form.code}
+                  onChange={(ev) => setForm((f) => ({ ...f, code: ev.target.value }))}
+                  placeholder="Ex.: 85643"
                   className="mt-1 h-11 rounded-xl"
                 />
               </div>
-              <div>
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Nº do edital</label>
-                <Input
-                  value={form.notice_number}
-                  onChange={(ev) => setForm((f) => ({ ...f, notice_number: ev.target.value }))}
-                  placeholder="Ex.: 01/2026"
-                  className="mt-1 h-11 rounded-xl"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Link do edital</label>
-              <Input
-                value={form.url}
-                onChange={(ev) => setForm((f) => ({ ...f, url: ev.target.value }))}
-                placeholder="https://..."
-                className="mt-1 h-11 rounded-xl"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Valor pleiteado (R$)</label>
-                <Input
-                  value={form.amount}
-                  onChange={(ev) => setForm((f) => ({ ...f, amount: ev.target.value }))}
-                  inputMode="decimal"
-                  placeholder="Ex.: 50000"
-                  className="mt-1 h-11 rounded-xl"
-                />
-              </div>
-              <div>
+              <div className="col-span-2">
                 <label className="text-xs font-black uppercase tracking-widest text-slate-500">Status</label>
-                <Select
-                  value={form.status}
-                  onValueChange={(v) => setForm((f) => ({ ...f, status: v as EditalStatus }))}
-                >
+                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as EditalStatus }))}>
                   <SelectTrigger className="mt-1 h-11 rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
@@ -470,34 +337,23 @@ export default function Editais() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Data da inscrição</label>
-                <Input
-                  type="date"
-                  value={form.submission_date}
-                  onChange={(ev) => setForm((f) => ({ ...f, submission_date: ev.target.value }))}
-                  className="mt-1 h-11 rounded-xl"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Data do resultado</label>
-                <Input
-                  type="date"
-                  value={form.result_date}
-                  onChange={(ev) => setForm((f) => ({ ...f, result_date: ev.target.value }))}
-                  className="mt-1 h-11 rounded-xl"
-                />
-              </div>
+            <div>
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Nome</label>
+              <Input
+                value={form.applicant_name}
+                onChange={(ev) => setForm((f) => ({ ...f, applicant_name: ev.target.value }))}
+                placeholder="Ex.: Antonio Carlos Pap Almeida"
+                className="mt-1 h-11 rounded-xl"
+              />
             </div>
 
             <div>
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Observações</label>
-              <Textarea
-                value={form.notes}
-                onChange={(ev) => setForm((f) => ({ ...f, notes: ev.target.value }))}
-                placeholder="Anotações sobre o edital, contrapartidas, prazos..."
-                className="mt-1 rounded-xl min-h-[80px]"
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Título do edital *</label>
+              <Input
+                value={form.title}
+                onChange={(ev) => setForm((f) => ({ ...f, title: ev.target.value }))}
+                placeholder="Ex.: Credenciamento de Pareceristas - 2026"
+                className="mt-1 h-11 rounded-xl"
               />
             </div>
           </div>
