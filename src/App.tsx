@@ -71,6 +71,7 @@ const StudentLogin                = lazy(() => import("./pages/StudentLogin"));
 const CoordinatorLogin            = lazy(() => import("@/pages/CoordinatorLogin"));
 const EnelReport                  = lazy(() => import("@/pages/EnelReport"));
 const EscolaReport                = lazy(() => import("@/pages/EscolaReport"));
+const Editais                     = lazy(() => import("@/pages/Editais"));
 const SupabaseSettings            = lazy(() => import("@/pages/SupabaseSettings"));
 const Certificates                = lazy(() => import("@/pages/Certificates"));
 const AdminAccount                = lazy(() => import("@/pages/AdminAccount"));
@@ -484,6 +485,7 @@ const App = () => (
                         <Route path="/escalas/:id/editar" element={<ActiveProjectGate><ScheduleEditor /></ActiveProjectGate>} />
                         <Route path="/ata-reuniao" element={<ActiveProjectGate><AtaReuniao /></ActiveProjectGate>} />
                         <Route path="/autorizar-imagem" element={<ActiveProjectGate><ImageAuthorization /></ActiveProjectGate>} />
+                        <Route path="/editais" element={<Editais />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </AppShell>

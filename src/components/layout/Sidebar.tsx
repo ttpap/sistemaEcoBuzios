@@ -30,6 +30,7 @@ import {
   Layers,
   Camera,
   School,
+  FileSignature,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Logo from '../Logo';
@@ -322,6 +323,19 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
       </nav>
 
       <div className="p-4 border-t border-slate-200 space-y-1">
+        <Link
+          to="/editais"
+          onClick={() => onNavigate?.()}
+          className={cn(
+            "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black transition-colors",
+            location.pathname === "/editais"
+              ? "bg-primary/10 text-primary"
+              : "text-slate-700 hover:bg-white/60 hover:text-primary",
+          )}
+        >
+          <FileSignature className={cn("h-5 w-5", location.pathname === "/editais" ? "text-primary" : "text-slate-500")} />
+          Editais
+        </Link>
         <a
           href="https://a-pi-eco-buzios.vercel.app/"
           target="_blank"
