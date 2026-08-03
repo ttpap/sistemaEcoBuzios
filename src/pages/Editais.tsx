@@ -65,10 +65,11 @@ type FormState = {
   code: string;
   applicant_name: string;
   title: string;
+  situation: string;
   status: EditalStatus;
 };
 
-const EMPTY_FORM: FormState = { code: "", applicant_name: "", title: "", status: "inscrito" };
+const EMPTY_FORM: FormState = { code: "", applicant_name: "", title: "", situation: "", status: "inscrito" };
 
 export default function Editais() {
   const { profile } = useAuth();
@@ -118,6 +119,7 @@ export default function Editais() {
       code: e.code || "",
       applicant_name: e.applicant_name || "",
       title: e.title || "",
+      situation: e.situation || "",
       status: e.status,
     });
     setDialogOpen(true);
@@ -132,6 +134,7 @@ export default function Editais() {
       code: form.code.trim() || null,
       applicant_name: form.applicant_name.trim() || null,
       title: form.title.trim(),
+      situation: form.situation.trim() || null,
       status: form.status,
     };
 
@@ -255,6 +258,13 @@ export default function Editais() {
                     </p>
                   </div>
 
+                  {e.situation && (
+                    <p className="mt-2 pl-1 text-sm font-bold text-slate-500">
+                      <span className="text-slate-400">Situação: </span>
+                      {e.situation}
+                    </p>
+                  )}
+
                   <div className="mt-3 flex flex-wrap items-center justify-end gap-1.5">
                     {e.status !== "aprovado" && (
                       <Button
@@ -353,6 +363,16 @@ export default function Editais() {
                 value={form.title}
                 onChange={(ev) => setForm((f) => ({ ...f, title: ev.target.value }))}
                 placeholder="Ex.: Credenciamento de Pareceristas - 2026"
+                className="mt-1 h-11 rounded-xl"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-black uppercase tracking-widest text-slate-500">Situação (detalhe)</label>
+              <Input
+                value={form.situation}
+                onChange={(ev) => setForm((f) => ({ ...f, situation: ev.target.value }))}
+                placeholder="Ex.: Em execução · 97 pontos · Suplente · Captação autorizada"
                 className="mt-1 h-11 rounded-xl"
               />
             </div>

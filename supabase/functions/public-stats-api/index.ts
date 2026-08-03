@@ -114,7 +114,7 @@ serve(async (req) => {
     // Editais não são vinculados a projeto — sempre globais.
     const editaisQuery = client
       .from("editais")
-      .select("code, applicant_name, title, status")
+      .select("code, applicant_name, title, situation, status")
       .order("created_at", { ascending: false });
 
     const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult] = await Promise.all([
@@ -163,6 +163,7 @@ serve(async (req) => {
       code: string | null;
       applicant_name: string | null;
       title: string;
+      situation: string | null;
       status: string;
     };
     const editaisRows = (editaisResult.data ?? []) as EditalRow[];
@@ -184,6 +185,7 @@ serve(async (req) => {
         codigo: e.code,
         nome: e.applicant_name,
         titulo: e.title,
+        situacao: e.situation,
         status: e.status,
       })),
     };

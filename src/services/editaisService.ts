@@ -7,6 +7,7 @@ export interface Edital {
   code?: string | null;
   applicant_name?: string | null;
   title: string;
+  situation?: string | null;
   status: EditalStatus;
   created_at: string;
   updated_at: string;
@@ -16,13 +17,14 @@ export type EditalInput = {
   code?: string | null;
   applicant_name?: string | null;
   title: string;
+  situation?: string | null;
   status: EditalStatus;
 };
 
 export async function fetchEditais(): Promise<Edital[]> {
   const { data, error } = await (supabase as any)
     .from("editais")
-    .select("id, code, applicant_name, title, status, created_at, updated_at")
+    .select("id, code, applicant_name, title, situation, status, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message || JSON.stringify(error));

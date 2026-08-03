@@ -73,7 +73,7 @@ serve(async (req) => {
 
     let query = client
       .from("editais")
-      .select("id, code, applicant_name, title, status, created_at")
+      .select("id, code, applicant_name, title, situation, status, created_at")
       .order("created_at", { ascending: false });
 
     if (statusFilter) query = query.eq("status", statusFilter);
@@ -93,6 +93,7 @@ serve(async (req) => {
       code: string | null;
       applicant_name: string | null;
       title: string;
+      situation: string | null;
       status: string;
       created_at: string;
     };
@@ -116,6 +117,7 @@ serve(async (req) => {
         codigo: r.code,
         nome: r.applicant_name,
         titulo: r.title,
+        situacao: r.situation,
         status: r.status,
         registrado_em: r.created_at,
       })),
