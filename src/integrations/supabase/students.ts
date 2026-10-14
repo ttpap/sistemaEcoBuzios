@@ -20,7 +20,7 @@ function getModeBStaffCreds(): { login: string; password: string } | null {
 // A foto é carregada sob demanda (StudentAvatar / detalhe), o que deixa o boot
 // muito mais leve — antes baixava ~30 MB de fotos em todo carregamento.
 const STUDENT_BASE_COLUMNS =
-  "id,registration,full_name,social_name,email,cpf,birth_date,age,cell_phone,gender,race," +
+  "id,registration,full_name,social_name,email,cpf,birth_date,age,cell_phone,gender,race,education_level," +
   "guardian_name,guardian_kinship,guardian_phone,guardian_declaration_confirmed," +
   "school_type,school_name,school_other,cep,street,number,complement,neighborhood,city,uf," +
   "enel_client_number,blood_type,has_allergy,allergy_detail,has_special_needs,special_needs_detail," +

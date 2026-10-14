@@ -29,6 +29,7 @@ import { readGlobalStudents, writeGlobalStudents } from '@/utils/storage';
 import { DEFAULT_STUDENT_PASSWORD, getStudentLoginFromRegistration, getStudentSessionStudentId } from '@/utils/student-auth';
 import { allocateNewStudentRegistration } from '@/utils/student-registration';
 import { lookupCep } from '@/utils/cep';
+import { BAIRROS, ESCOLARIDADES, OUTRO_BAIRRO, SEM_INFORMACAO, bairroDoCep, normalizeBairro } from '@/constants/student-options';
 import { studentsService } from "@/services/studentsService";
 import { supabase } from "@/integrations/supabase/client";
 import { getStudentPhoto } from "@/utils/student-photo-cache";
@@ -200,6 +201,7 @@ const schema = z.object({
   cellPhone: z.string().min(1, "Obrigatório"),
   gender: z.string().min(1, "Obrigatório"),
   race: z.string().min(1, "Obrigatório"),
+  educationLevel: z.string().min(1, "Obrigatório"),
   photo: z.string().optional().or(z.literal("")),
 
   // 2. Responsável
@@ -303,6 +305,9 @@ const StudentForm = ({
       cellPhone: initialData?.cellPhone || "",
       gender: initialData?.gender || "",
       race: initialData?.race || "",
+      // Cadastros antigos vêm como "Sem informação": no formulário público precisa escolher.
+      educationLevel: initialData?.educationLevel && (initialData.educationLevel !== SEM_INFORMACAO || canEditPhoto)
+        ? initialData.educationLevel : "",
       photo: initialData?.photo || "",
 
       guardianName: initialData?.guardianName || "",
@@ -318,7 +323,7 @@ const StudentForm = ({
       street: initialData?.street || "",
       number: initialData?.number || "",
       complement: initialData?.complement || "",
-      neighborhood: initialData?.neighborhood || "",
+      neighborhood: normalizeBairro(initialData?.neighborhood),
       city: initialData?.city || "",
       uf: initialData?.uf || "",
       
@@ -383,7 +388,8 @@ const StudentForm = ({
       if (cancelled || !res) return;
 
       form.setValue('street', res.street || "", { shouldDirty: true, shouldValidate: true });
-      form.setValue('neighborhood', res.neighborhood || "", { shouldDirty: true, shouldValidate: true });
+      const bairro = bairroDoCep(res.neighborhood, res.city);
+      if (bairro) form.setValue('neighborhood', bairro, { shouldDirty: true, shouldValidate: true });
       form.setValue('city', res.city || "Armação dos Búzios", { shouldDirty: true, shouldValidate: true });
       form.setValue('uf', res.uf || "RJ", { shouldDirty: true, shouldValidate: true });
     };
@@ -457,6 +463,7 @@ const StudentForm = ({
         cell_phone: values.cellPhone,
         gender: values.gender,
         race: values.race,
+        education_level: values.educationLevel,
         photo: photoPreview || null,
 
         guardian_name: values.guardianName || null,
@@ -563,6 +570,7 @@ const StudentForm = ({
           p_observations: row.observations ?? null,
           p_image_authorization: row.image_authorization,
           p_enel_client_number: row.enel_client_number ?? null,
+          p_education_level: row.education_level,
         });
         if (selfErr) throw new Error(selfErr.message || "Não foi possível salvar seus dados.");
         return;
@@ -897,6 +905,25 @@ const StudentForm = ({
           <CardContent className="p-10">
             <SectionHeader icon={School} title="3. Escola" subtitle="Vínculo Educacional" />
             <div className="grid gap-8 md:grid-cols-2">
+              <FormField control={form.control} name="educationLevel" render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="font-bold">Escolaridade *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
+                        <SelectValue placeholder="Selecione a escolaridade" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {ESCOLARIDADES.map((e) => (
+                        <SelectItem key={e} value={e}>{e}</SelectItem>
+                      ))}
+                      {canEditPhoto && <SelectItem value={SEM_INFORMACAO}>{SEM_INFORMACAO}</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={form.control} name="schoolType" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-bold">Rede de Ensino *</FormLabel>
@@ -974,7 +1001,23 @@ const StudentForm = ({
                 <FormItem><FormLabel className="font-bold">Número *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
               )} />
               <FormField control={form.control} name="neighborhood" render={({ field }) => (
-                <FormItem className="md:col-span-2"><FormLabel className="font-bold">Bairro *</FormLabel><FormControl><Input {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>
+                <FormItem className="md:col-span-2">
+                  <FormLabel className="font-bold">Bairro *</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100">
+                        <SelectValue placeholder="Selecione o bairro" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BAIRROS.map((b) => (
+                        <SelectItem key={b} value={b}>{b}</SelectItem>
+                      ))}
+                      <SelectItem value={OUTRO_BAIRRO}>{OUTRO_BAIRRO} (fora de Búzios)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="complement" render={({ field }) => (
                 <FormItem className="md:col-span-2"><FormLabel className="font-bold">Complemento</FormLabel><FormControl><Input placeholder="Apto, Bloco, Casa..." {...field} className="h-12 rounded-xl bg-slate-50/50 border-slate-100" /></FormControl></FormItem>

@@ -13,6 +13,7 @@ export interface StudentRegistration {
   gender: string;
   genderOther?: string;
   race: string;
+  educationLevel?: string;
   photo?: string;
 
   // 2. Responsável

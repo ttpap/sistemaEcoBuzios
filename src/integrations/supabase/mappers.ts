@@ -16,6 +16,7 @@ export function mapStudentRowToModel(row: any): StudentRegistration {
     cellPhone: row.cell_phone,
     gender: row.gender,
     race: row.race,
+    educationLevel: row.education_level ?? undefined,
     photo: row.photo ?? undefined,
 
     guardianName: row.guardian_name ?? undefined,
@@ -76,6 +77,7 @@ export function mapStudentModelToRow(values: StudentRegistration) {
     cell_phone: values.cellPhone,
     gender: values.gender,
     race: values.race,
+    education_level: values.educationLevel ?? undefined,
     photo: values.photo ?? null,
 
     guardian_name: values.guardianName ?? null,

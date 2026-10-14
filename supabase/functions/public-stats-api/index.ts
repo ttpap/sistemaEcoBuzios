@@ -77,10 +77,17 @@ serve(async (req) => {
       ? projetosParam.split(",").map((s) => s.trim()).filter(Boolean)
       : null;
 
-    // Data de corte opcional: ?ate=AAAA-MM-DD (perfil, gênero, idades e bairros naquele dia)
-    const ateParam = url.searchParams.get("ate");
-    if (ateParam && (!/^\d{4}-\d{2}-\d{2}$/.test(ateParam) || Number.isNaN(Date.parse(ateParam)))) {
-      return new Response(JSON.stringify({ ok: false, error: "invalid_ate", detail: "use ?ate=AAAA-MM-DD" }), {
+    // Data de corte opcional: ?data_corte=AAAA-MM-DD (alias: ?ate=). Todos os
+    // recortes (total, gênero, idade, bairros, instituição, escolaridade,
+    // por_projeto e frequência) passam a refletir a posição naquele dia.
+    const corteParam = url.searchParams.get("data_corte") ?? url.searchParams.get("ate");
+    const corteValida = (v: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+      const d = new Date(`${v}T00:00:00Z`);
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+    };
+    if (corteParam && !corteValida(corteParam)) {
+      return new Response(JSON.stringify({ ok: false, error: "invalid_data_corte", detail: "use ?data_corte=AAAA-MM-DD" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -88,7 +95,7 @@ serve(async (req) => {
 
     // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
-    const rpcParamsCorte: Record<string, unknown> = { ...rpcParams, ...(ateParam ? { p_ate: ateParam } : {}) };
+    const rpcParamsCorte: Record<string, unknown> = { ...rpcParams, ...(corteParam ? { p_ate: corteParam } : {}) };
 
     // Always fetch all active projects for projetos_lista (filter buttons)
     const { data: allActiveProjects } = await client
@@ -127,9 +134,8 @@ serve(async (req) => {
       .select("code, applicant_name, title, situation, status")
       .order("created_at", { ascending: false });
 
-    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult, perfilResult] = await Promise.all([
-      client.rpc("public_dashboard_charts", rpcParams),
-      client.rpc("public_attendance_stats", rpcParams),
+    const [freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult, perfilResult] = await Promise.all([
+      client.rpc("public_attendance_stats", rpcParamsCorte),
       meetingQuery,
       reportsQuery,
       prestacaoQuery,
@@ -138,15 +144,16 @@ serve(async (req) => {
       client.rpc("public_perfil_stats", rpcParamsCorte),
     ]);
 
-    if (chartsResult.error || !chartsResult.data) {
-      console.error("[public-stats-api] rpc error (charts)", chartsResult.error);
+    if (perfilResult.error || !perfilResult.data) {
+      console.error("[public-stats-api] rpc error (perfil)", perfilResult.error);
       return new Response(JSON.stringify({ ok: false, error: "query_failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const charts = chartsResult.data;
+    // Perfil na data de corte: geral (alunos únicos) + por_projeto (cada um com os mesmos recortes).
+    const { por_projeto: perfilPorProjeto, ...perfil } = perfilResult.data as Record<string, any>;
     const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
     const meetings = meetingResult.data ?? [];
     const totalReunioes = meetings.length;
@@ -174,11 +181,6 @@ serve(async (req) => {
       console.error("[public-stats-api] rpc error (gender)", genderResult.error);
     }
     const generos = genderResult.data ?? { total: 0, generos: [], por_projeto: [] };
-
-    if (perfilResult.error) {
-      console.error("[public-stats-api] rpc error (perfil)", perfilResult.error);
-    }
-    const perfil = perfilResult.data ?? null;
 
     // --- Editais ---
     type EditalRow = {
@@ -212,22 +214,21 @@ serve(async (req) => {
       })),
     };
 
-    // Busca total global de alunos matriculados em turmas
-    const totalAlunos = (charts.projectCounts as { name: string; value: number }[])
-      ?.reduce((sum: number, p: { value: number }) => sum + p.value, 0) ?? 0;
-
     const response = {
       ok: true,
       gerado_em: new Date().toISOString(),
       filtro_projetos: projectIds ?? "todos",
-      data_corte: perfil?.data_corte ?? ateParam ?? new Date().toISOString().slice(0, 10),
+      data_corte: perfil.data_corte,
       projetos_lista: allActive.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
-      total_alunos_em_turmas: totalAlunos,
-      por_projeto: charts.projectCounts ?? [],
-      // Com ?ate=, idades e bairros vêm da posição na data de corte (inclui "Sem informação").
-      bairros: ateParam && perfil ? perfil.bairros : (charts.neighborhoods ?? []),
-      instituicao: charts.schoolTypes ?? [],
-      idades: ateParam && perfil ? perfil.idades : (charts.ageRanges ?? []),
+      // Soma das matrículas por projeto (aluno em 2 projetos conta 2x).
+      total_alunos_em_turmas: perfil.total_matriculas_por_projeto ?? 0,
+      // Cada aluno uma vez só, mesmo estando em mais de um projeto.
+      alunos_unicos: perfil.alunos_unicos ?? 0,
+      por_projeto: perfilPorProjeto ?? [],
+      bairros: perfil.bairros ?? [],
+      instituicao: perfil.instituicao ?? [],
+      idades: perfil.idades ?? [],
+      escolaridade: perfil.escolaridade ?? [],
       generos,
       perfil,
       frequencia: freq,

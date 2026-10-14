@@ -606,6 +606,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                   <Row label="Data de nascimento" value={formatBirthDate(student.birthDate)} />
                   <Row label="Gênero" value={student.gender || "---"} />
                   <Row label="Cor/Raça" value={student.race || "---"} />
+                  <Row label="Escolaridade" value={student.educationLevel || "---"} />
                   <Row label="E-mail" value={student.email || "---"} />
                   <Row label="Celular / WhatsApp" value={student.cellPhone || "---"} />
                 </div>
