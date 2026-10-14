@@ -190,22 +190,16 @@ export async function promoteFromWaitlistRemote(
     return;
   }
 
-  // Admin: reativa se já existe matrícula, senão cria; depois marca a fila.
-  const { data: existing } = await supabase
+  // Admin: cria matrícula nova (rematrícula preserva a antiga), salvo se já ativa.
+  const { data: ativas } = await supabase
     .from("class_student_enrollments")
-    .select("class_id,student_id")
+    .select("class_id")
     .eq("class_id", classId)
     .eq("student_id", studentId)
-    .maybeSingle();
+    .is("removed_at", null)
+    .limit(1);
 
-  if (existing) {
-    const { error } = await supabase
-      .from("class_student_enrollments")
-      .update({ removed_at: null })
-      .eq("class_id", classId)
-      .eq("student_id", studentId);
-    if (error) throw error;
-  } else {
+  if (!ativas || ativas.length === 0) {
     const { error } = await supabase.from("class_student_enrollments").insert({
       class_id: classId,
       student_id: studentId,

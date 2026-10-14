@@ -44,15 +44,17 @@ export function isStudentEnrolledOn(cls: SchoolClass, studentId: string, ymd: st
   if (!target) return true;
   const targetKey = dateKey(target);
 
-  const e = (clsWith.studentEnrollments || []).find((x) => x.studentId === studentId);
-  if (!e) return (clsWith.studentIds || []).includes(studentId);
+  // Rematrícula gera uma matrícula nova: vale se QUALQUER período cobre o dia.
+  const periodos = (clsWith.studentEnrollments || []).filter((x) => x.studentId === studentId);
+  if (!periodos.length) return (clsWith.studentIds || []).includes(studentId);
 
-  const enrolledKey = isoToDateKey(e.enrolledAt) || "0000-00-00";
-  const removedKey = e.removedAt ? isoToDateKey(e.removedAt) : null;
-
-  if (targetKey < enrolledKey) return false;
-  if (removedKey && targetKey > removedKey) return false;
-  return true;
+  return periodos.some((e) => {
+    const enrolledKey = isoToDateKey(e.enrolledAt) || "0000-00-00";
+    const removedKey = e.removedAt ? isoToDateKey(e.removedAt) : null;
+    if (targetKey < enrolledKey) return false;
+    if (removedKey && targetKey > removedKey) return false;
+    return true;
+  });
 }
 
 export function studentsEnrolledOn(cls: SchoolClass, studentIds: string[], ymd: string) {
@@ -63,11 +65,10 @@ export function enrollStudent(cls: SchoolClass, studentId: string): SchoolClass 
   const next = ensureStudentEnrollments(cls);
   const now = new Date().toISOString();
 
-  const existing = (next.studentEnrollments || []).find((e) => e.studentId === studentId);
-  const enrollments: Enrollment[] = existing
-    ? (next.studentEnrollments || []).map((e) =>
-        e.studentId === studentId ? { ...e, removedAt: undefined, enrolledAt: e.enrolledAt || now } : e
-      )
+  // Já ativo: nada muda. Senão abre matrícula nova e mantém as antigas (com saída).
+  const ativa = (next.studentEnrollments || []).some((e) => e.studentId === studentId && !e.removedAt);
+  const enrollments: Enrollment[] = ativa
+    ? next.studentEnrollments || []
     : [...(next.studentEnrollments || []), { studentId, enrolledAt: now }];
 
   const studentIds = Array.from(new Set([...(next.studentIds || []), studentId]));
@@ -79,7 +80,7 @@ export function removeStudentEnrollment(cls: SchoolClass, studentId: string): Sc
   const now = new Date().toISOString();
 
   const enrollments: Enrollment[] = (next.studentEnrollments || []).map((e) =>
-    e.studentId === studentId ? { ...e, removedAt: now } : e
+    e.studentId === studentId && !e.removedAt ? { ...e, removedAt: now } : e
   );
 
   const studentIds = (next.studentIds || []).filter((id) => id !== studentId);

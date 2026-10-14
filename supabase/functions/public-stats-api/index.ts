@@ -229,6 +229,8 @@ serve(async (req) => {
       instituicao: perfil.instituicao ?? [],
       idades: perfil.idades ?? [],
       escolaridade: perfil.escolaridade ?? [],
+      // Entradas, saídas e ativos no fim de cada mês (até a data de corte). Também em cada por_projeto.
+      saidas_por_mes: perfil.saidas_por_mes ?? [],
       generos,
       perfil,
       frequencia: freq,

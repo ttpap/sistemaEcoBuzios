@@ -428,23 +428,17 @@ export async function enrollStudentRemote(classId: string, studentId: string) {
 
   // Tentativa normal (pode falhar por RLS)
   try {
-    // If there's an existing row, we just clear removed_at. Otherwise create.
-    const { data } = await supabase
+    // Rematrícula cria matrícula NOVA (novo enrolled_at); a antiga fica com o
+    // removed_at dela. Se já houver matrícula ativa, não faz nada.
+    const { data: ativas, error: selErr } = await supabase
       .from("class_student_enrollments")
-      .select("class_id,student_id,enrolled_at,removed_at")
+      .select("class_id")
       .eq("class_id", classId)
       .eq("student_id", studentId)
-      .maybeSingle();
-
-    if (data) {
-      const { error } = await supabase
-        .from("class_student_enrollments")
-        .update({ removed_at: null })
-        .eq("class_id", classId)
-        .eq("student_id", studentId);
-      if (error) throw error;
-      return;
-    }
+      .is("removed_at", null)
+      .limit(1);
+    if (selErr) throw selErr;
+    if (ativas && ativas.length > 0) return;
 
     const { error } = await supabase.from("class_student_enrollments").insert({
       class_id: classId,
@@ -492,7 +486,8 @@ export async function removeStudentEnrollmentRemote(classId: string, studentId: 
     .from("class_student_enrollments")
     .update({ removed_at: new Date().toISOString() }, { count: "exact" })
     .eq("class_id", classId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("removed_at", null);
   if (error) throw error;
   if (count === 0) throw new Error("Sem permissão para remover este aluno ou matrícula não encontrada.");
 }
