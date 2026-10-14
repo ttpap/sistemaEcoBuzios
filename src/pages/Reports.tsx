@@ -986,9 +986,11 @@ export default function Reports() {
   const filterTeacherId = locationState?.teacherId ?? null;
   const filterTeacherName = locationState?.teacherName ?? null;
 
-  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas">(
+  const [report, setReport] = useState<"home" | "attendance" | "classes-year" | "prefeitura" | "prestacao-contas" | "genero">(
     filterTeacherId ? "attendance" : "home"
   );
+  const [genderFilter, setGenderFilter] = useState<string>("todos");
+  const [genderClassFilter, setGenderClassFilter] = useState<string>("todas");
   const [pcTitle, setPcTitle] = useState("");
   const [pcMonth, setPcMonth] = useState<string>(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`);
   const [pcText, setPcText] = useState("");
@@ -1496,6 +1498,26 @@ export default function Reports() {
                   <p className="text-lg font-black text-primary">Relatório Prefeitura</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
                     Total de alunos, distribuição por rede de ensino, faixas etárias e horas-aula dadas.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden cursor-pointer group"
+            onClick={() => setReport("genero")}
+          >
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-3xl bg-violet-50 text-violet-700 flex items-center justify-center border border-violet-200 group-hover:scale-110 transition-transform">
+                  <Users className="h-7 w-7" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-lg font-black text-primary">Relatório de Gênero</p>
+                  <p className="text-sm font-bold text-slate-500 mt-1">
+                    Quantos alunos de cada gênero no projeto, com filtro por gênero e turma.
                   </p>
                 </div>
               </div>
@@ -2024,6 +2046,212 @@ export default function Reports() {
                     <span className="text-5xl font-black text-slate-400 leading-none">{freqExpected}</span>
                     <span className="text-sm font-bold text-slate-400 mt-1">presenças esperadas</span>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()
+      ) : report === "genero" ? (
+        (() => {
+          const GENDER_ORDER = ["Mulher cis", "Homem cis", "Mulher trans", "Homem trans", "Não-binário", "Outro", "Não informado"];
+          const GENDER_COLORS: Record<string, string> = {
+            "Mulher cis": "#e11d74",
+            "Homem cis": "#2563eb",
+            "Mulher trans": "#db2777",
+            "Homem trans": "#0ea5e9",
+            "Não-binário": "#8b5cf6",
+            "Outro": "#f59e0b",
+            "Não informado": "#94a3b8",
+          };
+          const genderOf = (s: StudentRegistration) => (s.gender || "").trim() || "Não informado";
+
+          const classesOfStudent = new Map<string, string[]>();
+          for (const c of classes) {
+            for (const sid of c.studentIds || []) {
+              const list = classesOfStudent.get(sid) || [];
+              list.push(c.name);
+              classesOfStudent.set(sid, list);
+            }
+          }
+
+          const inScope = (s: StudentRegistration) => {
+            if (genderClassFilter === "todas") return classesOfStudent.has(s.id);
+            const cls = classes.find((c) => c.id === genderClassFilter);
+            return Boolean(cls?.studentIds?.includes(s.id));
+          };
+          const scoped = students.filter(inScope);
+
+          const counts = new Map<string, number>();
+          for (const s of scoped) counts.set(genderOf(s), (counts.get(genderOf(s)) || 0) + 1);
+          const genderRows = [
+            ...GENDER_ORDER.filter((g) => counts.has(g)),
+            ...[...counts.keys()].filter((g) => !GENDER_ORDER.includes(g)).sort(),
+          ].map((g) => ({ label: g, count: counts.get(g) || 0, color: GENDER_COLORS[g] || "#64748b" }));
+          const total = scoped.length;
+
+          const listed = scoped
+            .filter((s) => genderFilter === "todos" || genderOf(s) === genderFilter)
+            .sort((a, b) => a.fullName.localeCompare(b.fullName, "pt-BR"));
+
+          const className = genderClassFilter === "todas"
+            ? "Todas as turmas"
+            : classes.find((c) => c.id === genderClassFilter)?.name || "";
+          const genderLabel = genderFilter === "todos" ? "Todos os gêneros" : genderFilter;
+
+          const printGenderReport = () => {
+            const w = window.open("", "_blank");
+            if (!w) return;
+            const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const summary = genderRows
+              .map((r) => `<tr><td>${esc(r.label)}</td><td class="n">${r.count}</td><td class="n">${total ? ((r.count / total) * 100).toFixed(1) : "0.0"}%</td></tr>`)
+              .join("");
+            const rows = listed
+              .map((s, i) => `<tr><td class="n">${i + 1}</td><td>${esc(s.fullName)}</td><td>${esc(genderOf(s) === "Outro" && s.genderOther ? `Outro (${s.genderOther})` : genderOf(s))}</td><td>${esc((classesOfStudent.get(s.id) || []).join(", "))}</td></tr>`)
+              .join("");
+            w.document.write(`<html><head><title>Relatório de Gênero</title><style>
+              body{font-family:Arial,sans-serif;font-size:11px;margin:22px;color:#111827}
+              h1{font-size:16px;margin:0 0 2px} .meta{color:#4b5563;font-weight:700;margin-bottom:12px}
+              table{width:100%;border-collapse:collapse;margin-bottom:16px}
+              th,td{border:1px solid #d1d5db;padding:5px 7px;text-align:left}
+              th{background:#f3f4f6;font-size:9px;text-transform:uppercase;letter-spacing:.06em}
+              .n{text-align:right;width:60px}
+            </style></head><body>
+              <h1>RELATÓRIO DE GÊNERO</h1>
+              <div class="meta">Projeto: ${esc(getReportProjectName())} • ${esc(className)} • ${total} aluno(s)</div>
+              <table><thead><tr><th>Gênero</th><th class="n">Alunos</th><th class="n">%</th></tr></thead><tbody>${summary}</tbody></table>
+              <div class="meta">Lista: ${esc(genderLabel)} — ${listed.length} aluno(s)</div>
+              <table><thead><tr><th class="n">#</th><th>Nome</th><th>Gênero</th><th>Turma(s)</th></tr></thead><tbody>${rows}</tbody></table>
+            </body></html>`);
+            w.document.close();
+            w.focus();
+            setTimeout(() => w.print(), 200);
+          };
+
+          return (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <Button
+                  variant="ghost"
+                  className="rounded-2xl w-fit px-4 font-black text-slate-600 hover:bg-slate-100"
+                  onClick={() => setReport("home")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+                </Button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Select value={genderClassFilter} onValueChange={setGenderClassFilter}>
+                    <SelectTrigger className="rounded-2xl h-11 min-w-[220px] bg-white border-slate-200 font-bold">
+                      <SelectValue placeholder="Turma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as turmas</SelectItem>
+                      {[...classes].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    className="rounded-2xl h-11 font-black gap-2"
+                    disabled={!listed.length}
+                    onClick={printGenderReport}
+                  >
+                    <Printer className="h-4 w-4" /> Imprimir
+                  </Button>
+                </div>
+              </div>
+
+              <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+                  <h2 className="text-lg font-black text-slate-800">Relatório de Gênero</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">
+                    {className} · {total} aluno(s) matriculado(s)
+                  </p>
+                </div>
+                <CardContent className="p-6 space-y-3">
+                  {total === 0 ? (
+                    <p className="text-sm font-bold text-slate-400 text-center py-8">Nenhum aluno matriculado.</p>
+                  ) : (
+                    genderRows.map((r) => {
+                      const pct = total ? (r.count / total) * 100 : 0;
+                      const active = genderFilter === r.label;
+                      return (
+                        <button
+                          key={r.label}
+                          type="button"
+                          onClick={() => setGenderFilter(active ? "todos" : r.label)}
+                          className={cn(
+                            "w-full text-left rounded-2xl border px-4 py-3 transition-colors",
+                            active ? "border-primary bg-primary/5" : "border-slate-100 hover:bg-slate-50",
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-black text-slate-800">{r.label}</span>
+                            <span className="text-sm font-black text-slate-700 tabular-nums">
+                              {r.count} <span className="text-slate-400 font-bold">({pct.toFixed(1)}%)</span>
+                            </span>
+                          </div>
+                          <div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: r.color }} />
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                  <p className="text-xs font-bold text-slate-400">Clique num gênero para filtrar a lista abaixo.</p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
+                <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800">Alunos — {genderLabel}</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">{listed.length} aluno(s)</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {["todos", ...genderRows.map((r) => r.label)].map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setGenderFilter(g)}
+                        className={cn(
+                          "rounded-full px-3 py-1.5 text-xs font-black border transition-colors",
+                          genderFilter === g
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50",
+                        )}
+                      >
+                        {g === "todos" ? "Todos" : g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <CardContent className="p-0">
+                  {listed.length === 0 ? (
+                    <p className="text-sm font-bold text-slate-400 text-center py-10">Nenhum aluno para este filtro.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-50">
+                      {listed.map((s, i) => (
+                        <div key={s.id} className="px-6 py-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-slate-800 truncate">
+                              <span className="text-slate-400 font-bold mr-2 tabular-nums">{i + 1}.</span>
+                              {s.fullName}
+                            </p>
+                            <p className="text-xs font-bold text-slate-500 truncate">
+                              {(classesOfStudent.get(s.id) || []).join(", ")}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="rounded-full font-black shrink-0"
+                            style={{ borderColor: GENDER_COLORS[genderOf(s)] || "#cbd5e1", color: GENDER_COLORS[genderOf(s)] || "#475569" }}
+                          >
+                            {genderOf(s) === "Outro" && s.genderOther ? `Outro (${s.genderOther})` : genderOf(s)}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
