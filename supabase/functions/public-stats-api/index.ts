@@ -117,13 +117,14 @@ serve(async (req) => {
       .select("code, applicant_name, title, situation, status")
       .order("created_at", { ascending: false });
 
-    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult] = await Promise.all([
+    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
       client.rpc("public_attendance_stats", rpcParams),
       meetingQuery,
       reportsQuery,
       prestacaoQuery,
       editaisQuery,
+      client.rpc("public_gender_stats", rpcParams),
     ]);
 
     if (chartsResult.error || !chartsResult.data) {
@@ -157,6 +158,11 @@ serve(async (req) => {
     if (freqResult.error) {
       console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
     }
+
+    if (genderResult.error) {
+      console.error("[public-stats-api] rpc error (gender)", genderResult.error);
+    }
+    const generos = genderResult.data ?? { total: 0, generos: [], por_projeto: [] };
 
     // --- Editais ---
     type EditalRow = {
@@ -204,6 +210,7 @@ serve(async (req) => {
       bairros: charts.neighborhoods ?? [],
       instituicao: charts.schoolTypes ?? [],
       idades: charts.ageRanges ?? [],
+      generos,
       frequencia: freq,
       reunioes: {
         total: totalReunioes,
