@@ -77,8 +77,18 @@ serve(async (req) => {
       ? projetosParam.split(",").map((s) => s.trim()).filter(Boolean)
       : null;
 
+    // Data de corte opcional: ?ate=AAAA-MM-DD (perfil, gênero, idades e bairros naquele dia)
+    const ateParam = url.searchParams.get("ate");
+    if (ateParam && (!/^\d{4}-\d{2}-\d{2}$/.test(ateParam) || Number.isNaN(Date.parse(ateParam)))) {
+      return new Response(JSON.stringify({ ok: false, error: "invalid_ate", detail: "use ?ate=AAAA-MM-DD" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Chama as RPCs em paralelo
     const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
+    const rpcParamsCorte: Record<string, unknown> = { ...rpcParams, ...(ateParam ? { p_ate: ateParam } : {}) };
 
     // Always fetch all active projects for projetos_lista (filter buttons)
     const { data: allActiveProjects } = await client
@@ -117,14 +127,15 @@ serve(async (req) => {
       .select("code, applicant_name, title, situation, status")
       .order("created_at", { ascending: false });
 
-    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult] = await Promise.all([
+    const [chartsResult, freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult, perfilResult] = await Promise.all([
       client.rpc("public_dashboard_charts", rpcParams),
       client.rpc("public_attendance_stats", rpcParams),
       meetingQuery,
       reportsQuery,
       prestacaoQuery,
       editaisQuery,
-      client.rpc("public_gender_stats", rpcParams),
+      client.rpc("public_gender_stats", rpcParamsCorte),
+      client.rpc("public_perfil_stats", rpcParamsCorte),
     ]);
 
     if (chartsResult.error || !chartsResult.data) {
@@ -163,6 +174,11 @@ serve(async (req) => {
       console.error("[public-stats-api] rpc error (gender)", genderResult.error);
     }
     const generos = genderResult.data ?? { total: 0, generos: [], por_projeto: [] };
+
+    if (perfilResult.error) {
+      console.error("[public-stats-api] rpc error (perfil)", perfilResult.error);
+    }
+    const perfil = perfilResult.data ?? null;
 
     // --- Editais ---
     type EditalRow = {
@@ -204,13 +220,16 @@ serve(async (req) => {
       ok: true,
       gerado_em: new Date().toISOString(),
       filtro_projetos: projectIds ?? "todos",
+      data_corte: perfil?.data_corte ?? ateParam ?? new Date().toISOString().slice(0, 10),
       projetos_lista: allActive.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
       total_alunos_em_turmas: totalAlunos,
       por_projeto: charts.projectCounts ?? [],
-      bairros: charts.neighborhoods ?? [],
+      // Com ?ate=, idades e bairros vêm da posição na data de corte (inclui "Sem informação").
+      bairros: ateParam && perfil ? perfil.bairros : (charts.neighborhoods ?? []),
       instituicao: charts.schoolTypes ?? [],
-      idades: charts.ageRanges ?? [],
+      idades: ateParam && perfil ? perfil.idades : (charts.ageRanges ?? []),
       generos,
+      perfil,
       frequencia: freq,
       reunioes: {
         total: totalReunioes,
