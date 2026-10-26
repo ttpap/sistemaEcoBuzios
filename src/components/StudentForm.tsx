@@ -133,6 +133,8 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "E. M. José Gonçalves",
     "E. M. Caravelas",
     "E. M. Manuel Antonio da Costa",
+    "E. M. Prof. Manoel Juvenal Vieira",
+    "E. E. Mz. Profª. Eulina de Assis Marques",
     "Outra"
   ],
   state: [
