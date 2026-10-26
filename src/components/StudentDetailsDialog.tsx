@@ -415,6 +415,14 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     {student.status}
                   </Badge>
                 </div>
+                <Button
+                  type="button"
+                  onClick={onEdit}
+                  className="rounded-2xl bg-white text-primary hover:bg-white/90 font-black gap-2"
+                >
+                  <Edit2 className="h-4 w-4" />
+                  Editar aluno
+                </Button>
                 {freqAnnualTotals.total > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge className="bg-emerald-500/30 text-white border-none font-black gap-1">
@@ -447,14 +455,6 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
               >
                 <KeyRound className="h-4 w-4" />
                 Resetar senha
-              </Button>
-              <Button
-                type="button"
-                onClick={onEdit}
-                className="rounded-2xl bg-white text-primary hover:bg-white/90 font-black gap-2"
-              >
-                <Edit2 className="h-4 w-4" />
-                Editar aluno
               </Button>
             </div>
           </div>
