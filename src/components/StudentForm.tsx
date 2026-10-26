@@ -159,6 +159,7 @@ const SCHOOLS_BY_TYPE: Record<string, string[]> = {
     "Escola Terra Viva",
     "Centro Educacional Souza Amorim",
     "Escola Laetare",
+    "ACO Centro Educacional",
     "Outra"
   ],
   higher: [
