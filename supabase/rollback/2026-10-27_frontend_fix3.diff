@@ -1,0 +1,206 @@
+--- a/src/integrations/supabase/students.ts
++++ b/src/integrations/supabase/students.ts
+@@ -203,7 +203,49 @@
+   }
+ 
+   // Modo B — usa RPC SECURITY DEFINER com paginação para buscar TODOS os alunos
+-  // (mode_b_list_all_students não filtra por projeto, ideal para o dialog de matrícula)
++  // (mode_b_list_all_students não filtra por projeto, ideal para o dialog de matrícula).
++  // A função recalcula a lista inteira a cada página (range), então cada carregamento custa
++  // ~5 execuções. Cache curto + dedupe de chamadas simultâneas evita repetir isso a cada
++  // tela/efeito; é invalidado quando um aluno é criado, editado ou removido.
++  const key = `${creds.login}\u0000${creds.password}\u0000${projectId}`;
++  const now = Date.now();
++  for (const [k, e] of modeBListCache) {
++    if (now - e.at >= MODE_B_LIST_TTL_MS) modeBListCache.delete(k);
++  }
++
++  const hit = modeBListCache.get(key);
++  if (hit) return cloneResult(await hit.promise);
++
++  const entry = { at: now, promise: fetchAllStudentsModeB(creds, projectId) };
++  modeBListCache.set(key, entry);
++  try {
++    const res = await entry.promise;
++    // Não guarda falhas (rpc_missing / not_allowed / unknown): a próxima chamada tenta de novo.
++    if (res.issue && modeBListCache.get(key) === entry) modeBListCache.delete(key);
++    return cloneResult(res);
++  } catch (e) {
++    if (modeBListCache.get(key) === entry) modeBListCache.delete(key);
++    throw e;
++  }
++}
++
++const MODE_B_LIST_TTL_MS = 30_000;
++const modeBListCache = new Map<string, { at: number; promise: Promise<FetchStudentsResult> }>();
++
++// Chame depois de criar/editar/remover aluno para a próxima listagem vir do banco.
++export function invalidateStudentsCache() {
++  modeBListCache.clear();
++}
++
++// Cada chamador recebe seu próprio array (podem ordenar/filtrar sem afetar o cache).
++function cloneResult(res: FetchStudentsResult): FetchStudentsResult {
++  return { ...res, students: [...res.students] };
++}
++
++async function fetchAllStudentsModeB(
++  creds: { login: string; password: string },
++  projectId: string,
++): Promise<FetchStudentsResult> {
+   const PAGE_SIZE = 1000;
+   const allStudents: StudentRegistration[] = [];
+   let from = 0;
+@@ -233,6 +275,42 @@
+   return { students: allStudents };
+ }
+ 
++// Admin: ids dos alunos com matrícula ativa em cada projeto, numa única consulta paginada
++// (substitui uma consulta de matrículas por projeto). Retorna Record<projectId, Set<studentId>>.
++export async function fetchActiveStudentIdsByProject(): Promise<Record<string, Set<string>>> {
++  const out: Record<string, Set<string>> = {};
++  if (!supabase) return out;
++
++  const PAGE_SIZE = 1000;
++  let from = 0;
++
++  while (true) {
++    const { data, error } = await supabase
++      .from("class_student_enrollments")
++      .select("student_id, enrolled_at, class_id, classes!inner(project_id)")
++      .is("removed_at", null)
++      .order("class_id", { ascending: true })
++      .order("student_id", { ascending: true })
++      .order("enrolled_at", { ascending: true })
++      .range(from, from + PAGE_SIZE - 1);
++
++    if (error) throw error;
++    if (!data || data.length === 0) break;
++
++    for (const row of data as any[]) {
++      const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
++      const pid = cls?.project_id as string | undefined;
++      if (!pid) continue;
++      (out[pid] ||= new Set()).add(row.student_id);
++    }
++
++    if (data.length < PAGE_SIZE) break;
++    from += PAGE_SIZE;
++  }
++
++  return out;
++}
++
+ export async function fetchStudentsRemote(projectId: string, opts?: FetchStudentsOpts): Promise<StudentRegistration[]> {
+   const res = await fetchStudentsRemoteWithMeta(projectId, opts);
+   return res.students;
+@@ -242,4 +320,5 @@
+   if (!supabase) return;
+   const { error } = await supabase.from("students").delete().eq("id", studentId);
+   if (error) throw error;
++  invalidateStudentsCache();
+ }
+\ No newline at end of file
+--- a/src/services/studentsService.ts
++++ b/src/services/studentsService.ts
+@@ -6,6 +6,8 @@
+   fetchStudentsRemote,
+   fetchStudentsRemoteWithMeta,
+   fetchStudentPhotosByIds,
++  fetchActiveStudentIdsByProject,
++  invalidateStudentsCache,
+   deleteStudent,
+   type StudentChartLite,
+   type FetchStudentsIssue,
+@@ -15,21 +17,25 @@
+ 
+ import { supabase } from "@/integrations/supabase/client";
+ import { publicSupabase } from "@/integrations/supabase/public-client";
++import { invalidateStudentsCache } from "@/integrations/supabase/students";
+ 
+ export const studentsService = {
+   async insert(row: any) {
+     const { error } = await supabase.from("students").insert(row);
+     if (error) throw error;
++    invalidateStudentsCache();
+   },
+ 
+   async insertAsAnon(row: any) {
+     const { error } = await publicSupabase.from("students").insert(row);
+     if (error) throw error;
++    invalidateStudentsCache();
+   },
+ 
+   async updateById(input: { id: string; row: any }) {
+     const { error } = await supabase.from("students").update(input.row).eq("id", input.id);
+     if (error) throw error;
++    invalidateStudentsCache();
+   },
+ 
+   async modeBUpsert(input: { login: string; password: string; projectId: string; row: any }) {
+@@ -41,5 +47,6 @@
+     });
+ 
+     if (error) throw error;
++    invalidateStudentsCache();
+   },
+ };
+\ No newline at end of file
+--- a/src/pages/Dashboard.tsx
++++ b/src/pages/Dashboard.tsx
+@@ -66,7 +66,11 @@
+ 
+ import { getAreaBaseFromPathname } from "@/utils/route-base";
+ import { fetchClassesRemoteWithMeta } from "@/services/classesService";
+-import { fetchStudentsRemoteWithMeta, fetchStudentsForCharts } from "@/services/studentsService";
++import {
++  fetchStudentsRemoteWithMeta,
++  fetchStudentsForCharts,
++  fetchActiveStudentIdsByProject,
++} from "@/services/studentsService";
+ import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
+ 
+ import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
+@@ -486,28 +490,29 @@
+           // Todos os alunos do sistema (para gráficos globais).
+           // Fetch enxuto: só os campos agregados (bairro/escola/idade/data),
+           // sem as ~50 colunas pesadas — boot do dashboard muito mais rápido.
++          let chartStudents: StudentRegistration[] = [];
+           try {
+             const all = await fetchStudentsForCharts();
+-            setAllAdminStudents(all as unknown as StudentRegistration[]);
++            chartStudents = all as unknown as StudentRegistration[];
++            setAllAdminStudents(chartStudents);
+           } catch {
+             // ignore
+           }
+ 
+-          // Alunos por projeto (usando fetchStudentsRemoteWithMeta — mesmo path que a tela de alunos)
++          // Alunos por projeto: reaproveita a lista enxuta carregada acima (os gráficos só usam
++          // bairro/escola/idade) e cruza com UMA consulta de matrículas ativas. Antes eram
++          // 2 consultas por projeto (matrículas + alunos), em paralelo.
+           try {
+-            const projects = await fetchProjectsFromDb();
++            const [projects, idsByProject] = await Promise.all([
++              fetchProjectsFromDb(),
++              fetchActiveStudentIdsByProject(),
++            ]);
+ 
+             const perProjectStudents: Record<string, StudentRegistration[]> = {};
+-            await Promise.all(
+-              projects.map(async (p) => {
+-                try {
+-                  const res = await fetchStudentsRemoteWithMeta(p.id);
+-                  perProjectStudents[p.id] = res.students;
+-                } catch {
+-                  perProjectStudents[p.id] = [];
+-                }
+-              }),
+-            );
++            for (const p of projects) {
++              const ids = idsByProject[p.id];
++              perProjectStudents[p.id] = ids ? chartStudents.filter((s) => ids.has(s.id)) : [];
++            }
+ 
+             const projectCountsList = projects
+               .map((p) => ({ name: p.name, value: perProjectStudents[p.id]?.length ?? 0 }))
