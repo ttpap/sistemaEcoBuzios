@@ -203,7 +203,49 @@ export async function fetchStudentsRemoteWithMeta(projectId: string, opts?: Fetc
   }
 
   // Modo B — usa RPC SECURITY DEFINER com paginação para buscar TODOS os alunos
-  // (mode_b_list_all_students não filtra por projeto, ideal para o dialog de matrícula)
+  // (mode_b_list_all_students não filtra por projeto, ideal para o dialog de matrícula).
+  // A função recalcula a lista inteira a cada página (range), então cada carregamento custa
+  // ~5 execuções. Cache curto + dedupe de chamadas simultâneas evita repetir isso a cada
+  // tela/efeito; é invalidado quando um aluno é criado, editado ou removido.
+  const key = `${creds.login}\u0000${creds.password}\u0000${projectId}`;
+  const now = Date.now();
+  for (const [k, e] of modeBListCache) {
+    if (now - e.at >= MODE_B_LIST_TTL_MS) modeBListCache.delete(k);
+  }
+
+  const hit = modeBListCache.get(key);
+  if (hit) return cloneResult(await hit.promise);
+
+  const entry = { at: now, promise: fetchAllStudentsModeB(creds, projectId) };
+  modeBListCache.set(key, entry);
+  try {
+    const res = await entry.promise;
+    // Não guarda falhas (rpc_missing / not_allowed / unknown): a próxima chamada tenta de novo.
+    if (res.issue && modeBListCache.get(key) === entry) modeBListCache.delete(key);
+    return cloneResult(res);
+  } catch (e) {
+    if (modeBListCache.get(key) === entry) modeBListCache.delete(key);
+    throw e;
+  }
+}
+
+const MODE_B_LIST_TTL_MS = 30_000;
+const modeBListCache = new Map<string, { at: number; promise: Promise<FetchStudentsResult> }>();
+
+// Chame depois de criar/editar/remover aluno para a próxima listagem vir do banco.
+export function invalidateStudentsCache() {
+  modeBListCache.clear();
+}
+
+// Cada chamador recebe seu próprio array (podem ordenar/filtrar sem afetar o cache).
+function cloneResult(res: FetchStudentsResult): FetchStudentsResult {
+  return { ...res, students: [...res.students] };
+}
+
+async function fetchAllStudentsModeB(
+  creds: { login: string; password: string },
+  projectId: string,
+): Promise<FetchStudentsResult> {
   const PAGE_SIZE = 1000;
   const allStudents: StudentRegistration[] = [];
   let from = 0;
@@ -233,6 +275,42 @@ export async function fetchStudentsRemoteWithMeta(projectId: string, opts?: Fetc
   return { students: allStudents };
 }
 
+// Admin: ids dos alunos com matrícula ativa em cada projeto, numa única consulta paginada
+// (substitui uma consulta de matrículas por projeto). Retorna Record<projectId, Set<studentId>>.
+export async function fetchActiveStudentIdsByProject(): Promise<Record<string, Set<string>>> {
+  const out: Record<string, Set<string>> = {};
+  if (!supabase) return out;
+
+  const PAGE_SIZE = 1000;
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("class_student_enrollments")
+      .select("student_id, enrolled_at, class_id, classes!inner(project_id)")
+      .is("removed_at", null)
+      .order("class_id", { ascending: true })
+      .order("student_id", { ascending: true })
+      .order("enrolled_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    for (const row of data as any[]) {
+      const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+      const pid = cls?.project_id as string | undefined;
+      if (!pid) continue;
+      (out[pid] ||= new Set()).add(row.student_id);
+    }
+
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return out;
+}
+
 export async function fetchStudentsRemote(projectId: string, opts?: FetchStudentsOpts): Promise<StudentRegistration[]> {
   const res = await fetchStudentsRemoteWithMeta(projectId, opts);
   return res.students;
@@ -242,4 +320,5 @@ export async function deleteStudent(studentId: string) {
   if (!supabase) return;
   const { error } = await supabase.from("students").delete().eq("id", studentId);
   if (error) throw error;
+  invalidateStudentsCache();
 }

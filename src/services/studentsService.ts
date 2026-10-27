@@ -6,6 +6,8 @@ export {
   fetchStudentsRemote,
   fetchStudentsRemoteWithMeta,
   fetchStudentPhotosByIds,
+  fetchActiveStudentIdsByProject,
+  invalidateStudentsCache,
   deleteStudent,
   type StudentChartLite,
   type FetchStudentsIssue,
@@ -15,21 +17,25 @@ export {
 
 import { supabase } from "@/integrations/supabase/client";
 import { publicSupabase } from "@/integrations/supabase/public-client";
+import { invalidateStudentsCache } from "@/integrations/supabase/students";
 
 export const studentsService = {
   async insert(row: any) {
     const { error } = await supabase.from("students").insert(row);
     if (error) throw error;
+    invalidateStudentsCache();
   },
 
   async insertAsAnon(row: any) {
     const { error } = await publicSupabase.from("students").insert(row);
     if (error) throw error;
+    invalidateStudentsCache();
   },
 
   async updateById(input: { id: string; row: any }) {
     const { error } = await supabase.from("students").update(input.row).eq("id", input.id);
     if (error) throw error;
+    invalidateStudentsCache();
   },
 
   async modeBUpsert(input: { login: string; password: string; projectId: string; row: any }) {
@@ -41,5 +47,6 @@ export const studentsService = {
     });
 
     if (error) throw error;
+    invalidateStudentsCache();
   },
 };

@@ -66,7 +66,11 @@ import type { AttendanceSession } from "@/types/attendance";
 
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { fetchClassesRemoteWithMeta } from "@/services/classesService";
-import { fetchStudentsRemoteWithMeta, fetchStudentsForCharts } from "@/services/studentsService";
+import {
+  fetchStudentsRemoteWithMeta,
+  fetchStudentsForCharts,
+  fetchActiveStudentIdsByProject,
+} from "@/services/studentsService";
 import { fetchProjectsFromDb } from "@/integrations/supabase/projects";
 
 import { getTeacherSessionLogin, getTeacherSessionPassword } from "@/utils/teacher-auth";
@@ -486,28 +490,29 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           // Todos os alunos do sistema (para gráficos globais).
           // Fetch enxuto: só os campos agregados (bairro/escola/idade/data),
           // sem as ~50 colunas pesadas — boot do dashboard muito mais rápido.
+          let chartStudents: StudentRegistration[] = [];
           try {
             const all = await fetchStudentsForCharts();
-            setAllAdminStudents(all as unknown as StudentRegistration[]);
+            chartStudents = all as unknown as StudentRegistration[];
+            setAllAdminStudents(chartStudents);
           } catch {
             // ignore
           }
 
-          // Alunos por projeto (usando fetchStudentsRemoteWithMeta — mesmo path que a tela de alunos)
+          // Alunos por projeto: reaproveita a lista enxuta carregada acima (os gráficos só usam
+          // bairro/escola/idade) e cruza com UMA consulta de matrículas ativas. Antes eram
+          // 2 consultas por projeto (matrículas + alunos), em paralelo.
           try {
-            const projects = await fetchProjectsFromDb();
+            const [projects, idsByProject] = await Promise.all([
+              fetchProjectsFromDb(),
+              fetchActiveStudentIdsByProject(),
+            ]);
 
             const perProjectStudents: Record<string, StudentRegistration[]> = {};
-            await Promise.all(
-              projects.map(async (p) => {
-                try {
-                  const res = await fetchStudentsRemoteWithMeta(p.id);
-                  perProjectStudents[p.id] = res.students;
-                } catch {
-                  perProjectStudents[p.id] = [];
-                }
-              }),
-            );
+            for (const p of projects) {
+              const ids = idsByProject[p.id];
+              perProjectStudents[p.id] = ids ? chartStudents.filter((s) => ids.has(s.id)) : [];
+            }
 
             const projectCountsList = projects
               .map((p) => ({ name: p.name, value: perProjectStudents[p.id]?.length ?? 0 }))
