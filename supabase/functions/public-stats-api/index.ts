@@ -13,6 +13,185 @@ async function sha256(text: string): Promise<string> {
     .join("");
 }
 
+// Cache em memória (por instância da função) do resultado calculado. Cada chamada à API faz
+// ~9 consultas ao banco; consumidores chamam várias vezes por minuto, em rajadas. O cache
+// guarda só respostas 200 bem-sucedidas, junta chamadas idênticas simultâneas numa só
+// computação e NÃO cobre a validação da chave de API (revogação continua imediata).
+// TTL em segundos via secret STATS_CACHE_TTL_SECONDS (padrão 300; 0 desliga o cache).
+const CACHE_TTL_MS = (Number(Deno.env.get("STATS_CACHE_TTL_SECONDS") ?? "300") || 0) * 1000;
+const CACHE_MAX_ENTRIES = 64;
+type CacheEntry = { at: number; body: Promise<string | null> };
+const statsCache = new Map<string, CacheEntry>();
+
+function jsonOk(body: string, cache: "HIT" | "MISS" | "BYPASS", ageSeconds: number) {
+  return new Response(body, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "X-Cache": cache,
+      "Age": String(ageSeconds),
+    },
+  });
+}
+
+
+// Monta o corpo JSON da resposta (consulta o banco). Retorna null quando a RPC de perfil falha.
+// deno-lint-ignore no-explicit-any
+async function buildStatsBody(client: any, projectIds: string[] | null, corteParam: string | null): Promise<string | null> {
+  // Chama as RPCs em paralelo
+  const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
+  const rpcParamsCorte: Record<string, unknown> = { ...rpcParams, ...(corteParam ? { p_ate: corteParam } : {}) };
+
+  // Always fetch all active projects for projetos_lista (filter buttons)
+  const { data: allActiveProjects } = await client
+    .from("projects")
+    .select("id, name")
+    .is("finalized_at", null);
+  const allActive = allActiveProjects ?? [];
+  const allActiveIds = allActive.map((p: { id: string; name: string }) => p.id);
+
+  const activeProjectIds: string[] = projectIds ?? allActiveIds;
+
+  // Pesos fixos de carga horária (1 aula = 2h, demais = 1h flat)
+  const HORAS_POR_AULA = 2;
+  const HORAS_POR_RELATORIO = 1;
+  const HORAS_POR_REUNIAO = 1;
+  const HORAS_POR_PRESTACAO = 1;
+
+  const meetingQuery = client
+    .from("meeting_minutes")
+    .select("id")
+    .in("project_id", activeProjectIds);
+  const reportsQuery = client
+    .from("monthly_reports")
+    .select("id")
+    .not("submitted_at", "is", null)
+    .in("project_id", activeProjectIds);
+
+  const prestacaoQuery = client
+    .from("prestacao_contas_reports")
+    .select("id")
+    .in("project_id", activeProjectIds);
+
+  // Editais não são vinculados a projeto — sempre globais.
+  const editaisQuery = client
+    .from("editais")
+    .select("code, applicant_name, title, situation, status")
+    .order("created_at", { ascending: false });
+
+  const [freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult, perfilResult] = await Promise.all([
+    client.rpc("public_attendance_stats", rpcParamsCorte),
+    meetingQuery,
+    reportsQuery,
+    prestacaoQuery,
+    editaisQuery,
+    client.rpc("public_gender_stats", rpcParamsCorte),
+    client.rpc("public_perfil_stats", rpcParamsCorte),
+  ]);
+
+  if (perfilResult.error || !perfilResult.data) {
+    console.error("[public-stats-api] rpc error (perfil)", perfilResult.error);
+    return null;
+  }
+
+  // Perfil na data de corte: geral (alunos únicos) + por_projeto (cada um com os mesmos recortes).
+  const { por_projeto: perfilPorProjeto, ...perfil } = perfilResult.data as Record<string, any>;
+  const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
+  const meetings = meetingResult.data ?? [];
+  const totalReunioes = meetings.length;
+  const totalHorasReunioes = totalReunioes * HORAS_POR_REUNIAO;
+
+  const reports = reportsResult.data ?? [];
+  if (reportsResult.error) {
+    console.error("[public-stats-api] query error (monthly_reports)", reportsResult.error);
+  }
+  const totalRelatorios = reports.length;
+  const totalHorasRelatorios = totalRelatorios * HORAS_POR_RELATORIO;
+
+  const prestacaoReports = prestacaoResult.data ?? [];
+  if (prestacaoResult.error) {
+    console.error("[public-stats-api] query error (prestacao_contas_reports)", prestacaoResult.error);
+  }
+  const totalPrestacaoContas = prestacaoReports.length;
+  const totalHorasPrestacoes = totalPrestacaoContas * HORAS_POR_PRESTACAO;
+
+  if (freqResult.error) {
+    console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
+  }
+
+  if (genderResult.error) {
+    console.error("[public-stats-api] rpc error (gender)", genderResult.error);
+  }
+  const generos = genderResult.data ?? { total: 0, generos: [], por_projeto: [] };
+
+  // --- Editais ---
+  type EditalRow = {
+    code: string | null;
+    applicant_name: string | null;
+    title: string;
+    situation: string | null;
+    status: string;
+  };
+  const editaisRows = (editaisResult.data ?? []) as EditalRow[];
+  if (editaisResult.error) {
+    console.error("[public-stats-api] query error (editais)", editaisResult.error);
+  }
+  const editaisPorStatus = { inscrito: 0, aprovado: 0, reprovado: 0 } as Record<string, number>;
+  for (const e of editaisRows) {
+    editaisPorStatus[e.status] = (editaisPorStatus[e.status] ?? 0) + 1;
+  }
+  const editais = {
+    total: editaisRows.length,
+    por_status: {
+      inscrito: editaisPorStatus.inscrito ?? 0,
+      aprovado: editaisPorStatus.aprovado ?? 0,
+      reprovado: editaisPorStatus.reprovado ?? 0,
+    },
+    lista: editaisRows.map((e) => ({
+      codigo: e.code,
+      nome: e.applicant_name,
+      titulo: e.title,
+      situacao: e.situation,
+      status: e.status,
+    })),
+  };
+
+  const response = {
+    ok: true,
+    gerado_em: new Date().toISOString(),
+    filtro_projetos: projectIds ?? "todos",
+    data_corte: perfil.data_corte,
+    projetos_lista: allActive.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
+    // Soma das matrículas por projeto (aluno em 2 projetos conta 2x).
+    total_alunos_em_turmas: perfil.total_matriculas_por_projeto ?? 0,
+    // Cada aluno uma vez só, mesmo estando em mais de um projeto.
+    alunos_unicos: perfil.alunos_unicos ?? 0,
+    por_projeto: perfilPorProjeto ?? [],
+    bairros: perfil.bairros ?? [],
+    instituicao: perfil.instituicao ?? [],
+    idades: perfil.idades ?? [],
+    escolaridade: perfil.escolaridade ?? [],
+    // Entradas, saídas e ativos no fim de cada mês (até a data de corte). Também em cada por_projeto.
+    saidas_por_mes: perfil.saidas_por_mes ?? [],
+    generos,
+    perfil,
+    frequencia: freq,
+    reunioes: {
+      total: totalReunioes,
+      total_horas: totalHorasReunioes,
+    },
+    horas_aula: {
+      total_relatorios_enviados: totalRelatorios,
+      total_prestacao_contas: totalPrestacaoContas,
+      total_horas: totalHorasRelatorios + totalHorasPrestacoes,
+    },
+    editais,
+  };
+  return JSON.stringify(response, null, 2);
+}
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -93,163 +272,50 @@ serve(async (req) => {
       });
     }
 
-    // Chama as RPCs em paralelo
-    const rpcParams: Record<string, unknown> = projectIds ? { p_project_ids: projectIds } : {};
-    const rpcParamsCorte: Record<string, unknown> = { ...rpcParams, ...(corteParam ? { p_ate: corteParam } : {}) };
-
-    // Always fetch all active projects for projetos_lista (filter buttons)
-    const { data: allActiveProjects } = await client
-      .from("projects")
-      .select("id, name")
-      .is("finalized_at", null);
-    const allActive = allActiveProjects ?? [];
-    const allActiveIds = allActive.map((p: { id: string; name: string }) => p.id);
-
-    const activeProjectIds: string[] = projectIds ?? allActiveIds;
-
-    // Pesos fixos de carga horária (1 aula = 2h, demais = 1h flat)
-    const HORAS_POR_AULA = 2;
-    const HORAS_POR_RELATORIO = 1;
-    const HORAS_POR_REUNIAO = 1;
-    const HORAS_POR_PRESTACAO = 1;
-
-    const meetingQuery = client
-      .from("meeting_minutes")
-      .select("id")
-      .in("project_id", activeProjectIds);
-    const reportsQuery = client
-      .from("monthly_reports")
-      .select("id")
-      .not("submitted_at", "is", null)
-      .in("project_id", activeProjectIds);
-
-    const prestacaoQuery = client
-      .from("prestacao_contas_reports")
-      .select("id")
-      .in("project_id", activeProjectIds);
-
-    // Editais não são vinculados a projeto — sempre globais.
-    const editaisQuery = client
-      .from("editais")
-      .select("code, applicant_name, title, situation, status")
-      .order("created_at", { ascending: false });
-
-    const [freqResult, meetingResult, reportsResult, prestacaoResult, editaisResult, genderResult, perfilResult] = await Promise.all([
-      client.rpc("public_attendance_stats", rpcParamsCorte),
-      meetingQuery,
-      reportsQuery,
-      prestacaoQuery,
-      editaisQuery,
-      client.rpc("public_gender_stats", rpcParamsCorte),
-      client.rpc("public_perfil_stats", rpcParamsCorte),
-    ]);
-
-    if (perfilResult.error || !perfilResult.data) {
-      console.error("[public-stats-api] rpc error (perfil)", perfilResult.error);
-      return new Response(JSON.stringify({ ok: false, error: "query_failed" }), {
+    const failResponse = () =>
+      new Response(JSON.stringify({ ok: false, error: "query_failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+
+    // Cache desligado: comportamento idêntico ao anterior.
+    if (CACHE_TTL_MS <= 0) {
+      const body = await buildStatsBody(client, projectIds, corteParam);
+      return body ? jsonOk(body, "BYPASS", 0) : failResponse();
     }
 
-    // Perfil na data de corte: geral (alunos únicos) + por_projeto (cada um com os mesmos recortes).
-    const { por_projeto: perfilPorProjeto, ...perfil } = perfilResult.data as Record<string, any>;
-    const freq = freqResult.data ?? { ano: null, mensal: [], anual: {} };
-    const meetings = meetingResult.data ?? [];
-    const totalReunioes = meetings.length;
-    const totalHorasReunioes = totalReunioes * HORAS_POR_REUNIAO;
+    // Chave = filtros exatamente como recebidos (a resposta ecoa `filtro_projetos` na mesma ordem).
+    // Sem data_corte, o "hoje" entra na chave para não atravessar a virada do dia.
+    const cacheKey = JSON.stringify([projectIds, corteParam ?? `hoje:${new Date().toISOString().slice(0, 10)}`]);
+    const now = Date.now();
 
-    const reports = reportsResult.data ?? [];
-    if (reportsResult.error) {
-      console.error("[public-stats-api] query error (monthly_reports)", reportsResult.error);
-    }
-    const totalRelatorios = reports.length;
-    const totalHorasRelatorios = totalRelatorios * HORAS_POR_RELATORIO;
-
-    const prestacaoReports = prestacaoResult.data ?? [];
-    if (prestacaoResult.error) {
-      console.error("[public-stats-api] query error (prestacao_contas_reports)", prestacaoResult.error);
-    }
-    const totalPrestacaoContas = prestacaoReports.length;
-    const totalHorasPrestacoes = totalPrestacaoContas * HORAS_POR_PRESTACAO;
-
-    if (freqResult.error) {
-      console.error("[public-stats-api] rpc error (attendance)", freqResult.error);
+    const hit = statsCache.get(cacheKey);
+    if (hit && now - hit.at < CACHE_TTL_MS) {
+      const cached = await hit.body; // se outra chamada igual ainda está calculando, aguarda a mesma
+      if (cached) return jsonOk(cached, "HIT", Math.floor((Date.now() - hit.at) / 1000));
+      // a computação compartilhada falhou: calcula normalmente abaixo
     }
 
-    if (genderResult.error) {
-      console.error("[public-stats-api] rpc error (gender)", genderResult.error);
+    // Limpa expiradas e limita o tamanho (a chave vem de parâmetros da requisição).
+    for (const [k, e] of statsCache) {
+      if (now - e.at >= CACHE_TTL_MS) statsCache.delete(k);
     }
-    const generos = genderResult.data ?? { total: 0, generos: [], por_projeto: [] };
-
-    // --- Editais ---
-    type EditalRow = {
-      code: string | null;
-      applicant_name: string | null;
-      title: string;
-      situation: string | null;
-      status: string;
-    };
-    const editaisRows = (editaisResult.data ?? []) as EditalRow[];
-    if (editaisResult.error) {
-      console.error("[public-stats-api] query error (editais)", editaisResult.error);
+    while (statsCache.size >= CACHE_MAX_ENTRIES) {
+      const oldest = statsCache.keys().next().value;
+      if (oldest === undefined) break;
+      statsCache.delete(oldest);
     }
-    const editaisPorStatus = { inscrito: 0, aprovado: 0, reprovado: 0 } as Record<string, number>;
-    for (const e of editaisRows) {
-      editaisPorStatus[e.status] = (editaisPorStatus[e.status] ?? 0) + 1;
-    }
-    const editais = {
-      total: editaisRows.length,
-      por_status: {
-        inscrito: editaisPorStatus.inscrito ?? 0,
-        aprovado: editaisPorStatus.aprovado ?? 0,
-        reprovado: editaisPorStatus.reprovado ?? 0,
-      },
-      lista: editaisRows.map((e) => ({
-        codigo: e.code,
-        nome: e.applicant_name,
-        titulo: e.title,
-        situacao: e.situation,
-        status: e.status,
-      })),
-    };
 
-    const response = {
-      ok: true,
-      gerado_em: new Date().toISOString(),
-      filtro_projetos: projectIds ?? "todos",
-      data_corte: perfil.data_corte,
-      projetos_lista: allActive.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })),
-      // Soma das matrículas por projeto (aluno em 2 projetos conta 2x).
-      total_alunos_em_turmas: perfil.total_matriculas_por_projeto ?? 0,
-      // Cada aluno uma vez só, mesmo estando em mais de um projeto.
-      alunos_unicos: perfil.alunos_unicos ?? 0,
-      por_projeto: perfilPorProjeto ?? [],
-      bairros: perfil.bairros ?? [],
-      instituicao: perfil.instituicao ?? [],
-      idades: perfil.idades ?? [],
-      escolaridade: perfil.escolaridade ?? [],
-      // Entradas, saídas e ativos no fim de cada mês (até a data de corte). Também em cada por_projeto.
-      saidas_por_mes: perfil.saidas_por_mes ?? [],
-      generos,
-      perfil,
-      frequencia: freq,
-      reunioes: {
-        total: totalReunioes,
-        total_horas: totalHorasReunioes,
-      },
-      horas_aula: {
-        total_relatorios_enviados: totalRelatorios,
-        total_prestacao_contas: totalPrestacaoContas,
-        total_horas: totalHorasRelatorios + totalHorasPrestacoes,
-      },
-      editais,
-    };
+    const entry: CacheEntry = { at: now, body: buildStatsBody(client, projectIds, corteParam) };
+    statsCache.set(cacheKey, entry);
+    // Falha (null ou exceção) não fica guardada: a próxima chamada tenta de novo.
+    entry.body.then(
+      (b) => { if (!b && statsCache.get(cacheKey) === entry) statsCache.delete(cacheKey); },
+      () => { if (statsCache.get(cacheKey) === entry) statsCache.delete(cacheKey); },
+    );
 
-    return new Response(JSON.stringify(response, null, 2), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const body = await entry.body;
+    return body ? jsonOk(body, "MISS", 0) : failResponse();
   } catch (err) {
     console.error("[public-stats-api] unexpected error", err);
     return new Response(JSON.stringify({ ok: false, error: "internal_error" }), {
