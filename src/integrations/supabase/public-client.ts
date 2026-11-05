@@ -1,8 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { resolveSupabaseUrl } from "./resolve-url";
 
 // ETAPA 1 (ADR-001): cliente público também deve usar apenas env.
 
-const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// Em produção vira "<domínio>/sb" (ver resolve-url.ts).
+const envUrl = resolveSupabaseUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 const supabaseConfigured = Boolean(envUrl && envAnonKey);

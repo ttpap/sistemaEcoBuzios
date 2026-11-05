@@ -1,9 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
+import { resolveSupabaseUrl } from "./resolve-url";
 
 // ETAPA 1 (ADR-001): o app deve usar UM Supabase oficial via env.
 // Não existe fallback silencioso e não existe configuração runtime.
 
-const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// Em produção vira "<domínio>/sb" (ver resolve-url.ts).
+const envUrl = resolveSupabaseUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 export const supabaseConfigured = Boolean(envUrl && envAnonKey);
