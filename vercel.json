@@ -1,7 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    {
+      "source": "/sb/:path*",
+      "destination": "https://ixgujnhdjrgoakqzdkgx.supabase.co/:path*"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
