@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { getCoordinatorSessionCoordinatorId } from "@/utils/coordinator-auth";
 import {
   DEFAULT_COORDINATOR_PASSWORD,
@@ -42,11 +43,14 @@ export default function CoordinatorAccount() {
     showSuccess("Senha atualizada.");
   };
 
-  const onReset = () => {
+  const onReset = async () => {
     if (!coordinatorId) return;
-    const ok = window.confirm(
-      `Resetar sua senha para a senha padrão (${DEFAULT_COORDINATOR_PASSWORD})?`,
-    );
+    const ok = await confirmDialog({
+      title: "Resetar sua senha?",
+      description: `Sua senha será redefinida para a senha padrão (${DEFAULT_COORDINATOR_PASSWORD}).`,
+      confirmText: "Resetar senha",
+      destructive: true,
+    });
     if (!ok) return;
     resetCoordinatorPasswordToDefault(coordinatorId);
     setPw1("");

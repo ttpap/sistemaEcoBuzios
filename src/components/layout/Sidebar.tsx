@@ -131,13 +131,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                     to={item.path}
                     onClick={() => onNavigate?.()}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                       isActive
                         ? "bg-white shadow-sm border border-slate-200 text-primary"
                         : "text-slate-600 hover:bg-white/60 hover:text-primary",
                     )}
                   >
-                    <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
+                    <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-500")} />
                     {item.label}
                   </Link>
                 );
@@ -163,7 +163,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
             <span className="flex-1 text-left min-w-0">
               <span>Projetos</span>
               {hasActiveProject && activeProject && (
-                <span className="ml-1 text-[10px] font-bold text-slate-400 truncate"> — {activeProject.name}</span>
+                <span className="ml-1 text-xs font-bold text-slate-500 truncate"> — {activeProject.name}</span>
               )}
             </span>
             <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 shrink-0", projetosOpen ? "rotate-180" : "")} />
@@ -190,7 +190,7 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                         <p className="text-xs font-black text-slate-800 truncate">{activeProject?.name || "Projeto"}</p>
                         <BadgeCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       </div>
-                      <p className="text-[10px] font-bold text-slate-400">Projeto ativo</p>
+                      <p className="text-xs font-bold text-slate-500">Projeto ativo</p>
                     </div>
                   </div>
                   <Link
@@ -206,13 +206,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                   to="/projetos"
                   onClick={() => onNavigate?.()}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                    "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                     location.pathname === '/projetos'
                       ? "bg-white shadow-sm border border-slate-200 text-primary"
                       : "text-slate-600 hover:bg-white/60 hover:text-primary",
                   )}
                 >
-                  <FolderPlus className={cn("h-4 w-4", location.pathname === '/projetos' ? "text-primary" : "text-slate-400")} />
+                  <FolderPlus className={cn("h-4 w-4", location.pathname === '/projetos' ? "text-primary" : "text-slate-500")} />
                   Selecionar projeto
                 </Link>
               )}
@@ -228,13 +228,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                         to={item.path}
                         onClick={() => onNavigate?.()}
                         className={cn(
-                          "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                          "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                           isActive
                             ? "bg-white shadow-sm border border-slate-200 text-primary"
                             : "text-slate-600 hover:bg-white/60 hover:text-primary",
                         )}
                       >
-                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
+                        <item.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-500")} />
                         {item.label}
                       </Link>
                     );
@@ -246,13 +246,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                       type="button"
                       onClick={() => setReportsOpen((v) => !v)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                         location.pathname.startsWith('/relatorios')
                           ? "bg-white shadow-sm border border-slate-200 text-primary"
                           : "text-slate-600 hover:bg-white/60 hover:text-primary",
                       )}
                     >
-                      <BarChart3 className={cn("h-4 w-4", location.pathname.startsWith('/relatorios') ? "text-primary" : "text-slate-400")} />
+                      <BarChart3 className={cn("h-4 w-4", location.pathname.startsWith('/relatorios') ? "text-primary" : "text-slate-500")} />
                       <span className="flex-1 text-left">Relatórios</span>
                       <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", reportsOpen ? "rotate-180" : "")} />
                     </button>
@@ -272,13 +272,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                               to={child.path}
                               onClick={() => onNavigate?.()}
                               className={cn(
-                                "flex items-center gap-3 px-4 py-2 rounded-2xl text-sm font-black transition-colors",
+                                "flex items-center gap-3 px-4 py-2 rounded-2xl text-sm font-bold transition-colors",
                                 isActive
                                   ? "bg-white shadow-sm border border-slate-200 text-primary"
                                   : "text-slate-500 hover:bg-white/60 hover:text-primary",
                               )}
                             >
-                              <child.icon className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-slate-400")} />
+                              <child.icon className={cn("h-3.5 w-3.5", isActive ? "text-primary" : "text-slate-500")} />
                               {child.label}
                             </Link>
                           );
@@ -291,13 +291,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                     to="/ata-reuniao"
                     onClick={() => onNavigate?.()}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                       location.pathname === '/ata-reuniao'
                         ? "bg-white shadow-sm border border-slate-200 text-primary"
                         : "text-slate-600 hover:bg-white/60 hover:text-primary",
                     )}
                   >
-                    <ClipboardList className={cn("h-4 w-4", location.pathname === '/ata-reuniao' ? "text-primary" : "text-slate-400")} />
+                    <ClipboardList className={cn("h-4 w-4", location.pathname === '/ata-reuniao' ? "text-primary" : "text-slate-500")} />
                     Ata de Reunião
                   </Link>
 
@@ -305,13 +305,13 @@ const Sidebar = ({ mode = "desktop", onNavigate }: { mode?: "desktop" | "mobile"
                     to="/certificados"
                     onClick={() => onNavigate?.()}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                      "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                       location.pathname === '/certificados'
                         ? "bg-white shadow-sm border border-slate-200 text-primary"
                         : "text-slate-600 hover:bg-white/60 hover:text-primary",
                     )}
                   >
-                    <Award className={cn("h-4 w-4", location.pathname === '/certificados' ? "text-primary" : "text-slate-400")} />
+                    <Award className={cn("h-4 w-4", location.pathname === '/certificados' ? "text-primary" : "text-slate-500")} />
                     Certificados
                   </Link>
                 </>

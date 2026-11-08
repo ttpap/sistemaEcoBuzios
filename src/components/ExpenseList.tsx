@@ -94,7 +94,7 @@ const ExpenseList = ({ expenses, onDeleteExpense, onEditExpense }: ExpenseListPr
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button
+                                  <Button aria-label="Ver detalhes" title="Ver detalhes"
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 text-primary hover:bg-primary/10"
@@ -113,7 +113,7 @@ const ExpenseList = ({ expenses, onDeleteExpense, onEditExpense }: ExpenseListPr
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button
+                                  <Button aria-label="Baixar" title="Baixar"
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 text-green-600 hover:bg-green-50"
@@ -145,7 +145,7 @@ const ExpenseList = ({ expenses, onDeleteExpense, onEditExpense }: ExpenseListPr
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button
+                          <Button aria-label="Editar" title="Editar"
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-slate-600 hover:text-primary hover:bg-primary/10"
@@ -153,7 +153,7 @@ const ExpenseList = ({ expenses, onDeleteExpense, onEditExpense }: ExpenseListPr
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
+                          <Button aria-label="Excluir" title="Excluir"
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"

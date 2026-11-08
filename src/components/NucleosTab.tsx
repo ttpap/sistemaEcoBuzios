@@ -19,6 +19,7 @@ import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import type { StudentRegistration } from "@/types/student";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import {
   upsertClassRemote,
   deleteClassRemote,
@@ -168,7 +169,15 @@ const NucleosTab: React.FC<Props> = ({
   };
 
   const removeNucleo = async (n: SchoolClass) => {
-    if (!window.confirm(`Excluir o núcleo "${n.name}"?`)) return;
+    if (
+      !(await confirmDialog({
+        title: "Excluir núcleo?",
+        description: `O núcleo "${n.name}" será excluído.`,
+        confirmText: "Excluir",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteClassRemote(n.id);
       showSuccess("Núcleo excluído.");
@@ -235,7 +244,7 @@ const NucleosTab: React.FC<Props> = ({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Button
+            <Button aria-label="Anterior" title="Anterior"
               variant="ghost" size="icon"
               className="rounded-xl bg-white shadow-sm border border-slate-100"
               onClick={() => setSelectedId(null)}
@@ -254,7 +263,7 @@ const NucleosTab: React.FC<Props> = ({
             </div>
           </div>
           {!isTeacherArea && (
-            <Button
+            <Button aria-label="Excluir núcleo"
               variant="ghost" size="icon"
               className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 border border-slate-100 bg-white shadow-sm"
               onClick={() => removeNucleo(selected)}
@@ -287,9 +296,9 @@ const NucleosTab: React.FC<Props> = ({
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-3">
                   {detailLoading ? (
-                    <p className="text-slate-400 text-sm italic">Carregando...</p>
+                    <p className="text-slate-500 text-sm italic">Carregando...</p>
                   ) : teacherIds.length === 0 ? (
-                    <p className="text-slate-400 text-sm italic">Nenhum professor vinculado à turma-mãe.</p>
+                    <p className="text-slate-500 text-sm italic">Nenhum professor vinculado à turma-mãe.</p>
                   ) : (
                     allTeachers
                       .filter((t) => teacherIds.includes(t.id))
@@ -323,7 +332,7 @@ const NucleosTab: React.FC<Props> = ({
                           Alunos matriculados em qualquer turma deste projeto.
                         </p>
                         <div className="relative mt-4">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                           <Input
                             placeholder="Nome ou matrícula..."
                             className="pl-12 h-12 rounded-2xl bg-slate-50"
@@ -334,7 +343,7 @@ const NucleosTab: React.FC<Props> = ({
                           {studentSearch && (
                             <button
                               onClick={() => setStudentSearch("")}
-                              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400"
+                              className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-500"
                             >
                               <X className="h-4 w-4" />
                             </button>
@@ -343,7 +352,7 @@ const NucleosTab: React.FC<Props> = ({
                       </DialogHeader>
                       <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-2">
                         {availableStudents.length === 0 ? (
-                          <p className="text-slate-400 text-sm italic text-center py-8">
+                          <p className="text-slate-500 text-sm italic text-center py-8">
                             Nenhum aluno disponível.
                           </p>
                         ) : (
@@ -374,9 +383,9 @@ const NucleosTab: React.FC<Props> = ({
                 </CardHeader>
                 <CardContent className="p-6 pt-0 space-y-3">
                   {detailLoading ? (
-                    <p className="text-slate-400 text-sm italic">Carregando...</p>
+                    <p className="text-slate-500 text-sm italic">Carregando...</p>
                   ) : nucleoStudents.length === 0 ? (
-                    <p className="text-slate-400 text-sm italic">Nenhum aluno no núcleo.</p>
+                    <p className="text-slate-500 text-sm italic">Nenhum aluno no núcleo.</p>
                   ) : (
                     nucleoStudents.map((s) => (
                       <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group gap-3">
@@ -393,7 +402,7 @@ const NucleosTab: React.FC<Props> = ({
                             <p className="text-xs font-bold text-slate-500">{s.registration}</p>
                           </div>
                         </div>
-                        <Button
+                        <Button aria-label="Excluir" title="Excluir"
                           variant="ghost" size="icon"
                           className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => removeStudentFromNucleo(s.id)}
@@ -466,13 +475,13 @@ const NucleosTab: React.FC<Props> = ({
       </div>
 
       {loading ? (
-        <p className="text-slate-400 text-sm italic">Carregando núcleos...</p>
+        <p className="text-slate-500 text-sm italic">Carregando núcleos...</p>
       ) : nucleos.length === 0 ? (
         <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.5rem]">
           <CardContent className="p-10 text-center">
             <Layers className="h-10 w-10 text-slate-200 mx-auto mb-3" />
             <p className="text-slate-500 font-bold">Nenhum núcleo criado ainda.</p>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-slate-500 text-sm mt-1">
               Crie subturmas temáticas para agrupar alunos dentro desta turma.
             </p>
           </CardContent>
@@ -489,7 +498,7 @@ const NucleosTab: React.FC<Props> = ({
                 <div className="flex items-center justify-between">
                   <Badge className="bg-secondary text-primary font-black border-none">Núcleo</Badge>
                   {!isTeacherArea && (
-                    <Button
+                    <Button aria-label="Excluir" title="Excluir"
                       variant="ghost" size="icon"
                       className="text-red-400 hover:text-red-600"
                       onClick={(e) => { e.stopPropagation(); void removeNucleo(n); }}

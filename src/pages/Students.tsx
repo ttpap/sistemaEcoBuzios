@@ -23,6 +23,9 @@ import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import StudentAvatar from '@/components/StudentAvatar';
 import { getStudentPhoto } from '@/utils/student-photo-cache';
 import { showError, showSuccess } from '@/utils/toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
+import EmptyState from '@/components/EmptyState';
+import { ListSkeleton } from '@/components/LoadingSkeletons';
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from '@/utils/storage';
 import { normalizeStudentRegistrations } from '@/utils/student-registration';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
@@ -154,7 +157,14 @@ const Students = () => {
 
   const handleDelete = (id: string) => {
     const run = async () => {
-      if (!window.confirm("Tem certeza que deseja excluir este aluno?")) return;
+      const target = students.find((s) => s.id === id);
+      const ok = await confirmDialog({
+        title: "Excluir este aluno?",
+        description: `${target?.fullName ? `${target.fullName}${target.registration ? ` (${target.registration})` : ""} será removido(a). ` : ""}Esta ação não pode ser desfeita.`,
+        confirmText: "Excluir aluno",
+        destructive: true,
+      });
+      if (!ok) return;
 
       try {
         await deleteStudent(id);
@@ -209,6 +219,30 @@ const Students = () => {
     setIsDetailsOpen(true);
   };
 
+  const studentsEmptyState = searchTerm.trim() ? (
+    <EmptyState
+      icon={Search}
+      title="Nenhum aluno encontrado"
+      description={`Nada corresponde a "${searchTerm.trim()}". Confira a grafia ou busque pela matrícula.`}
+      action={
+        <Button variant="outline" className="rounded-2xl font-bold" onClick={() => setSearchTerm("")}>
+          Limpar busca
+        </Button>
+      }
+    />
+  ) : (
+    <EmptyState
+      icon={GraduationCap}
+      title="Nenhum aluno por aqui ainda"
+      description="Cadastre o primeiro aluno ou compartilhe o link de inscrição."
+      action={
+        <Button className="rounded-2xl font-bold gap-2" onClick={() => navigate(`${base}/alunos/novo`)}>
+          <Plus className="h-4 w-4" /> Novo aluno
+        </Button>
+      }
+    />
+  );
+
   return (
     <div className="space-y-6">
       <StudentDetailsDialog
@@ -235,7 +269,7 @@ const Students = () => {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar por nome ou matrícula..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -248,15 +282,12 @@ const Students = () => {
       {/* Mobile: cards */}
       <div className="md:hidden space-y-3">
         {isLoading ? (
-          <div className="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border border-slate-100">
-            <div className="flex items-center justify-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              Carregando alunos…
-            </div>
+          <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden">
+            <ListSkeleton rows={5} />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border border-slate-100">
-            Nenhum aluno encontrado.
+          <div className="bg-white rounded-[2rem] border border-slate-100">
+            {studentsEmptyState}
           </div>
         ) : (
           filtered.map((student) => (
@@ -285,14 +316,14 @@ const Students = () => {
                 >
                   <div className="font-bold text-slate-700 truncate">{student.fullName}</div>
                   {(student.socialName || student.preferredName) && (
-                    <div className="text-xs font-bold text-slate-400 truncate">
+                    <div className="text-xs font-bold text-slate-500 truncate">
                       {student.socialName || student.preferredName}
                     </div>
                   )}
                   <div className="mt-1 flex items-center gap-2 flex-wrap">
                     <span className="text-xs text-slate-500 font-medium">Mat: {student.registration}</span>
                     <Badge className={cn(
-                      "rounded-full border-none font-black px-2 text-[10px]",
+                      "rounded-full border-none font-black px-2 text-xs",
                       student.status === 'Ativo'
                         ? 'bg-emerald-50 text-emerald-600'
                         : 'bg-slate-100 text-slate-500'
@@ -323,8 +354,9 @@ const Students = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                    className="rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
                     onClick={() => handleDelete(student.id)}
+                    aria-label={`Excluir ${student.fullName}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -340,26 +372,23 @@ const Students = () => {
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow className="hover:bg-transparent border-slate-100">
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Aluno</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Matrícula</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Status</TableHead>
-              <TableHead className="text-right font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Ações</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest px-8">Aluno</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest">Matrícula</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest">Status</TableHead>
+              <TableHead className="text-right font-bold text-slate-500 uppercase text-xs tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                    Carregando alunos…
-                  </div>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="p-0">
+                  <ListSkeleton rows={8} />
                 </TableCell>
               </TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
-                  Nenhum aluno encontrado.
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="p-0">
+                  {studentsEmptyState}
                 </TableCell>
               </TableRow>
             ) : (
@@ -391,7 +420,7 @@ const Students = () => {
                       <div className="min-w-0">
                         <div className="text-slate-700 truncate underline-offset-2 hover:underline">{student.fullName}</div>
                         {(student.socialName || student.preferredName) && (
-                          <div className="text-xs font-bold text-slate-400 truncate">
+                          <div className="text-xs font-bold text-slate-500 truncate">
                             {student.socialName || student.preferredName}
                           </div>
                         )}
@@ -416,6 +445,8 @@ const Students = () => {
                         size="icon"
                         className="rounded-xl text-slate-500 hover:text-primary hover:bg-primary/10"
                         onClick={() => openDetails(student)}
+                        aria-label={`Ver ficha de ${student.fullName}`}
+                        title="Ver ficha"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -431,8 +462,10 @@ const Students = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                          className="rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
                           onClick={() => handleDelete(student.id)}
+                          aria-label={`Excluir ${student.fullName}`}
+                          title="Excluir aluno"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

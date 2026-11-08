@@ -526,7 +526,7 @@ export default function StudentDashboard() {
               <Separator />
               {canJustify ? (
                 <div className="rounded-[1.75rem] border border-sky-100 bg-sky-50/60 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-sky-600">
+                  <p className="text-xs font-black uppercase tracking-widest text-sky-600">
                     {detailTarget.ymd >= todayYmd ? "Justificativa prévia de falta" : "Justificar falta"}
                   </p>
                   {detailTarget.ymd >= todayYmd ? (
@@ -556,7 +556,7 @@ export default function StudentDashboard() {
                   <p className="mt-1 text-xs font-bold text-slate-500">A chamada já foi fechada. Não é possível enviar/editar justificativa.</p>
                   {detailTarget.justificationMessage ? (
                     <div className="mt-3 rounded-2xl border border-slate-100 bg-white p-4">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Enviada</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Enviada</p>
                       <p className="mt-2 text-sm font-bold text-slate-700 whitespace-pre-wrap">{detailTarget.justificationMessage}</p>
                     </div>
                   ) : null}
@@ -606,7 +606,7 @@ export default function StudentDashboard() {
               { label: "Faltas", count: annualTotals.falta, bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
             ].map(({ label, count, bg, text, border }) => (
               <div key={label} className={`rounded-[1.5rem] border ${border} ${bg} p-4`}>
-                <p className={`text-[10px] font-black uppercase tracking-widest ${text}`}>{label}</p>
+                <p className={`text-xs font-black uppercase tracking-widest ${text}`}>{label}</p>
                 <p className={`mt-1 text-3xl font-black ${text}`}>{yearLoading ? "…" : count}</p>
                 {annualTotals.total > 0 && !yearLoading ? (
                   <p className={`mt-1 text-xs font-bold ${text} opacity-70`}>
@@ -619,9 +619,9 @@ export default function StudentDashboard() {
 
           {/* Monthly bar chart */}
           <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/50 p-4">
-            <p className="mb-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Por mês</p>
+            <p className="mb-4 text-xs font-black uppercase tracking-widest text-slate-500">Por mês</p>
             {yearLoading ? (
-              <div className="flex items-center justify-center h-[220px] text-sm font-bold text-slate-400">Carregando…</div>
+              <div className="flex items-center justify-center h-[220px] text-sm font-bold text-slate-500">Carregando…</div>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthlyStats} margin={{ top: 0, right: 8, left: -20, bottom: 0 }} barSize={6}>
@@ -668,7 +668,7 @@ export default function StudentDashboard() {
         <CardContent className="p-6 sm:p-8 pt-0">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Login</p>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Login</p>
               <div className="mt-2 flex items-center gap-2">
                 <IdCard className="h-4 w-4 text-primary" />
                 <p className="text-2xl font-black tracking-tight text-slate-900">{login}</p>
@@ -676,7 +676,7 @@ export default function StudentDashboard() {
               <p className="mt-2 text-xs font-bold text-slate-500">Matrícula: {student.registration}</p>
             </div>
             <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha</p>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</p>
               <div className="mt-2 flex items-center gap-2">
                 <FileCheck2 className="h-4 w-4 text-primary" />
                 <p className="text-2xl font-black tracking-tight text-slate-900">••••••••</p>

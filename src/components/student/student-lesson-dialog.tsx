@@ -69,7 +69,7 @@ export function StudentLessonDialog(props: {
 
             {r.justificationMessage ? (
               <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Justificativa</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Justificativa</p>
                 <p className="mt-2 text-sm font-bold text-slate-700 whitespace-pre-wrap">{r.justificationMessage}</p>
               </div>
             ) : null}

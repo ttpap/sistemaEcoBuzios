@@ -23,6 +23,7 @@ import ActiveProjectGate from "@/components/ActiveProjectGate";
 import TeacherActiveProjectGate from "@/components/TeacherActiveProjectGate";
 import CoordinatorActiveProjectGate from "@/components/CoordinatorActiveProjectGate";
 import StudentActiveProjectGate from "@/components/StudentActiveProjectGate";
+import { ConfirmDialogHost } from "@/components/ConfirmDialog";
 
 // Páginas — carregadas sob demanda (code splitting)
 const Dashboard                   = lazy(() => import("./pages/Dashboard"));
@@ -107,6 +108,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <ConfirmDialogHost />
         <BrowserRouter>
           <ProjectTheme />
           <Suspense fallback={<PageLoader />}>

@@ -248,7 +248,7 @@ export default function EnelReport() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2rem] overflow-hidden max-w-lg w-full">
           <CardContent className="p-8">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">403</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">403</p>
             <h1 className="mt-2 text-2xl font-black text-slate-900">Não autorizado</h1>
             <p className="mt-2 text-sm font-medium text-slate-600">
               O Relatório ENEL está disponível apenas para Administrador, Coordenador e Professor.
@@ -263,7 +263,7 @@ export default function EnelReport() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
           <h1 className="text-3xl font-black text-primary tracking-tight flex items-center gap-2">
             <Zap className="h-6 w-6" /> Relatório ENEL
           </h1>
@@ -391,17 +391,17 @@ export default function EnelReport() {
                       <div className="min-w-0">
                         <p className="font-bold text-slate-800 text-sm">{idx + 1}. {row.fullName}</p>
                         {row.socialName && (
-                          <p className="text-[11px] text-slate-400 italic">({row.socialName})</p>
+                          <p className="text-xs text-slate-500 italic">({row.socialName})</p>
                         )}
                         <p className="text-xs text-slate-500">{row.className || "—"}</p>
                       </div>
-                      {row.age && <span className="text-xs font-bold text-slate-400 shrink-0">{row.age}a</span>}
+                      {row.age && <span className="text-xs font-bold text-slate-500 shrink-0">{row.age}a</span>}
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                      <div><span className="text-slate-400">CPF:</span> <span className="font-mono text-slate-600">{row.cpf || "—"}</span></div>
-                      {includeEnelNumber && <div><span className="text-slate-400">ENEL:</span> <span className="font-mono text-slate-600">{row.enelClientNumber || "—"}</span></div>}
-                      <div><span className="text-slate-400">Tel:</span> <span className="text-slate-600">{row.cellPhone || "—"}</span></div>
-                      <div><span className="text-slate-400">Nasc:</span> <span className="text-slate-600">{row.birthDate || "—"}</span></div>
+                      <div><span className="text-slate-500">CPF:</span> <span className="font-mono text-slate-600">{row.cpf || "—"}</span></div>
+                      {includeEnelNumber && <div><span className="text-slate-500">ENEL:</span> <span className="font-mono text-slate-600">{row.enelClientNumber || "—"}</span></div>}
+                      <div><span className="text-slate-500">Tel:</span> <span className="text-slate-600">{row.cellPhone || "—"}</span></div>
+                      <div><span className="text-slate-500">Nasc:</span> <span className="text-slate-600">{row.birthDate || "—"}</span></div>
                     </div>
                   </div>
                 ))}
@@ -426,11 +426,11 @@ export default function EnelReport() {
                   <tbody className="divide-y divide-slate-50">
                     {rows.map((row, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-4 py-3 font-bold text-slate-400">{idx + 1}</td>
+                        <td className="px-4 py-3 font-bold text-slate-500">{idx + 1}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="font-bold text-slate-800">{row.fullName}</div>
                           {row.socialName && (
-                            <div className="text-[11px] text-slate-400 italic">({row.socialName})</div>
+                            <div className="text-xs text-slate-500 italic">({row.socialName})</div>
                           )}
                         </td>
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{row.className || "—"}</td>

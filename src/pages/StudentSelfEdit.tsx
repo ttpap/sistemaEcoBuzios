@@ -46,7 +46,7 @@ export default function StudentSelfEdit() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 gap-2 text-slate-400 font-medium">
+      <div className="flex items-center justify-center py-20 gap-2 text-slate-500 font-medium">
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         Carregando seus dados…
       </div>
@@ -67,7 +67,7 @@ export default function StudentSelfEdit() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button
+        <Button aria-label="Voltar" title="Voltar"
           variant="ghost"
           size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"

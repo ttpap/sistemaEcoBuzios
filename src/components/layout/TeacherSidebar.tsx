@@ -130,12 +130,12 @@ export default function TeacherSidebar({
                 </p>
                 <BadgeCheck className="h-4 w-4 text-emerald-600" />
               </div>
-              <p className="text-[11px] font-bold text-slate-500">Área do professor</p>
+              <p className="text-xs font-bold text-slate-500">Área do professor</p>
             </div>
           </div>
 
           <div className="mt-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Projeto</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Projeto</p>
             <Select value={selectedProjectId || ""} onValueChange={onChangeProject}>
               <SelectTrigger className="h-11 rounded-2xl bg-white border-slate-200">
                 <SelectValue placeholder="Selecione" />
@@ -186,13 +186,13 @@ export default function TeacherSidebar({
                           to={child.path}
                           onClick={() => onNavigate?.()}
                           className={cn(
-                            "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-black transition-colors",
+                            "flex items-center gap-3 px-4 py-2.5 rounded-2xl text-sm font-bold transition-colors",
                             isActive
                               ? "bg-white shadow-sm border border-slate-200 text-primary"
                               : "text-slate-600 hover:bg-white/60 hover:text-primary",
                           )}
                         >
-                          <child.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-400")} />
+                          <child.icon className={cn("h-4 w-4", isActive ? "text-primary" : "text-slate-500")} />
                           {child.label}
                         </Link>
                       );

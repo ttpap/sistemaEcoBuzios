@@ -15,6 +15,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { showError, showSuccess } from '@/utils/toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
 import {
@@ -149,7 +150,15 @@ const Numeros = () => {
 
   const deleteNumero = async (nucleo: SchoolClass, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Excluir o número "${nucleo.name}"?`)) return;
+    if (
+      !(await confirmDialog({
+        title: "Excluir número?",
+        description: `O número "${nucleo.name}" será excluído.`,
+        confirmText: "Excluir",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteClassRemote(nucleo.id);
       showSuccess("Número excluído.");
@@ -233,7 +242,7 @@ const Numeros = () => {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar número por nome..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -247,7 +256,7 @@ const Numeros = () => {
         {filtered.length === 0 ? (
           <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
             <Layers className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-medium">Nenhum número cadastrado.</p>
+            <p className="text-slate-500 font-medium">Nenhum número cadastrado.</p>
           </div>
         ) : (
           filtered.map((nucleo, idx) => {
@@ -266,7 +275,7 @@ const Numeros = () => {
                       <Badge className={`rounded-full font-black border-none px-3 ${color.badge}`}>
                         {nucleo.period}
                       </Badge>
-                      <Button
+                      <Button aria-label="Excluir número"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-xl text-white/70 hover:text-white hover:bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -290,7 +299,7 @@ const Numeros = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-widest">
                     <AlertCircle className="h-4 w-4 text-secondary" />
                     Limite de {nucleo.absenceLimit} faltas
                   </div>

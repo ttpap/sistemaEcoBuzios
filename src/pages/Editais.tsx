@@ -180,7 +180,7 @@ export default function Editais() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2rem] overflow-hidden max-w-lg w-full">
           <CardContent className="p-8">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">403</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">403</p>
             <h1 className="mt-2 text-2xl font-black text-slate-900">Não autorizado</h1>
             <p className="mt-2 text-sm font-medium text-slate-600">
               O registro de Editais está disponível apenas para o Administrador.
@@ -195,7 +195,7 @@ export default function Editais() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Administração</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Administração</p>
           <h1 className="text-3xl font-black text-primary tracking-tight flex items-center gap-2">
             <FileSignature className="h-6 w-6" /> Editais
           </h1>
@@ -260,7 +260,7 @@ export default function Editais() {
 
                   {e.situation && (
                     <p className="mt-2 pl-1 text-sm font-bold text-slate-500">
-                      <span className="text-slate-400">Situação: </span>
+                      <span className="text-slate-500">Situação: </span>
                       {e.situation}
                     </p>
                   )}
@@ -286,7 +286,7 @@ export default function Editais() {
                         <XCircle className="h-3.5 w-3.5 mr-1" /> Reprovado
                       </Button>
                     )}
-                    <Button
+                    <Button aria-label="Editar"
                       size="icon"
                       variant="ghost"
                       className="rounded-xl h-8 w-8 text-slate-500 hover:bg-slate-100"
@@ -295,7 +295,7 @@ export default function Editais() {
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button aria-label="Excluir"
                       size="icon"
                       variant="ghost"
                       className="rounded-xl h-8 w-8 text-rose-500 hover:bg-rose-50"

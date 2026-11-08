@@ -106,7 +106,7 @@ export default function AdminLogin() {
               <div className="space-y-2">
                 <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -120,7 +120,7 @@ export default function AdminLogin() {
               <div className="space-y-2">
                 <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</Label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                   <Input
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

@@ -75,7 +75,7 @@ export default function PublicCoordinatorRegistration() {
                   <Users2 className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Inscrição</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Inscrição</p>
                   <h1 className="text-xl font-black text-primary tracking-tight">Cadastro de coordenador</h1>
                 </div>
               </div>
@@ -105,7 +105,7 @@ export default function PublicCoordinatorRegistration() {
             {!token ? (
               <Card className="border-none shadow-2xl shadow-slate-200/50 bg-white rounded-[2.5rem] overflow-hidden">
                 <CardContent className="p-10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Link inválido</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Link inválido</p>
                   <h2 className="mt-2 text-2xl font-black text-slate-900 tracking-tight">Solicite um novo link</h2>
                   <p className="mt-2 text-slate-600 font-medium">
                     Este link de inscrição precisa de um token. Peça ao administrador para gerar um novo link.

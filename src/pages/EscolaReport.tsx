@@ -368,7 +368,7 @@ export default function EscolaReport() {
       <div className="min-h-[60vh] flex items-center justify-center">
         <Card className="border-none shadow-xl shadow-slate-200/50 bg-white rounded-[2rem] overflow-hidden max-w-lg w-full">
           <CardContent className="p-8">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">403</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">403</p>
             <h1 className="mt-2 text-2xl font-black text-slate-900">Não autorizado</h1>
             <p className="mt-2 text-sm font-medium text-slate-600">
               O Relatório de Escolas está disponível apenas para Administrador, Coordenador e Professor.
@@ -383,7 +383,7 @@ export default function EscolaReport() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-6 flex-wrap">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
           <h1 className="text-3xl font-black text-primary tracking-tight flex items-center gap-2">
             <School className="h-6 w-6" /> Relatório de Escolas
           </h1>
@@ -475,7 +475,7 @@ export default function EscolaReport() {
                 <div className="mt-8 rounded-[2rem] border border-slate-100 bg-slate-50/60 p-10 text-center">
                   <School className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-black text-slate-600">Nenhum aluno para os filtros selecionados.</p>
-                  <p className="text-xs font-bold text-slate-400 mt-1">
+                  <p className="text-xs font-bold text-slate-500 mt-1">
                     Selecione um projeto e ajuste os filtros de escola e turma.
                   </p>
                 </div>
@@ -507,11 +507,11 @@ export default function EscolaReport() {
                         {sc.classes.map((cl) => (
                           <div key={cl.className} className="px-5 py-4">
                             <div className="flex items-center gap-2 mb-3">
-                              <GraduationCap className="h-4 w-4 text-slate-400" />
+                              <GraduationCap className="h-4 w-4 text-slate-500" />
                               <p className="text-sm font-black text-slate-700">{cl.className}</p>
                               <Badge
                                 variant="outline"
-                                className="rounded-full border-slate-200 text-slate-500 font-bold text-[11px]"
+                                className="rounded-full border-slate-200 text-slate-500 font-bold text-xs"
                               >
                                 {cl.students.length}
                               </Badge>
@@ -524,7 +524,7 @@ export default function EscolaReport() {
                                 >
                                   {st.full}
                                   {st.name !== st.full && (
-                                    <span className="font-medium text-slate-400">({st.name})</span>
+                                    <span className="font-medium text-slate-500">({st.name})</span>
                                   )}
                                 </span>
                               ))}

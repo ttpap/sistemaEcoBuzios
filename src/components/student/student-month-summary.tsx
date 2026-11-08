@@ -40,7 +40,7 @@ export function useStudentMonthSummary(rows: Array<{ ymd: string; status: Attend
 function StatCard(props: { label: string; value: number; className: string }) {
   return (
     <div className={`rounded-[1.75rem] border border-slate-100 bg-white p-4 ${props.className}`}>
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{props.label}</p>
+      <p className="text-xs font-black uppercase tracking-widest text-slate-500">{props.label}</p>
       <p className="mt-2 text-2xl font-black tracking-tight text-slate-900">{props.value}</p>
     </div>
   );
@@ -52,7 +52,7 @@ export function StudentMonthSummary(props: { monthLabel: string; counts: Student
     <div className="rounded-[2.5rem] border border-slate-100 bg-slate-50/50 p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Resumo do mês</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Resumo do mês</p>
           <p className="text-sm font-black text-slate-800">{props.monthLabel}</p>
         </div>
         <p className="text-xs font-bold text-slate-500">Total de aulas: {counts.total}</p>

@@ -475,7 +475,7 @@ export default function ScheduleGrid({
                     </p>
                     <p className="font-medium text-slate-700 mt-0.5">{turma?.name ?? turmaId}</p>
                     {turma?.startTime && (
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {turma.startTime} – {turma.endTime}
                       </p>
                     )}
@@ -531,7 +531,7 @@ export default function ScheduleGrid({
                               onChange={() => toggleModeloSession(session.id)}
                               className="accent-violet-600 w-3 h-3"
                             />
-                            <span className={`text-xs ${isModelo ? "text-violet-700 font-semibold" : "text-slate-400"}`}>
+                            <span className={`text-xs ${isModelo ? "text-violet-700 font-semibold" : "text-slate-500"}`}>
                               Aula modelo
                             </span>
                           </label>
@@ -542,7 +542,7 @@ export default function ScheduleGrid({
                             >
                               {/* Time range */}
                               {timeRanges[dIdx] && (
-                                <span className="text-xs text-slate-400 font-medium">
+                                <span className="text-xs text-slate-500 font-medium">
                                   {timeRanges[dIdx]}
                                 </span>
                               )}
@@ -573,7 +573,7 @@ export default function ScheduleGrid({
                                   }
                                   className="h-6 w-12 text-center text-xs px-1"
                                 />
-                                <Button
+                                <Button aria-label="Excluir" title="Excluir"
                                   variant="ghost"
                                   size="icon"
                                   className="h-6 w-6 text-red-400 hover:text-red-600 flex-shrink-0"
@@ -597,7 +597,7 @@ export default function ScheduleGrid({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 w-full text-xs text-slate-400 hover:text-slate-600 border border-dashed border-slate-200 hover:border-slate-400 rounded-lg gap-1"
+                            className="h-6 w-full text-xs text-slate-500 hover:text-slate-600 border border-dashed border-slate-200 hover:border-slate-400 rounded-lg gap-1"
                             onClick={() => addActivity(session.id)}
                           >
                             <Plus className="h-3 w-3" />

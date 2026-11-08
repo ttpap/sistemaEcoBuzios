@@ -34,6 +34,7 @@ import type { OficinaScheduleFull } from "@/types/oficina-schedule";
 import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { getCoordinatorSessionLogin } from "@/utils/coordinator-auth";
 import ScheduleGrid from "@/components/ScheduleGrid";
 
@@ -221,7 +222,15 @@ export default function ScheduleEditor() {
   }
 
   async function handleRemoveSession(sessionId: string) {
-    if (!confirm("Remover esta sessão? As atribuições serão perdidas.")) return;
+    if (
+      !(await confirmDialog({
+        title: "Remover esta sessão?",
+        description: "As atribuições serão perdidas.",
+        confirmText: "Remover",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteSession(sessionId);
       setFull((prev) =>
@@ -240,7 +249,15 @@ export default function ScheduleEditor() {
 
   async function handleRemoveAllSessions() {
     if (!full || full.sessions.length === 0) return;
-    if (!confirm(`Apagar todas as ${full.sessions.length} sessões? Todas as atividades serão perdidas.`)) return;
+    if (
+      !(await confirmDialog({
+        title: `Apagar todas as ${full.sessions.length} sessões?`,
+        description: "Todas as atividades serão perdidas.",
+        confirmText: "Apagar",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await Promise.all(full.sessions.map((s) => deleteSession(s.id)));
       setFull((prev) => prev ? { ...prev, sessions: [], activities: [] } : prev);
@@ -295,7 +312,7 @@ export default function ScheduleEditor() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button
+        <Button aria-label="Voltar" title="Voltar"
           variant="ghost"
           size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
@@ -432,7 +449,7 @@ export default function ScheduleEditor() {
                             />
                           </td>
                           <td className="px-4 py-2 text-right">
-                            <Button
+                            <Button aria-label="Excluir" title="Excluir"
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-400 hover:text-red-600"

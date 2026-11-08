@@ -41,7 +41,7 @@ export default function StudentSidebar({
         <div className="rounded-[2rem] bg-white/70 border border-slate-200/60 shadow-sm p-4">
           <Logo className="w-full" />
           <div className="mt-4 rounded-[1.75rem] border border-slate-100 bg-white px-4 py-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Área do aluno</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Área do aluno</p>
             <p className="text-sm font-black text-slate-800 mt-1">Acompanhe suas aulas</p>
           </div>
         </div>

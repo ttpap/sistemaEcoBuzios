@@ -13,6 +13,7 @@ import {
 } from "@/integrations/supabase/oficina-schedules";
 import type { OficinaSchedule } from "@/types/oficina-schedule";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { useMemo } from "react";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 
@@ -54,7 +55,14 @@ export default function ScheduleList() {
   useEffect(() => { void load(true); }, []);
 
   async function handleSend(id: string) {
-    if (!confirm("Enviar esta escala para todos os educadores e coordenadores envolvidos?")) return;
+    if (
+      !(await confirmDialog({
+        title: "Enviar esta escala?",
+        description: "A escala será enviada para todos os educadores e coordenadores envolvidos.",
+        confirmText: "Enviar",
+      }))
+    )
+      return;
     setSending(id);
     try {
       await sendSchedule(id);
@@ -82,7 +90,15 @@ export default function ScheduleList() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Excluir esta escala? Esta ação não pode ser desfeita.")) return;
+    if (
+      !(await confirmDialog({
+        title: "Excluir esta escala?",
+        description: "Esta ação não pode ser desfeita.",
+        confirmText: "Excluir",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteSchedule(id);
       showSuccess("Escala excluída.");
@@ -113,7 +129,7 @@ export default function ScheduleList() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : schedules.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center text-slate-400">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center text-slate-500">
           Nenhuma escala criada ainda.
         </div>
       ) : (
@@ -148,7 +164,7 @@ export default function ScheduleList() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
-                      <Button
+                      <Button aria-label="Visualizar"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
@@ -157,7 +173,7 @@ export default function ScheduleList() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label="Editar"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
@@ -167,10 +183,10 @@ export default function ScheduleList() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       {s.sentAt && (
-                        <Button
+                        <Button aria-label="Duplicar para próxima semana"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-slate-400 hover:text-violet-600"
+                          className="h-8 w-8 text-slate-500 hover:text-violet-600"
                           title="Duplicar para próxima semana"
                           disabled={duplicating === s.id}
                           onClick={() => handleDuplicate(s.id)}
@@ -181,10 +197,10 @@ export default function ScheduleList() {
                           }
                         </Button>
                       )}
-                      <Button
+                      <Button aria-label={s.sentAt ? "Escala já enviada" : "Enviar para educadores"}
                         variant="ghost"
                         size="icon"
-                        className={`h-8 w-8 ${s.sentAt ? "text-emerald-500" : "text-slate-400 hover:text-indigo-600"}`}
+                        className={`h-8 w-8 ${s.sentAt ? "text-emerald-500" : "text-slate-500 hover:text-indigo-600"}`}
                         onClick={() => !s.sentAt && handleSend(s.id)}
                         disabled={!!s.sentAt || sending === s.id}
                         title={s.sentAt ? "Já enviada" : "Enviar para educadores"}
@@ -194,7 +210,7 @@ export default function ScheduleList() {
                           : <Send className="h-4 w-4" />
                         }
                       </Button>
-                      <Button
+                      <Button aria-label="Excluir"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-600"

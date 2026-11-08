@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Camera, Plus, Search, Trash2, X, RotateCcw, Copy, Link2, KeyRound } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { fetchProjects } from "@/utils/projects";
 import { copyToClipboard } from "@/utils/clipboard";
 import { createPhotographerInvite } from "@/services/photographerInvitesService";
@@ -143,7 +144,12 @@ export default function AdminPhotographers() {
   };
 
   const onUnassign = async (photographerId: string, projectId: string) => {
-    const ok = window.confirm(`Remover do projeto "${projectNameById(projectId)}"?`);
+    const ok = await confirmDialog({
+      title: "Remover do projeto?",
+      description: `O fotógrafo será removido do projeto "${projectNameById(projectId)}".`,
+      confirmText: "Remover",
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await removePhotographerFromProject(photographerId, projectId);
@@ -155,7 +161,12 @@ export default function AdminPhotographers() {
   };
 
   const onDelete = async (id: string) => {
-    const ok = window.confirm("Excluir este fotógrafo? Todos os links enviados por ele também serão removidos.");
+    const ok = await confirmDialog({
+      title: "Excluir este fotógrafo?",
+      description: "Todos os links enviados por ele também serão removidos.",
+      confirmText: "Excluir",
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deletePhotographer(id);
@@ -288,7 +299,7 @@ export default function AdminPhotographers() {
 
       <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Admin</p>
           <h1 className="text-3xl font-black text-primary tracking-tight">Fotógrafos</h1>
           <p className="text-slate-500 font-medium">Cadastre e aloque fotógrafos aos projetos.</p>
         </div>
@@ -364,7 +375,7 @@ export default function AdminPhotographers() {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar por nome, e-mail ou login..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -467,11 +478,11 @@ export default function AdminPhotographers() {
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{maskedPassword(p.auth_password)}</p>
                       </div>
                       <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Status</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{p.status}</p>
                       </div>
                     </div>

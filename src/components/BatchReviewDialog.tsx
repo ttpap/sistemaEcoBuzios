@@ -60,7 +60,7 @@ const BatchReviewDialog = ({ isOpen, pendingExpenses, onConfirm, onCancel, onRem
                   <TableCell>{exp.date.split('-').reverse().join('/')}</TableCell>
                   <TableCell className="text-right font-bold">{formatCurrency(exp.amount)}</TableCell>
                   <TableCell>
-                    <Button 
+                    <Button aria-label="Fechar" title="Fechar" 
                       variant="ghost" 
                       size="icon" 
                       className="h-8 w-8 text-destructive"

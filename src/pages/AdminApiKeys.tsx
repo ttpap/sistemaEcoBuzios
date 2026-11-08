@@ -120,7 +120,7 @@ export default function AdminApiKeys() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Admin</p>
           <h1 className="text-3xl font-black text-primary tracking-tight">Chaves de API</h1>
           <p className="text-slate-500 font-medium">
             Gerencie as chaves de acesso ao endpoint público de estatísticas.
@@ -278,7 +278,7 @@ export default function AdminApiKeys() {
                       <Badge className="bg-emerald-100 text-emerald-800 border-none font-black">Ativa</Badge>
                     )}
                   </div>
-                  <p className="text-xs font-bold text-slate-400">
+                  <p className="text-xs font-bold text-slate-500">
                     Criada em {new Date(k.created_at).toLocaleDateString("pt-BR", {
                       day: "2-digit",
                       month: "2-digit",
@@ -290,7 +290,7 @@ export default function AdminApiKeys() {
                       ? ` · Expira em ${new Date(k.expires_at).toLocaleDateString("pt-BR")}`
                       : " · Sem expiração"}
                   </p>
-                  <p className="text-[10px] font-black text-slate-300 font-mono">{k.id}</p>
+                  <p className="text-xs font-black text-slate-300 font-mono">{k.id}</p>
                 </div>
 
                 {!k.revoked && (

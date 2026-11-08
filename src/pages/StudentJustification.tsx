@@ -299,7 +299,7 @@ export default function StudentJustification() {
             <div className="mt-2 space-y-4">
               {/* Período */}
               <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                   Período de ausência
                 </p>
                 <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 flex justify-center">
@@ -315,7 +315,7 @@ export default function StudentJustification() {
                     }}
                   />
                 </div>
-                <p className="text-[10px] font-bold text-amber-600 text-center">
+                <p className="text-xs font-bold text-amber-600 text-center">
                   Apenas datas de hoje em diante podem ser selecionadas
                 </p>
                 {dateRange?.from ? (
@@ -326,7 +326,7 @@ export default function StudentJustification() {
                       : ""}
                   </p>
                 ) : (
-                  <p className="text-xs font-bold text-slate-400 text-center">
+                  <p className="text-xs font-bold text-slate-500 text-center">
                     Selecione um dia ou intervalo
                   </p>
                 )}
@@ -334,7 +334,7 @@ export default function StudentJustification() {
 
               {/* Motivo */}
               <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Motivo</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Motivo</p>
                 <Textarea
                   placeholder="Ex: Consulta médica, viagem, etc."
                   className="rounded-2xl resize-none font-medium border-slate-200"
@@ -360,12 +360,12 @@ export default function StudentJustification() {
       <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
         {loading ? (
           <div className="p-12 text-center">
-            <p className="text-slate-400 font-bold">Carregando...</p>
+            <p className="text-slate-500 font-bold">Carregando...</p>
           </div>
         ) : justifications.length === 0 ? (
           <div className="p-12 text-center">
             <FileCheck2 className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold">Nenhuma justificativa registrada.</p>
+            <p className="text-slate-500 font-bold">Nenhuma justificativa registrada.</p>
             <p className="text-slate-300 text-sm font-medium mt-1">
               Use o botão acima para justificar sua ausência.
             </p>
@@ -384,16 +384,16 @@ export default function StudentJustification() {
                         <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
                         {formatPeriod(j.startDate, j.endDate)}
                       </Badge>
-                      <Badge className="rounded-full border-none bg-slate-100 text-slate-600 font-bold text-[10px]">
+                      <Badge className="rounded-full border-none bg-slate-100 text-slate-600 font-bold text-xs">
                         {j.className}
                       </Badge>
                     </div>
                     <p className="text-sm font-medium text-slate-700 leading-relaxed">{j.message}</p>
-                    <p className="text-[10px] font-bold text-slate-400">
+                    <p className="text-xs font-bold text-slate-500">
                       Enviado em {new Date(j.createdAt).toLocaleDateString("pt-BR")}
                     </p>
                   </div>
-                  <Button
+                  <Button aria-label="Excluir" title="Excluir"
                     variant="ghost"
                     size="icon"
                     className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"

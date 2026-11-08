@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
 import type { TeacherRegistration } from "@/types/teacher";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { copyToClipboard } from "@/utils/clipboard";
 import { fetchProjects } from "@/utils/projects";
 import {
@@ -198,7 +199,12 @@ export default function AdminTeachers() {
   const onRemoveFromProject = (teacherId: string, projectId: string) => {
     const run = async () => {
       const pname = projectNameById(projectId) || "este projeto";
-      const ok = window.confirm(`Remover o professor de ${pname}?`);
+      const ok = await confirmDialog({
+        title: "Remover professor do projeto?",
+        description: `O professor será removido de ${pname}.`,
+        confirmText: "Remover",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -214,8 +220,13 @@ export default function AdminTeachers() {
     void run();
   };
 
-  const onResetTeacherPassword = (teacherId: string) => {
-    const ok = window.confirm(`Resetar a senha do professor para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`);
+  const onResetTeacherPassword = async (teacherId: string) => {
+    const ok = await confirmDialog({
+      title: "Resetar senha do professor?",
+      description: `A senha será redefinida para a senha padrão (${DEFAULT_TEACHER_PASSWORD}).`,
+      confirmText: "Resetar senha",
+      destructive: true,
+    });
     if (!ok) return;
     resetTeacherPasswordToDefault(teacherId);
     refresh();
@@ -224,7 +235,12 @@ export default function AdminTeachers() {
 
   const onDelete = (id: string) => {
     const run = async () => {
-      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do professor.");
+      const ok = await confirmDialog({
+        title: "Excluir cadastro?",
+        description: "Isso remove o acesso do professor.",
+        confirmText: "Excluir",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -364,7 +380,7 @@ export default function AdminTeachers() {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar por nome, e-mail ou login..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -511,11 +527,11 @@ export default function AdminTeachers() {
 
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{maskedPassword(t.authPassword)}</p>
                       </div>
                       <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Status</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{t.status}</p>
                       </div>
                     </div>

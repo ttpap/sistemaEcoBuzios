@@ -79,7 +79,7 @@ const PDFUploader = ({ onDataExtracted }: PDFUploaderProps) => {
               </div>
               <div className="space-y-1">
                 <p className="text-sm font-bold text-slate-900">Importar múltiplas notas</p>
-                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 font-bold uppercase tracking-wider">
                   <Sparkles className="h-3 w-3 text-amber-400" />
                   Detecção de duplicatas ativa
                 </div>

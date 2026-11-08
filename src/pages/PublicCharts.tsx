@@ -251,7 +251,7 @@ export default function PublicCharts() {
           );
         })()}
 
-        <p className="text-center text-xs text-slate-400 font-medium pt-4">
+        <p className="text-center text-xs text-slate-500 font-medium pt-4">
           Dados atualizados em tempo real · EcoBúzios
         </p>
       </div>

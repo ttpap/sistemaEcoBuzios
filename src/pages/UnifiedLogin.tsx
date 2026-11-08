@@ -11,6 +11,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { modeBLogin } from "@/utils/mode-b-login";
 import { useAuth } from "@/context/AuthContext";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function UnifiedLogin() {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ export default function UnifiedLogin() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pendingAdminRedirect, setPendingAdminRedirect] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const st = location.state as any;
@@ -54,14 +56,14 @@ export default function UnifiedLogin() {
       void supabaseAuthService.signOut();
 
       if (!profile) {
-        showError(
-          "Sua conta autenticou no Supabase, mas não foi encontrado um perfil em public.profiles para este usuário. Sem profile, o acesso admin não pode ser validado.",
-        );
+        // Detalhe técnico: sem linha em public.profiles para este usuário.
+        showError("Não encontramos o seu perfil de acesso. Fale com o administrador do sistema.");
         navigate("/login/admin", { replace: true });
         return;
       }
 
-      showError("Sua conta autenticou no Supabase, mas não possui perfil de administrador (profiles.role != 'admin').");
+      // Detalhe técnico: profiles.role != 'admin'.
+      showError("Esta conta não tem permissão de administrador.");
       navigate("/login/admin", { replace: true });
     };
 
@@ -134,26 +136,49 @@ export default function UnifiedLogin() {
           <CardContent className="p-6 md:p-8 pt-4">
             <form onSubmit={onSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Usuário</Label>
+                <Label htmlFor="login-user" className="text-xs font-black uppercase tracking-widest text-slate-600">
+                  E-mail ou matrícula
+                </Label>
                 <Input
+                  id="login-user"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  placeholder="Email (admin/prof) ou matrícula (ex: 2026-0096)"
-                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
+                  placeholder="seu@email.com ou 2026-0096"
+                  className="h-12 rounded-2xl border-slate-200 bg-slate-50/60"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
                 />
+                <p className="text-xs text-slate-500">Alunos: use a matrícula completa, com o ano e o traço.</p>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</Label>
-                <Input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite sua senha"
-                  type="password"
-                  className="h-12 rounded-2xl border-slate-100 bg-slate-50/60"
-                  autoComplete="current-password"
-                />
+                <Label htmlFor="login-pass" className="text-xs font-black uppercase tracking-widest text-slate-600">
+                  Senha
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="login-pass"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha"
+                    type={showPassword ? "text" : "password"}
+                    className="h-12 rounded-2xl border-slate-200 bg-slate-50/60 pr-12"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-primary hover:bg-primary/10 transition-colors"
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button
@@ -161,19 +186,19 @@ export default function UnifiedLogin() {
                 disabled={submitting || pendingAdminRedirect}
                 className="w-full h-12 rounded-2xl font-black shadow-lg shadow-primary/20"
               >
-                {pendingAdminRedirect ? "Entrando..." : "Entrar"}
+                {submitting || pendingAdminRedirect ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Entrando...
+                  </>
+                ) : (
+                  "Entrar"
+                )}
               </Button>
 
-              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-xs font-bold text-slate-600">
+              <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50/60 p-4 text-sm text-slate-600 space-y-1">
+                <p className="font-bold text-slate-700">Esqueceu a senha ou não consegue entrar?</p>
                 <p>
-                  <span className="font-black">Admin:</span> email + senha (Supabase Auth). O painel só libera se o seu
-                  <span className="font-black"> profiles.role</span> for <span className="font-black">admin</span>.
-                </p>
-                <p className="mt-2">
-                  <span className="font-black">Professor/Coordenador:</span> login + senha gerados no cadastro.
-                </p>
-                <p className="mt-2">
-                  <span className="font-black">Aluno:</span> matrícula completa (ex: 2026-0096) + senha <span className="font-black">EcoBuzios123</span>.
+                  Fale com a coordenação do seu projeto. Alunos podem usar a senha enviada no e-mail de boas-vindas.
                 </p>
               </div>
             </form>

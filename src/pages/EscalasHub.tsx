@@ -13,6 +13,7 @@ import {
 } from "@/integrations/supabase/oficina-schedules";
 import type { OficinaSchedule } from "@/types/oficina-schedule";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { getAreaBaseFromPathname } from "@/utils/route-base";
 
 function formatWeekPeriod(weekStartDate: string): string {
@@ -44,7 +45,15 @@ export default function EscalasHub() {
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm("Excluir esta escala? Esta ação não pode ser desfeita.")) return;
+    if (
+      !(await confirmDialog({
+        title: "Excluir esta escala?",
+        description: "Esta ação não pode ser desfeita.",
+        confirmText: "Excluir",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteSchedule(id);
       showSuccess("Escala excluída.");
@@ -69,7 +78,14 @@ export default function EscalasHub() {
   }
 
   async function handleSend(id: string) {
-    if (!confirm("Enviar esta escala para todos os educadores e coordenadores?")) return;
+    if (
+      !(await confirmDialog({
+        title: "Enviar esta escala?",
+        description: "A escala será enviada para todos os educadores e coordenadores.",
+        confirmText: "Enviar",
+      }))
+    )
+      return;
     setSending(id);
     try {
       await sendSchedule(id);
@@ -107,8 +123,8 @@ export default function EscalasHub() {
       ) : schedules.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-16 text-center space-y-3">
           <CalendarDays className="h-10 w-10 text-slate-300 mx-auto" />
-          <p className="text-slate-400 font-medium">Nenhuma escala criada ainda.</p>
-          <p className="text-slate-400 text-sm">Crie uma nova escala, preencha e envie para os educadores.</p>
+          <p className="text-slate-500 font-medium">Nenhuma escala criada ainda.</p>
+          <p className="text-slate-500 text-sm">Crie uma nova escala, preencha e envie para os educadores.</p>
         </div>
       ) : (
         <div className="space-y-8">
@@ -129,7 +145,7 @@ export default function EscalasHub() {
                         <p className="font-black text-slate-800 text-xl leading-tight">
                           {formatWeekPeriod(s.weekStartDate)}
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-500 mt-0.5">
                           {s.weekNumber}ª Semana
                         </p>
                       </div>
@@ -152,16 +168,16 @@ export default function EscalasHub() {
                         }
                         Enviar
                       </Button>
-                      <Button
+                      <Button aria-label="Editar"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-indigo-600 shrink-0"
+                        className="h-8 w-8 text-slate-500 hover:text-indigo-600 shrink-0"
                         title="Editar"
                         onClick={() => navigate(`${base}/escalas/${s.id}/editar`)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
+                      <Button aria-label="Excluir"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0"
@@ -195,7 +211,7 @@ export default function EscalasHub() {
                         <p className="font-black text-slate-800 text-xl leading-tight">
                           {formatWeekPeriod(s.weekStartDate)}
                         </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-500 mt-0.5">
                           {s.weekNumber}ª Semana
                         </p>
                       </div>
@@ -206,7 +222,7 @@ export default function EscalasHub() {
                     </div>
 
                     {s.sentAt && (
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-500">
                         Enviada em {new Date(s.sentAt).toLocaleDateString("pt-BR", {
                           day: "2-digit", month: "2-digit", year: "numeric",
                         })}
@@ -223,19 +239,19 @@ export default function EscalasHub() {
                         <Eye className="h-3 w-3" />
                         Ver
                       </Button>
-                      <Button
+                      <Button aria-label="Editar"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-indigo-600 shrink-0"
+                        className="h-8 w-8 text-slate-500 hover:text-indigo-600 shrink-0"
                         title="Editar"
                         onClick={() => navigate(`${base}/escalas/${s.id}/editar`)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
+                      <Button aria-label="Duplicar para próxima semana"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-slate-400 hover:text-violet-600 shrink-0"
+                        className="h-8 w-8 text-slate-500 hover:text-violet-600 shrink-0"
                         title="Duplicar para próxima semana"
                         disabled={duplicating === s.id}
                         onClick={() => handleDuplicate(s.id)}
@@ -245,7 +261,7 @@ export default function EscalasHub() {
                           : <Copy className="h-3.5 w-3.5" />
                         }
                       </Button>
-                      <Button
+                      <Button aria-label="Excluir"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-400 hover:text-red-600 shrink-0"

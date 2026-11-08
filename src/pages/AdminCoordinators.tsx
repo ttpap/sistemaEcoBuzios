@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import type { Project } from "@/types/project";
 import type { CoordinatorRegistration } from "@/types/coordinator";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { fetchProjects } from "@/utils/projects";
 import {
   addCoordinatorToProject,
@@ -164,7 +165,12 @@ export default function AdminCoordinators() {
   const onRemoveFromProject = (coordinatorId: string, projectId: string) => {
     const run = async () => {
       const pname = projectNameById(projectId) || "este projeto";
-      const ok = window.confirm(`Remover o coordenador de ${pname}?`);
+      const ok = await confirmDialog({
+        title: "Remover coordenador do projeto?",
+        description: `O coordenador será removido de ${pname}.`,
+        confirmText: "Remover",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -180,10 +186,13 @@ export default function AdminCoordinators() {
     void run();
   };
 
-  const onResetCoordinatorPassword = (coordinatorId: string) => {
-    const ok = window.confirm(
-      `Resetar a senha do coordenador para a senha padrão (${DEFAULT_COORDINATOR_PASSWORD})?`,
-    );
+  const onResetCoordinatorPassword = async (coordinatorId: string) => {
+    const ok = await confirmDialog({
+      title: "Resetar senha do coordenador?",
+      description: `A senha será redefinida para a senha padrão (${DEFAULT_COORDINATOR_PASSWORD}).`,
+      confirmText: "Resetar senha",
+      destructive: true,
+    });
     if (!ok) return;
     resetCoordinatorPasswordToDefault(coordinatorId);
     refresh();
@@ -192,7 +201,12 @@ export default function AdminCoordinators() {
 
   const onDelete = (id: string) => {
     const run = async () => {
-      const ok = window.confirm("Tem certeza que deseja excluir este cadastro? Isso remove o acesso do coordenador.");
+      const ok = await confirmDialog({
+        title: "Excluir cadastro?",
+        description: "Isso remove o acesso do coordenador.",
+        confirmText: "Excluir",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -291,7 +305,7 @@ export default function AdminCoordinators() {
 
       <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Admin</p>
           <h1 className="text-3xl font-black text-primary tracking-tight">Coordenadores</h1>
           <p className="text-slate-500 font-medium">Cadastre e aloque coordenadores aos projetos.</p>
         </div>
@@ -312,7 +326,7 @@ export default function AdminCoordinators() {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar por nome, e-mail ou login..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -450,11 +464,11 @@ export default function AdminCoordinators() {
 
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha (oculta)</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{maskedPassword(c.authPassword)}</p>
                       </div>
                       <div className="rounded-[1.5rem] border border-slate-100 bg-white p-4">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Status</p>
                         <p className="mt-1 text-sm font-black text-slate-700">{c.status}</p>
                       </div>
                     </div>

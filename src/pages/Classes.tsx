@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SchoolClass } from '@/types/class';
 import { showError, showSuccess } from '@/utils/toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
+import EmptyState from '@/components/EmptyState';
+import { CardGridSkeleton } from '@/components/LoadingSkeletons';
 import { writeScoped } from '@/utils/storage';
 import { getAreaBaseFromPathname } from '@/utils/route-base';
 import { getActiveProjectId } from '@/utils/projects';
@@ -44,14 +47,24 @@ const Classes = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [nucleosByParent, setNucleosByParent] = useState<Record<string, Array<{ id: string; name: string; count: number }>>>({});
   const [enrollCountByClass, setEnrollCountByClass] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const run = async () => {
-      if (!projectId) return;
+      if (!projectId) {
+        setIsLoading(false);
+        return;
+      }
 
       // Não dependemos de Supabase Auth aqui: as telas do Modo B usam RPCs.
 
-      const res = await fetchClassesRemoteWithMeta(projectId);
+      setIsLoading(true);
+      let res: Awaited<ReturnType<typeof fetchClassesRemoteWithMeta>>;
+      try {
+        res = await fetchClassesRemoteWithMeta(projectId);
+      } finally {
+        setIsLoading(false);
+      }
       if (res.classes.length) {
         writeScoped('classes', res.classes);
         setClasses(res.classes);
@@ -124,7 +137,14 @@ const Classes = () => {
 
   const handleDelete = (id: string) => {
     const run = async () => {
-      if (!window.confirm("Tem certeza que deseja excluir esta turma?")) return;
+      const target = classes.find((c) => c.id === id);
+      const ok = await confirmDialog({
+        title: "Excluir esta turma?",
+        description: `${target?.name ? `A turma "${target.name}" será removida. ` : ""}Esta ação não pode ser desfeita.`,
+        confirmText: "Excluir turma",
+        destructive: true,
+      });
+      if (!ok) return;
 
       try {
         await deleteClassRemote(id);
@@ -142,13 +162,16 @@ const Classes = () => {
     void run();
   };
 
-  const filtered = classes.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const normalize = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const searchWords = normalize(searchTerm).split(/\s+/).filter(Boolean);
+  const filtered = classes.filter((c) => {
+    const name = normalize(c.name || "");
+    return searchWords.every((w) => name.includes(w));
+  });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-primary tracking-tight">Turmas</h1>
           <p className="text-slate-500 font-medium">Organização das salas e horários escolares.</p>
@@ -164,7 +187,7 @@ const Classes = () => {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input
             placeholder="Buscar turma por nome..."
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50"
@@ -174,11 +197,33 @@ const Classes = () => {
         </div>
       </div>
 
+      {isLoading ? <CardGridSkeleton count={6} /> : (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filtered.length === 0 ? (
-          <div className="col-span-full text-center py-20 bg-white rounded-[2.5rem] border border-dashed border-slate-200">
-            <BookOpen className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-medium">Nenhuma turma cadastrada.</p>
+          <div className="col-span-full bg-white rounded-[2.5rem] border border-dashed border-slate-200">
+            {searchTerm.trim() && classes.length > 0 ? (
+              <EmptyState
+                icon={Search}
+                title="Nenhuma turma encontrada"
+                description={`Nada corresponde a "${searchTerm.trim()}".`}
+                action={
+                  <Button variant="outline" className="rounded-2xl font-bold" onClick={() => setSearchTerm("")}>
+                    Limpar busca
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={BookOpen}
+                title="Nenhuma turma cadastrada"
+                description="Crie a primeira turma deste projeto para começar a matricular alunos."
+                action={
+                  <Button className="rounded-2xl font-bold gap-2" onClick={() => navigate(`${base}/turmas/nova`)}>
+                    <Plus className="h-4 w-4" /> Nova turma
+                  </Button>
+                }
+              />
+            )}
           </div>
         ) : (
           filtered.map((cls, idx) => {
@@ -214,7 +259,7 @@ const Classes = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-widest">
                   <AlertCircle className="h-4 w-4 text-secondary" />
                   Limite de {cls.absenceLimit} faltas
                 </div>
@@ -254,7 +299,7 @@ const Classes = () => {
                           title={`Abrir núcleo — ${n.count} aluno(s)`}
                         >
                           <span className="truncate max-w-[120px]">{n.name}</span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px]">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs">
                             <Users className="h-3 w-3" /> {n.count}
                           </span>
                         </button>
@@ -275,8 +320,10 @@ const Classes = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
+                    className="rounded-xl text-red-500 hover:text-red-600 hover:bg-red-50"
                     onClick={() => handleDelete(cls.id)}
+                    aria-label={`Excluir turma ${cls.name}`}
+                    title="Excluir turma"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -287,6 +334,7 @@ const Classes = () => {
           })
         )}
       </div>
+      )}
     </div>
   );
 };

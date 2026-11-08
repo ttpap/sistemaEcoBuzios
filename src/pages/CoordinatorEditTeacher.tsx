@@ -100,7 +100,7 @@ export default function CoordinatorEditTeacher() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button
+        <Button aria-label="Voltar" title="Voltar"
           variant="ghost"
           size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
@@ -144,7 +144,7 @@ export default function CoordinatorEditTeacher() {
           ) : justifications.length === 0 ? (
             <div className="py-10 text-center rounded-[2rem] border border-dashed border-slate-200">
               <CalendarDays className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-              <p className="text-slate-400 font-bold">Nenhuma justificativa registrada.</p>
+              <p className="text-slate-500 font-bold">Nenhuma justificativa registrada.</p>
             </div>
           ) : (
             <ScrollArea className="max-h-[400px]">
@@ -159,7 +159,7 @@ export default function CoordinatorEditTeacher() {
                         <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
                         {formatPeriod(j)}
                       </Badge>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                         Registrado em {new Date(j.createdAt).toLocaleDateString("pt-BR")}
                       </span>
                     </div>

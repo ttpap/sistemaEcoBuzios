@@ -227,7 +227,7 @@ export default function CoordinatorForm({ initialData, redirectTo, onCompleted, 
               <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
             </label>
           </div>
-          <p className="text-xs font-bold text-slate-400 mt-3 uppercase tracking-widest">Foto do Coordenador <span className="text-rose-500">*</span></p>
+          <p className="text-xs font-bold text-slate-500 mt-3 uppercase tracking-widest">Foto do Coordenador <span className="text-rose-500">*</span></p>
           {form.formState.errors.photo && (
             <p className="mt-1 text-xs font-bold text-rose-500">{form.formState.errors.photo.message}</p>
           )}

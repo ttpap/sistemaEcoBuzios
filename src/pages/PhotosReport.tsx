@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Camera, ExternalLink, Trash2, RotateCcw } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { useAuth } from "@/context/AuthContext";
 import {
   getCoordinatorSessionLogin,
@@ -84,7 +85,11 @@ export default function PhotosReport() {
 
   const onDelete = async (id: string) => {
     if (!isAdmin) return;
-    const ok = window.confirm("Excluir este link?");
+    const ok = await confirmDialog({
+      title: "Excluir este link?",
+      confirmText: "Excluir",
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deletePhotoLinkAdmin(id);
@@ -111,7 +116,7 @@ export default function PhotosReport() {
       </div>
 
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
         <h1 className="text-3xl font-black text-primary tracking-tight flex items-center gap-3">
           <Camera className="h-7 w-7" /> Fotos
         </h1>

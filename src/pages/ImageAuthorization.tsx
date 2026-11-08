@@ -150,7 +150,7 @@ const ImageAuthorization = () => {
       {/* Busca + contador */}
       <div className="flex items-center gap-4 mb-6">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           <Input
             placeholder="Buscar aluno..."
             value={searchTerm}
@@ -168,7 +168,7 @@ const ImageAuthorization = () => {
       {/* Tabela */}
       <div className="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
         {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-slate-400 font-bold text-sm">
+          <div className="flex items-center justify-center py-20 text-slate-500 font-bold text-sm">
             Carregando...
           </div>
         ) : filteredStudents.length === 0 ? (
@@ -221,7 +221,7 @@ const ImageAuthorization = () => {
                       {student.fullName || '—'}
                     </div>
                     {student.socialName && (
-                      <div className="text-xs font-medium text-slate-400 mt-0.5">
+                      <div className="text-xs font-medium text-slate-500 mt-0.5">
                         {student.socialName}
                       </div>
                     )}

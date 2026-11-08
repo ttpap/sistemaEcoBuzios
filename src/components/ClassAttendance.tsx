@@ -616,7 +616,7 @@ export default function ClassAttendance({
             onValueChange={(v) => openSession(v, { scroll: false })}
           >
             <SelectTrigger className="rounded-2xl h-12 px-5 font-black border-slate-200 bg-white gap-2">
-              <CalendarDays className="h-4 w-4 text-slate-400 shrink-0" />
+              <CalendarDays className="h-4 w-4 text-slate-500 shrink-0" />
               <SelectValue placeholder="Selecionar chamada..." />
             </SelectTrigger>
             <SelectContent className="rounded-[1.5rem]">
@@ -655,7 +655,7 @@ export default function ClassAttendance({
         <div className="p-6 sm:p-8 border-b border-slate-100 bg-white">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Chamada do dia</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Chamada do dia</p>
               <div className="flex flex-wrap items-center gap-3 mt-1">
                 <p className="text-xl font-black text-primary">
                   {selectedSession
@@ -814,7 +814,7 @@ export default function ClassAttendance({
                               <p className="text-base font-black text-primary truncate">
                                 {displaySocialName(st)}
                               </p>
-                              <Button
+                              <Button aria-label="Ver ficha"
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-xl text-slate-500 hover:bg-primary/10 hover:text-primary shrink-0"

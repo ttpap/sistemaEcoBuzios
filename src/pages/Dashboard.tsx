@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -178,6 +179,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [students, setStudents] = useState<StudentRegistration[]>([]);
   const [teachers, setTeachers] = useState<TeacherRegistration[]>([]);
+  // false até a 1ª carga de turmas/alunos terminar (evita mostrar "0" enquanto carrega)
+  const [coreLoaded, setCoreLoaded] = useState(false);
   const [coordinators, setCoordinators] = useState<CoordinatorRegistration[]>([]);
   const [justifications, setJustifications] = useState<StudentJustification[]>([]);
   const [attendanceSessions, setAttendanceSessions] = useState<AttendanceSession[]>([]);
@@ -331,6 +334,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
       // Project-scoped — professores filtrados pelo projeto
       setClasses(nextClasses);
       setStudents(nextStudents);
+      setCoreLoaded(true);
 
       // Carrega professores do projeto: tenta Supabase primeiro (filtra por projeto),
       // com fallback para cache local (útil em Modo B sem JWT).
@@ -484,7 +488,8 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             justificationsThisMonth: justifCount ?? 0,
           });
         } catch {
-          // ignore
+          // Falha na consulta: mostra zeros em vez de deixar o skeleton girando para sempre.
+          setAdminStats({ projects: 0, activeClasses: 0, enrolledStudents: 0, justificationsThisMonth: 0 });
         }
 
           // Todos os alunos do sistema (para gráficos globais).
@@ -980,7 +985,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           )}
           <div>
             {currentUser && (
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-0.5">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-0.5">
                 {currentUser.role}
               </p>
             )}
@@ -1013,7 +1018,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 <p className="text-xs font-bold text-amber-700/80 mt-0.5">
                   {birthdaysThisWeek.length} aluno(s) fazem aniversário esta semana
                   {birthdaysTodayCount > 0 && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-400 text-white px-2 py-0.5 text-[10px] font-black">
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-400 text-white px-2 py-0.5 text-xs font-black">
                       🎂 {birthdaysTodayCount} hoje!
                     </span>
                   )}
@@ -1059,7 +1064,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                         {isToday && " 🎉"}
                       </p>
                       {turning !== undefined && (
-                        <p className={["text-[10px] font-bold", isToday ? "text-white/80" : "text-amber-600"].join(" ")}>
+                        <p className={["text-xs font-bold", isToday ? "text-white/80" : "text-amber-600"].join(" ")}>
                           completa {turning} anos
                         </p>
                       )}
@@ -1070,10 +1075,10 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                       "flex flex-col items-center justify-center w-9 h-9 rounded-xl shrink-0",
                       isToday ? "bg-white/20" : "bg-amber-100",
                     ].join(" ")}>
-                      <span className={["text-[10px] font-black leading-none", isToday ? "text-white" : "text-amber-700"].join(" ")}>
+                      <span className={["text-xs font-black leading-none", isToday ? "text-white" : "text-amber-700"].join(" ")}>
                         {String(day).padStart(2, "0")}
                       </span>
-                      <span className={["text-[8px] font-bold leading-none mt-0.5", isToday ? "text-white/80" : "text-amber-500"].join(" ")}>
+                      <span className={["text-xs font-bold leading-none mt-0.5", isToday ? "text-white/80" : "text-amber-500"].join(" ")}>
                         {weekdayName.slice(0, 3).toUpperCase()}
                       </span>
                     </div>
@@ -1092,7 +1097,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <div className="w-7 h-7 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0">
               <FolderOpen className="h-3.5 w-3.5 text-teal-600" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 whitespace-nowrap">Visão geral do sistema</span>
+            <span className="text-xs font-black uppercase tracking-widest text-teal-600 whitespace-nowrap">Visão geral do sistema</span>
             <div className="flex-1 h-px bg-teal-100" />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -1133,8 +1138,12 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                   <div className={"w-11 h-11 rounded-2xl flex items-center justify-center mb-3 border " + k.bg}>
                     {k.icon}
                   </div>
-                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{k.label}</p>
-                  <div className="text-3xl font-black text-primary tracking-tight">{k.value}</div>
+                  <p className="text-slate-500 text-xs font-black uppercase tracking-wider mb-1">{k.label}</p>
+                  {adminStats ? (
+                    <div className="text-3xl font-black text-primary tracking-tight">{k.value}</div>
+                  ) : (
+                    <Skeleton className="h-9 w-16 rounded-lg" aria-label="Carregando" />
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -1148,7 +1157,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           <div className="w-7 h-7 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
             <BookOpen className="h-3.5 w-3.5 text-primary" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-primary whitespace-nowrap">Projeto ativo</span>
+          <span className="text-xs font-black uppercase tracking-widest text-primary whitespace-nowrap">Projeto ativo</span>
           <div className="flex-1 h-px bg-primary/15" />
         </div>
       )}
@@ -1174,10 +1183,14 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 >
                   {k.icon}
                 </div>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">
+                <p className="text-slate-500 text-xs font-black uppercase tracking-wider mb-1">
                   {k.label}
                 </p>
-                <div className="text-3xl font-black text-primary tracking-tight">{k.value}</div>
+                {coreLoaded ? (
+                  <div className="text-3xl font-black text-primary tracking-tight">{k.value}</div>
+                ) : (
+                  <Skeleton className="h-9 w-16 rounded-lg" aria-label="Carregando" />
+                )}
               </CardContent>
             </Card>
           );
@@ -1190,7 +1203,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           <div className="w-7 h-7 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
             <Users className="h-3.5 w-3.5 text-slate-500" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Equipe do projeto</span>
+          <span className="text-xs font-black uppercase tracking-widest text-slate-500 whitespace-nowrap">Equipe do projeto</span>
           <div className="flex-1 h-px bg-slate-200" />
         </div>
       )}
@@ -1206,7 +1219,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             <div className="grid gap-4 sm:grid-cols-2">
               {coordinators.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
                     Coordenadores
                   </p>
                   <div className="space-y-2">
@@ -1221,7 +1234,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                         )}
                         <div className="min-w-0">
                           <p className="text-sm font-black text-slate-800 truncate">{c.fullName}</p>
-                          <p className="text-[10px] font-bold text-slate-400 truncate">{c.email}</p>
+                          <p className="text-xs font-bold text-slate-500 truncate">{c.email}</p>
                         </div>
                       </div>
                     ))}
@@ -1230,7 +1243,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               )}
               {teachers.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
                     Professores
                   </p>
                   <div className="space-y-2">
@@ -1245,7 +1258,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                         )}
                         <div className="min-w-0">
                           <p className="text-sm font-black text-slate-800 truncate">{t.fullName}</p>
-                          <p className="text-[10px] font-bold text-slate-400 truncate">{t.email || ""}</p>
+                          <p className="text-xs font-bold text-slate-500 truncate">{t.email || ""}</p>
                         </div>
                       </div>
                     ))}
@@ -1288,7 +1301,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                   <div className="space-y-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-black text-amber-900">{tj.teacherName}</span>
-                      <Badge className="rounded-full bg-amber-100 text-amber-800 border-none font-black text-[10px]">
+                      <Badge className="rounded-full bg-amber-100 text-amber-800 border-none font-black text-xs">
                         <CalendarDays className="h-3 w-3 mr-1" />{periodo}
                       </Badge>
                     </div>
@@ -1307,7 +1320,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           <div className="w-7 h-7 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
             <GraduationCap className="h-3.5 w-3.5 text-sky-600" />
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 whitespace-nowrap">Análise do projeto</span>
+          <span className="text-xs font-black uppercase tracking-widest text-sky-600 whitespace-nowrap">Análise do projeto</span>
           <div className="flex-1 h-px bg-sky-100" />
         </div>
       )}
@@ -1356,7 +1369,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
               {neighborhoodsData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => {
                 const NBCOLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "#60a5fa", "#34d399", "#f59e0b", "#f87171", "#a78bfa", "#fb923c", "#4ade80", "#38bdf8", "#e879f9", "#facc15"];
                 const total = neighborhoodsData.reduce((s, x) => s + x.value, 0);
@@ -1401,7 +1414,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
               {schoolTypeData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (
                 <>
                   {(() => { const _t = schoolTypeData.reduce((s, x) => s + x.value, 0); return (
@@ -1445,7 +1458,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4">
               {localAgeRangeData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => { const _t = localAgeRangeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1478,7 +1491,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               <div className="w-7 h-7 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
                 <Layers className="h-3.5 w-3.5 text-secondary" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-secondary whitespace-nowrap">Indicadores globais</span>
+              <span className="text-xs font-black uppercase tracking-widest text-secondary whitespace-nowrap">Indicadores globais</span>
               <div className="flex-1 h-px bg-secondary/20" />
               <div className="flex items-center gap-2 shrink-0">
               <Button
@@ -1616,7 +1629,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               </CardHeader>
               <CardContent className="p-6 md:p-8 pt-4">
                 {adminProjectCounts.length === 0 ? (
-                  <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                  <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
                 ) : (() => { const _t = adminProjectCounts.reduce((s, x) => s + x.value, 0); return (
                   <div className="h-[240px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1659,7 +1672,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4">
               {globalNeighborhoodsData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => { const _t = globalNeighborhoodsData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1689,7 +1702,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                   </ResponsiveContainer>
                 </div>
               ); })()}
-              <p className="mt-2 text-xs font-bold text-slate-400">Total de bairros: {globalNeighborhoodsData.length}</p>
+              <p className="mt-2 text-xs font-bold text-slate-500">Total de bairros: {globalNeighborhoodsData.length}</p>
             </CardContent>
           </Card>
 
@@ -1703,7 +1716,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4 flex flex-col items-center">
               {globalSchoolTypeData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (
                 <>
                   <div className="h-[200px] w-full">
@@ -1747,7 +1760,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             </CardHeader>
             <CardContent className="p-6 md:p-8 pt-4">
               {globalAgeRangeData.length === 0 ? (
-                <div className="py-8 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-8 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => { const _t = globalAgeRangeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[240px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1811,7 +1824,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
             {/* Feriados do mês vigente */}
             {holidayDatesThisMonth.length > 0 && (
             <div className="rounded-[2rem] border border-orange-100 bg-orange-50/50 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-orange-400 mb-3">
+              <p className="text-xs font-black uppercase tracking-widest text-orange-400 mb-3">
                 Feriados de {new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(today)}
               </p>
               <div className="space-y-1.5">
@@ -1826,7 +1839,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                       </span>
                       <span className="text-slate-700">{h.name}</span>
                       {h.type === "rj" && (
-                        <span className="ml-auto text-[9px] font-black text-orange-600 bg-orange-100 border border-orange-200 rounded-full px-1.5 py-0.5">RJ</span>
+                        <span className="ml-auto text-xs font-black text-orange-600 bg-orange-100 border border-orange-200 rounded-full px-1.5 py-0.5">RJ</span>
                       )}
                     </div>
                   );
@@ -1867,11 +1880,11 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               title="Imprimir relatório de tipo de escola"
             >
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de escola</p>
-                <span className="text-[10px] font-black text-primary/80">Imprimir</span>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Tipo de escola</p>
+                <span className="text-xs font-black text-primary/80">Imprimir</span>
               </div>
               {schoolTypeData.length === 0 ? (
-                <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-10 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => { const _t = schoolTypeData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1934,11 +1947,11 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
               title="Imprimir relatório de instituições"
             >
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Instituições</p>
-                <span className="text-[10px] font-black text-primary/80">Imprimir</span>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Instituições</p>
+                <span className="text-xs font-black text-primary/80">Imprimir</span>
               </div>
               {institutionsData.length === 0 ? (
-                <div className="py-10 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+                <div className="py-10 text-center text-sm font-bold text-slate-500">Sem dados.</div>
               ) : (() => { const _t = institutionsData.reduce((s, x) => s + x.value, 0); return (
                 <div className="h-[260px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -2015,7 +2028,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
           </CardHeader>
           <CardContent className="p-6 md:p-8 pt-4">
             {neighborhoodsData.length === 0 ? (
-              <div className="py-12 text-center text-sm font-bold text-slate-400">Sem dados.</div>
+              <div className="py-12 text-center text-sm font-bold text-slate-500">Sem dados.</div>
             ) : (() => { const _t = neighborhoodsData.reduce((s, x) => s + x.value, 0); return (
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -2086,7 +2099,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 ].filter((d) => d.value > 0);
                 return (
                   <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Este mês</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Este mês</p>
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -2126,7 +2139,7 @@ export default function Dashboard({ embeddedForRole }: { embeddedForRole?: "prof
                 ].filter((d) => d.value > 0);
                 return (
                   <div className="rounded-[2rem] border border-slate-100 bg-slate-50/50 p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                       {(() => {
                         const fmt = (mk: string) => new Intl.DateTimeFormat("pt-BR", { month: "short", year: "numeric" }).format(new Date(`${mk}-01T00:00:00`));
                         const { projectStart, projectEnd, activeMonths } = attendanceStats;

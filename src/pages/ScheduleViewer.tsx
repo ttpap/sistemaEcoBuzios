@@ -14,6 +14,7 @@ import type { SchoolClass } from "@/types/class";
 import type { TeacherRegistration } from "@/types/teacher";
 import { getActiveProjectId } from "@/utils/projects";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 
 const periodOrder: Record<string, number> = { "Manhã": 0, "Tarde": 1, "Noite": 2 };
 
@@ -188,7 +189,7 @@ export default function ScheduleViewer() {
     <div className="space-y-6">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
-          <Button
+          <Button aria-label="Voltar" title="Voltar"
             variant="ghost"
             size="icon"
             className="rounded-xl bg-white shadow-sm border border-slate-100"
@@ -255,7 +256,14 @@ export default function ScheduleViewer() {
               disabled={sending}
               onClick={async () => {
                 if (!id) return;
-                if (!confirm("Enviar esta escala para os educadores e coordenadores?")) return;
+                if (
+                  !(await confirmDialog({
+                    title: "Enviar esta escala?",
+                    description: "A escala será enviada para os educadores e coordenadores.",
+                    confirmText: "Enviar",
+                  }))
+                )
+                  return;
                 setSending(true);
                 try {
                   await sendSchedule(id);
@@ -330,7 +338,7 @@ export default function ScheduleViewer() {
                         <p className="font-bold text-slate-800 text-sm truncate">{turma?.name ?? turmaId}</p>
                       </div>
                       {turma?.startTime && (
-                        <span className="text-xs text-slate-400 shrink-0">{turma.startTime}–{turma.endTime}</span>
+                        <span className="text-xs text-slate-500 shrink-0">{turma.startTime}–{turma.endTime}</span>
                       )}
                     </div>
                     {session.isHoliday ? (
@@ -398,7 +406,7 @@ export default function ScheduleViewer() {
                     </p>
                     <p className="font-medium text-slate-700 mt-0.5">{turma?.name ?? turmaId}</p>
                     {turma?.startTime && (
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {turma.startTime} – {turma.endTime}
                       </p>
                     )}
@@ -458,7 +466,7 @@ export default function ScheduleViewer() {
                                   <div className="text-slate-500 font-medium mb-0.5 flex items-center gap-1">
                                     <span>{timeRanges[idx]}</span>
                                     {activity.durationMinutes && (
-                                      <span className="text-[10px] text-slate-400 bg-white/60 rounded px-1 leading-tight">
+                                      <span className="text-[10px] text-slate-500 bg-white/60 rounded px-1 leading-tight">
                                         {activity.durationMinutes}min
                                       </span>
                                     )}
@@ -590,9 +598,9 @@ export default function ScheduleViewer() {
       {history.length > 0 && (
         <div className="print:hidden space-y-3">
           <div className="flex items-center gap-2 pt-2">
-            <History className="h-5 w-5 text-slate-400" />
+            <History className="h-5 w-5 text-slate-500" />
             <h2 className="font-bold text-slate-700">Histórico de Escalas Enviadas</h2>
-            <span className="text-xs text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">{history.length}</span>
+            <span className="text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">{history.length}</span>
           </div>
 
           {history.map((past) => {
@@ -620,7 +628,7 @@ export default function ScheduleViewer() {
                   })}
                 >
                   <div className="flex items-center gap-3">
-                    {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                    {isOpen ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
                     <span className="font-bold text-slate-800">{past.schedule.weekNumber}ª Semana</span>
                     <span className="text-sm text-slate-500">
                       {formatDate(past.schedule.weekStartDate)}
@@ -658,7 +666,7 @@ export default function ScheduleViewer() {
                             <tr key={turmaId} className="align-top">
                               <td className="px-3 py-2 border border-slate-200 bg-indigo-50">
                                 <p className="font-semibold text-indigo-700 text-xs">{turma?.name ?? turmaId}</p>
-                                {turma?.startTime && <p className="text-slate-400 text-xs">{turma.startTime}</p>}
+                                {turma?.startTime && <p className="text-slate-500 text-xs">{turma.startTime}</p>}
                               </td>
                               {pastDates.map((date) => {
                                 const session = past.sessions.find((s) => s.turmaId === turmaId && s.date === date);

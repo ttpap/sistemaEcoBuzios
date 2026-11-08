@@ -18,6 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
 import { showSuccess, showError } from '@/utils/toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import StudentDetailsDialog from '@/components/StudentDetailsDialog';
 import StudentAvatar from '@/components/StudentAvatar';
@@ -530,7 +531,16 @@ const ClassDetails = () => {
   };
 
   const handleDeleteClass = async () => {
-    if (!schoolClass || !window.confirm(`Tem certeza que deseja excluir a turma "${schoolClass.name}"?`)) return;
+    if (!schoolClass) return;
+    if (
+      !(await confirmDialog({
+        title: "Excluir turma?",
+        description: `Tem certeza que deseja excluir a turma "${schoolClass.name}"?`,
+        confirmText: "Excluir",
+        destructive: true,
+      }))
+    )
+      return;
     try {
       await deleteClassRemote(schoolClass.id);
       showSuccess("Turma excluída com sucesso.");
@@ -552,7 +562,7 @@ const ClassDetails = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button
+          <Button aria-label="Voltar" title="Voltar"
             variant="ghost"
             size="icon"
             className="rounded-xl bg-white shadow-sm border border-slate-100"
@@ -564,13 +574,13 @@ const ClassDetails = () => {
             <h1 className="text-3xl font-black text-primary tracking-tight">{schoolClass.name}</h1>
             <div className="flex items-center gap-3 mt-1">
               <Badge className="bg-secondary text-primary font-black border-none">{schoolClass.period}</Badge>
-              <span className="text-slate-400 text-sm font-medium flex items-center gap-1">
+              <span className="text-slate-500 text-sm font-medium flex items-center gap-1">
                 <Clock className="h-3 w-3" /> {schoolClass.startTime} - {schoolClass.endTime}
               </span>
             </div>
           </div>
         </div>
-        <Button
+        <Button aria-label="Excluir turma"
           variant="ghost"
           size="icon"
           className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 border border-slate-100 bg-white shadow-sm"
@@ -641,7 +651,7 @@ const ClassDetails = () => {
               <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
                 <div className="space-y-3">
                   {classTeachers.length === 0 ? (
-                    <p className="text-slate-400 text-sm italic">Nenhum professor vinculado.</p>
+                    <p className="text-slate-500 text-sm italic">Nenhum professor vinculado.</p>
                   ) : (
                     classTeachers.map(t => (
                       <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
@@ -653,7 +663,7 @@ const ClassDetails = () => {
                         </div>
 
                         {!isTeacherArea && (
-                          <Button 
+                          <Button aria-label="Excluir" title="Excluir" 
                             variant="ghost" 
                             size="icon" 
                             className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -702,7 +712,7 @@ const ClassDetails = () => {
                         )}
                       </DialogTitle>
                       <div className="relative mt-6">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                         <Input 
                           placeholder="Digite nome ou matrícula (ex: 2026-0001)..." 
                           className="pl-12 h-14 rounded-2xl border-slate-100 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-primary/20 transition-all text-base font-medium"
@@ -713,7 +723,7 @@ const ClassDetails = () => {
                         {studentSearch && (
                           <button 
                             onClick={() => setStudentSearch("")}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full text-slate-400"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full text-slate-500"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -725,7 +735,7 @@ const ClassDetails = () => {
                       {filteredAvailableStudents.length === 0 ? (
                         <div className="text-center py-16 bg-slate-50/50 rounded-[2rem] border border-dashed border-slate-200">
                           <Search className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                          <p className="text-slate-400 font-bold">
+                          <p className="text-slate-500 font-bold">
                             {studentSearch
                               ? "Nenhum aluno encontrado para esta busca."
                               : allStudents.length === 0
@@ -761,7 +771,7 @@ const ClassDetails = () => {
               <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
                 <div className="space-y-4">
                   {classStudents.length === 0 ? (
-                    <p className="text-slate-400 text-sm italic">Nenhum aluno matriculado.</p>
+                    <p className="text-slate-500 text-sm italic">Nenhum aluno matriculado.</p>
                   ) : (
                     classStudents.map(s => (
                       <div key={s.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
@@ -778,7 +788,7 @@ const ClassDetails = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
+                          <Button aria-label="Ver detalhes" title="Ver detalhes"
                             variant="ghost"
                             size="icon"
                             className="rounded-xl hover:bg-primary/10 hover:text-primary"
@@ -786,7 +796,7 @@ const ClassDetails = () => {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button 
+                          <Button aria-label="Excluir" title="Excluir" 
                             variant="ghost" 
                             size="icon" 
                             className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -843,7 +853,7 @@ const ClassDetails = () => {
             </CardHeader>
             <CardContent className="p-5 pt-0 sm:p-8 sm:pt-0">
               {waitlist.length === 0 ? (
-                <p className="text-slate-400 text-sm italic">Ninguém na lista de espera.</p>
+                <p className="text-slate-500 text-sm italic">Ninguém na lista de espera.</p>
               ) : (
                 <div className="space-y-3">
                   {waitlist.map((w, idx) => {
@@ -912,7 +922,7 @@ const ClassDetails = () => {
                               Desistiu
                             </Button>
                           )}
-                          <Button size="icon" variant="ghost"
+                          <Button aria-label="Remover da lista" size="icon" variant="ghost"
                             className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50"
                             onClick={() => handleWaitlistRemove(w.id)} title="Remover da lista">
                             <Trash2 className="h-4 w-4" />
@@ -933,7 +943,7 @@ const ClassDetails = () => {
           <TabsContent value="dashboard" className="mt-6">
             {/* Seletor de papel */}
             <div className="flex items-center gap-2 mb-6">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-400 mr-2">Ver como:</p>
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500 mr-2">Ver como:</p>
               <button
                 type="button"
                 onClick={() => setDashboardRole("professor")}

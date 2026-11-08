@@ -812,7 +812,7 @@ const StudentForm = ({
                 </>
               )}
             </div>
-            <p className="text-xs font-black text-slate-400 mt-4 uppercase tracking-widest">
+            <p className="text-xs font-black text-slate-500 mt-4 uppercase tracking-widest">
               Foto Oficial do Aluno
               {canEditPhoto && <span className="text-slate-300 normal-case"> (opcional)</span>}
             </p>

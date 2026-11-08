@@ -23,7 +23,7 @@ const TeacherDetailsDialog = ({ teacher, isOpen, onClose }: TeacherDetailsDialog
 
   const InfoRow = ({ label, value, fullWidth = false }: { label: string, value?: string | number | boolean, fullWidth?: boolean }) => (
     <div className={`py-2 border-b border-slate-50 last:border-0 ${fullWidth ? 'md:col-span-2' : ''}`}>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{label}</p>
       <p className="text-sm font-bold text-slate-700">{value?.toString() || '---'}</p>
     </div>
   );

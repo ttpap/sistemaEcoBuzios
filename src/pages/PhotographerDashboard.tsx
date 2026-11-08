@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, LogOut, Plus, Trash2, ExternalLink, Pencil, X, ArrowLeft } from "lucide-react";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getPhotographerSession,
@@ -140,7 +141,11 @@ export default function PhotographerDashboard() {
 
   const onDelete = async (id: string) => {
     if (!login || !password) return;
-    const ok = window.confirm("Excluir este link?");
+    const ok = await confirmDialog({
+      title: "Excluir este link?",
+      confirmText: "Excluir",
+      destructive: true,
+    });
     if (!ok) return;
     try {
       await deletePhotoLinkAsPhotographer(login, password, id);
@@ -180,7 +185,7 @@ export default function PhotographerDashboard() {
             <Logo className="h-full w-full" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Área do fotógrafo</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Área do fotógrafo</p>
             <h1 className="text-xl font-black text-primary tracking-tight">
               {session?.fullName || "Fotógrafo"}
             </h1>

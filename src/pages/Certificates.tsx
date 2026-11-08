@@ -133,7 +133,7 @@ function ImageUploadField({
           </Button>
         )}
       </div>
-      {hint && <p className="text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -464,7 +464,7 @@ export default function Certificates() {
 
       {/* Filtro de turma */}
       <div className="flex items-center gap-3">
-        <Users className="h-4 w-4 text-slate-400 shrink-0" />
+        <Users className="h-4 w-4 text-slate-500 shrink-0" />
         <span className="text-sm font-bold text-slate-600 shrink-0">Turma:</span>
         <Select
           value={selectedClassId}
@@ -517,7 +517,7 @@ export default function Certificates() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Use{" "}
                 <code className="bg-slate-100 px-1 rounded font-mono">**</code> onde
                 o nome do aluno deve aparecer em destaque.
@@ -600,7 +600,7 @@ export default function Certificates() {
                   <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                 </div>
               ) : displayedStudents.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">
+                <p className="text-sm text-slate-500 text-center py-6">
                   Nenhum aluno encontrado nesta turma.
                 </p>
               ) : (
@@ -616,7 +616,7 @@ export default function Certificates() {
                       />
                       <span className="text-sm font-bold text-slate-700">{s.fullName}</span>
                       {(s.socialName || s.preferredName) && (
-                        <span className="text-xs text-slate-400">({s.socialName || s.preferredName})</span>
+                        <span className="text-xs text-slate-500">({s.socialName || s.preferredName})</span>
                       )}
                     </label>
                   ))}
@@ -667,7 +667,7 @@ export default function Certificates() {
                       {displayedStudents.length}
                     </Badge>
                   </CardTitle>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Gera um PDF A4 por aluno com horas, frequência, faltas, atrasos e justificativas.
                   </p>
                 </div>
@@ -699,7 +699,7 @@ export default function Certificates() {
                   <div className="h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                 </div>
               ) : displayedStudents.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">
+                <p className="text-sm text-slate-500 text-center py-6">
                   Nenhum aluno encontrado nesta turma.
                 </p>
               ) : (
@@ -715,7 +715,7 @@ export default function Certificates() {
                       />
                       <span className="text-sm font-bold text-slate-700">{s.fullName}</span>
                       {(s.socialName || s.preferredName) && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-slate-500">
                           ({s.socialName || s.preferredName})
                         </span>
                       )}
@@ -766,7 +766,7 @@ export default function Certificates() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 Este texto será pré-carregado ao emitir certificados. Use{" "}
                 <code className="bg-slate-100 px-1 rounded font-mono">**</code> onde
                 o nome do aluno deve aparecer em destaque.
@@ -1003,7 +1003,7 @@ export default function Certificates() {
             <div className="space-y-3">
               {previewReportDataList.length > 1 && (
                 <div className="flex items-center justify-between px-1">
-                  <Button
+                  <Button aria-label="Anterior" title="Anterior"
                     variant="ghost"
                     size="icon"
                     className="rounded-xl"
@@ -1015,7 +1015,7 @@ export default function Certificates() {
                   <span className="text-xs font-bold text-slate-500">
                     {previewReportIndex + 1} / {previewReportDataList.length}
                   </span>
-                  <Button
+                  <Button aria-label="Próximo" title="Próximo"
                     variant="ghost"
                     size="icon"
                     className="rounded-xl"
@@ -1043,7 +1043,7 @@ export default function Certificates() {
           <DialogTitle className="sr-only">Pré-visualização do Certificado</DialogTitle>
           {previewStudents.length > 1 && (
             <div className="flex items-center justify-between px-1 mb-2">
-              <Button
+              <Button aria-label="Anterior" title="Anterior"
                 variant="ghost"
                 size="icon"
                 className="rounded-xl"
@@ -1055,7 +1055,7 @@ export default function Certificates() {
               <span className="text-xs font-bold text-slate-500">
                 {previewStudentIndex + 1} / {previewStudents.length}
               </span>
-              <Button
+              <Button aria-label="Próximo" title="Próximo"
                 variant="ghost"
                 size="icon"
                 className="rounded-xl"
@@ -1181,7 +1181,7 @@ function ReportPreview({
 
   return (
     <div className="w-full">
-      <p className="text-xs text-slate-400 mb-3 text-center">
+      <p className="text-xs text-slate-500 mb-3 text-center">
         Pré-visualização — proporcional ao relatório A4 retrato
       </p>
       <div
@@ -1358,7 +1358,7 @@ function CertificatePreview({
 
   return (
     <div className="w-full">
-      <p className="text-xs text-slate-400 mb-3 text-center">
+      <p className="text-xs text-slate-500 mb-3 text-center">
         Pré-visualização — proporcional ao certificado A4 paisagem
       </p>
 

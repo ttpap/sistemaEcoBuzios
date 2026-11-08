@@ -98,7 +98,7 @@ export default function AdminRegistrationLinks() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Admin</p>
           <h1 className="text-3xl font-black text-primary tracking-tight">Links de inscrição</h1>
           <p className="text-slate-500 font-medium">
             Compartilhe estes links para preencher o formulário sem precisar estar logado.
@@ -154,7 +154,7 @@ export default function AdminRegistrationLinks() {
                     <Icon className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{l.subtitle}</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">{l.subtitle}</p>
                     <h2 className="text-lg font-black text-primary tracking-tight truncate">{l.title}</h2>
                   </div>
                 </div>

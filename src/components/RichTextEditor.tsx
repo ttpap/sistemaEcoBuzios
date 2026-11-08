@@ -94,34 +94,34 @@ export default function RichTextEditor({ value, onChange, placeholder, className
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("bold"))}>
+        <Button aria-label="Negrito" title="Negrito" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("bold"))}>
           <Bold className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("italic"))}>
+        <Button aria-label="Itálico" title="Itálico" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("italic"))}>
           <Italic className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("underline"))}>
+        <Button aria-label="Sublinhado" title="Sublinhado" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("underline"))}>
           <Underline className="h-4 w-4" />
         </Button>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("insertUnorderedList"))}>
+        <Button aria-label="Lista com marcadores" title="Lista com marcadores" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("insertUnorderedList"))}>
           <List className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("insertOrderedList"))}>
+        <Button aria-label="Lista numerada" title="Lista numerada" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("insertOrderedList"))}>
           <ListOrdered className="h-4 w-4" />
         </Button>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyLeft"))}>
+        <Button aria-label="Alinhar à esquerda" title="Alinhar à esquerda" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyLeft"))}>
           <AlignLeft className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyCenter"))}>
+        <Button aria-label="Centralizar" title="Centralizar" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyCenter"))}>
           <AlignCenter className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyRight"))}>
+        <Button aria-label="Alinhar à direita" title="Alinhar à direita" type="button" variant="ghost" size="icon" className="rounded-xl" disabled={disabled} onClick={() => apply(() => exec("justifyRight"))}>
           <AlignRight className="h-4 w-4" />
         </Button>
 

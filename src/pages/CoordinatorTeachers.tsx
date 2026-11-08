@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { TeacherRegistration } from "@/types/teacher";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { copyToClipboard } from "@/utils/clipboard";
 import { getActiveProject } from "@/utils/projects";
 import {
@@ -164,7 +165,12 @@ export default function CoordinatorTeachers() {
   const onRemoveFromProject = (teacherId: string) => {
     const run = async () => {
       if (!projectId) return;
-      const ok = window.confirm("Remover este professor do projeto? Isso não apaga o cadastro global.");
+      const ok = await confirmDialog({
+        title: "Remover este professor do projeto?",
+        description: "Isso não apaga o cadastro global.",
+        confirmText: "Remover",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -180,10 +186,13 @@ export default function CoordinatorTeachers() {
     void run();
   };
 
-  const onResetPassword = (teacherId: string) => {
-    const ok = window.confirm(
-      `Resetar a senha do professor para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`,
-    );
+  const onResetPassword = async (teacherId: string) => {
+    const ok = await confirmDialog({
+      title: "Resetar senha do professor?",
+      description: `A senha será redefinida para a senha padrão (${DEFAULT_TEACHER_PASSWORD}).`,
+      confirmText: "Resetar senha",
+      destructive: true,
+    });
     if (!ok) return;
     resetTeacherPasswordToDefault(teacherId);
     refresh();
@@ -216,7 +225,7 @@ export default function CoordinatorTeachers() {
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Usuário</p>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="text-sm font-black text-slate-800 break-all">{deliverTeacher?.authLogin || ""}</p>
-                <Button
+                <Button aria-label="Copiar" title="Copiar"
                   variant="outline"
                   size="icon"
                   className="rounded-2xl"
@@ -231,7 +240,7 @@ export default function CoordinatorTeachers() {
               <p className="text-xs font-black uppercase tracking-widest text-slate-500">Senha</p>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="text-sm font-black text-slate-800">{deliverTeacher?.authPassword || ""}</p>
-                <Button
+                <Button aria-label="Copiar" title="Copiar"
                   variant="outline"
                   size="icon"
                   className="rounded-2xl"
@@ -274,7 +283,7 @@ export default function CoordinatorTeachers() {
           </CardHeader>
           <CardContent className="p-6 md:p-8 pt-4 space-y-4">
             <div className="flex items-center gap-3 bg-slate-50/60 border border-slate-100 rounded-[1.75rem] p-3">
-              <Search className="h-5 w-5 text-slate-400" />
+              <Search className="h-5 w-5 text-slate-500" />
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -282,7 +291,7 @@ export default function CoordinatorTeachers() {
                 className="h-11 rounded-2xl border-slate-100 bg-white"
               />
               {searchTerm && (
-                <Button
+                <Button aria-label="Fechar" title="Fechar"
                   variant="ghost"
                   size="icon"
                   className="rounded-2xl"
@@ -335,7 +344,7 @@ export default function CoordinatorTeachers() {
                       >
                         Credenciais
                       </Button>
-                      <Button
+                      <Button aria-label="Ver chamadas"
                         variant="ghost"
                         size="icon"
                         className="rounded-2xl hover:bg-primary/10 hover:text-primary"
@@ -344,7 +353,7 @@ export default function CoordinatorTeachers() {
                       >
                         <ClipboardList className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label="Editar"
                         variant="ghost"
                         size="icon"
                         className="rounded-2xl hover:bg-emerald-50 hover:text-emerald-700"
@@ -353,7 +362,7 @@ export default function CoordinatorTeachers() {
                       >
                         <UserCog className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label="Resetar senha"
                         variant="ghost"
                         size="icon"
                         className="rounded-2xl hover:bg-slate-100"
@@ -362,7 +371,7 @@ export default function CoordinatorTeachers() {
                       >
                         <RotateCcw className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label="Remover do projeto"
                         variant="ghost"
                         size="icon"
                         className="rounded-2xl text-red-500 hover:bg-red-50 hover:text-red-700"

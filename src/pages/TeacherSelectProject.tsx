@@ -95,7 +95,7 @@ export default function TeacherSelectProject() {
           ) : null}
 
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Disponíveis</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Disponíveis</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {allowedProjects.map((p) => (
                 <Badge
@@ -109,7 +109,7 @@ export default function TeacherSelectProject() {
           </div>
 
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Projeto</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Projeto</p>
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="mt-2 h-12 rounded-2xl border-slate-200 bg-white font-black">
                 <SelectValue placeholder="Selecione um projeto" />

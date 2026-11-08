@@ -139,7 +139,7 @@ export default function TeacherScheduleViewer() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button
+        <Button aria-label="Voltar" title="Voltar"
           variant="ghost"
           size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"
@@ -191,7 +191,7 @@ export default function TeacherScheduleViewer() {
                         <p className="font-bold text-slate-800 text-sm truncate">{turma?.name ?? turmaId}</p>
                       </div>
                       {turma?.startTime && (
-                        <span className="text-xs text-slate-400 shrink-0">{turma.startTime}–{turma.endTime}</span>
+                        <span className="text-xs text-slate-500 shrink-0">{turma.startTime}–{turma.endTime}</span>
                       )}
                     </div>
                     {session.isHoliday ? (
@@ -264,7 +264,7 @@ export default function TeacherScheduleViewer() {
                     <p className="font-semibold text-indigo-800 text-xs uppercase tracking-wide">{turma?.period ?? ""}</p>
                     <p className="font-medium text-slate-700 mt-0.5">{turma?.name ?? turmaId}</p>
                     {turma?.startTime && (
-                      <p className="text-xs text-slate-400 mt-0.5">{turma.startTime} – {turma.endTime}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{turma.startTime} – {turma.endTime}</p>
                     )}
                   </td>
                   {dates.map((date) => {
@@ -303,7 +303,7 @@ export default function TeacherScheduleViewer() {
                                   <div className={`font-medium mb-0.5 flex items-center gap-1 ${isMe ? "text-white/80" : "text-slate-500"}`}>
                                     <span>{timeRanges[idx]}</span>
                                     {activity.durationMinutes && (
-                                      <span className="text-[10px] bg-white/60 rounded px-1 leading-tight text-slate-400">
+                                      <span className="text-[10px] bg-white/60 rounded px-1 leading-tight text-slate-500">
                                         {activity.durationMinutes}min
                                       </span>
                                     )}

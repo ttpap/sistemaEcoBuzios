@@ -87,7 +87,7 @@ export default function AtaReuniaoViewer() {
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <FileText className="h-12 w-12 text-slate-300 mb-4" />
             <p className="text-slate-500 font-bold">Nenhuma ata registrada</p>
-            <p className="text-slate-400 text-sm mt-1">As atas criadas pelo coordenador aparecerão aqui</p>
+            <p className="text-slate-500 text-sm mt-1">As atas criadas pelo coordenador aparecerão aqui</p>
           </CardContent>
         </Card>
       ) : (
@@ -190,7 +190,7 @@ export default function AtaReuniaoViewer() {
 
                 {viewingMinute.organized_content ? (
                   <div className="bg-slate-50 rounded-2xl p-4">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1">
                       <Sparkles className="h-3 w-3" /> Ata organizada pela IA
                     </p>
                     <div className="prose prose-sm max-w-none text-slate-700 whitespace-pre-wrap">
@@ -199,7 +199,7 @@ export default function AtaReuniaoViewer() {
                   </div>
                 ) : viewingMinute.raw_notes ? (
                   <div className="bg-slate-50 rounded-2xl p-4">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Anotações</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Anotações</p>
                     <p className="text-slate-700 whitespace-pre-wrap text-sm">{viewingMinute.raw_notes}</p>
                   </div>
                 ) : null}

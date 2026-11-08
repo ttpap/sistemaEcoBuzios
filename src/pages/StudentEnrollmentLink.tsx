@@ -22,7 +22,7 @@ export default function StudentEnrollmentLink() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Inscrição</p>
+        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Inscrição</p>
         <h1 className="text-3xl font-black text-primary tracking-tight">Link de inscrição do aluno</h1>
         <p className="text-slate-500 font-medium">Compartilhe este link com o aluno para ele fazer a inscrição.</p>
       </div>

@@ -28,7 +28,8 @@ import { generateAttendancePdf, generateMultiAttendancePdf, AttendanceMatrix } f
 import { downloadAttendanceXls, downloadMultiAttendanceXls } from "@/utils/attendance-xls";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { showError } from "@/utils/toast";
+import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { readGlobalStudents, readScoped, writeGlobalStudents, writeScoped } from "@/utils/storage";
 import { getActiveProject, getActiveProjectId, saveProjects, setActiveProjectId } from "@/utils/projects";
 import { fetchClassesRemoteWithMeta, fetchEnrollmentsRemoteWithMeta, fetchProjectNucleosRemote } from "@/services/classesService";
@@ -1364,7 +1365,7 @@ export default function Reports() {
 
   const saveReport = async () => {
     const activeProjectId = getActiveProject()?.id ?? getActiveProjectId();
-    if (!activeProjectId) { alert("Nenhum projeto ativo encontrado."); return; }
+    if (!activeProjectId) { showError("Nenhum projeto ativo encontrado. Selecione um projeto e tente de novo."); return; }
     setPcSaving(true);
     const { data, error } = await supabase.rpc("save_prestacao_contas_report", {
       p_id: pcLoadedId ?? null,
@@ -1375,8 +1376,9 @@ export default function Reports() {
       p_photos: pcPhotos,
     });
     if (error) {
-      alert("Erro ao salvar: " + error.message);
+      showError("Não foi possível salvar o relatório: " + error.message);
     } else {
+      showSuccess("Relatório salvo.");
       if (!pcLoadedId && data) setPcLoadedId(data as string);
       await loadSavedReports();
     }
@@ -1432,7 +1434,7 @@ export default function Reports() {
                   <FileText className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-lg font-black text-primary">Relatório de chamada</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
                     Gere um relatório com todas as datas registradas no mês e o status de cada aluno.
@@ -1452,7 +1454,7 @@ export default function Reports() {
                   <BarChart3 className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-lg font-black text-primary">Aulas Dadas no Projeto</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
                     Total de aulas realizadas por turma no projeto inteiro, com carga horária (2h por aula).
@@ -1473,7 +1475,7 @@ export default function Reports() {
                     <Zap className="h-7 w-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                     <p className="text-lg font-black text-primary">Relatório ENEL</p>
                     <p className="text-sm font-bold text-slate-500 mt-1">
                       Lista mensal de alunos matriculados nas turmas do projeto, com CPF e Nº ENEL.
@@ -1494,7 +1496,7 @@ export default function Reports() {
                   <Building2 className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-lg font-black text-primary">Relatório Prefeitura</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
                     Total de alunos, distribuição por rede de ensino, faixas etárias e horas-aula dadas.
@@ -1514,7 +1516,7 @@ export default function Reports() {
                   <Users className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-lg font-black text-primary">Relatório de Gênero</p>
                   <p className="text-sm font-bold text-slate-500 mt-1">
                     Quantos alunos de cada gênero no projeto, com filtro por gênero e turma.
@@ -1535,7 +1537,7 @@ export default function Reports() {
                     <Receipt className="h-7 w-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                     <p className="text-lg font-black text-primary">Prestação de Contas</p>
                     <p className="text-sm font-bold text-slate-500 mt-1">
                       Relatório de objeto com fotos e descrição.
@@ -1557,7 +1559,7 @@ export default function Reports() {
                     <Camera className="h-7 w-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                     <p className="text-lg font-black text-primary">Fotos</p>
                     <p className="text-sm font-bold text-slate-500 mt-1">
                       Links de fotos enviados pelos fotógrafos, agrupados por ano e mês.
@@ -1612,7 +1614,7 @@ export default function Reports() {
             const periodoLabel = "Total do projeto";
 
             if (rows.length === 0 && reportsTotal === 0 && meetingsCount === 0) return (
-              <div className="text-center py-16 text-slate-400">
+              <div className="text-center py-16 text-slate-500">
                 Nenhuma aula finalizada, relatório ou reunião encontrada no projeto.
               </div>
             );
@@ -1624,7 +1626,7 @@ export default function Reports() {
                     <h2 className="text-lg font-black text-slate-800">Aulas Realizadas — Total do Projeto</h2>
                     <p className="text-sm text-slate-500 mt-0.5">
                       {totalUnidades} registros · {totalHorasGeral}h no total
-                      <span className="text-xs text-slate-400 ml-2">
+                      <span className="text-xs text-slate-500 ml-2">
                         ({grandTotal} aulas + {reportsTotal} relatórios + {meetingsCount} reuniões)
                       </span>
                     </p>
@@ -1655,10 +1657,10 @@ export default function Reports() {
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0">
                           <p className="font-bold text-slate-800 truncate">{row.name}</p>
-                          {row.period && <p className="text-xs text-slate-400">{row.period}</p>}
+                          {row.period && <p className="text-xs text-slate-500">{row.period}</p>}
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
+                          <p className="text-xs text-slate-500 font-bold uppercase">Total</p>
                           <p className="font-black text-slate-800">{row.total} <span className="text-xs text-emerald-600">/ {row.total * 2}h</span></p>
                         </div>
                       </div>
@@ -1668,7 +1670,7 @@ export default function Reports() {
                           if (!v) return null;
                           return (
                             <span key={m} className="inline-flex items-center gap-1 rounded-lg bg-slate-50 border border-slate-100 px-2 py-0.5 text-xs">
-                              <span className="text-slate-400 font-bold">{new Date(m + "-15").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
+                              <span className="text-slate-500 font-bold">{new Date(m + "-15").toLocaleDateString("pt-BR", { month: "short" }).replace(".", "")}</span>
                               <span className="font-bold text-slate-700">{v}</span>
                             </span>
                           );
@@ -1714,7 +1716,7 @@ export default function Reports() {
                         <tr key={row.classId} className="hover:bg-slate-50/50">
                           <td className="px-6 py-3">
                             <p className="font-semibold text-slate-800">{row.name}</p>
-                            {row.period && <p className="text-xs text-slate-400">{row.period}</p>}
+                            {row.period && <p className="text-xs text-slate-500">{row.period}</p>}
                           </td>
                           {months.map((m) => (
                             <td key={m} className="text-center px-4 py-3 text-slate-600">
@@ -1738,7 +1740,7 @@ export default function Reports() {
                       </tr>
                       <tr className="bg-slate-50">
                         <td className="px-6 py-3 font-bold text-slate-700">RELATÓRIOS MENSAIS</td>
-                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-400">
+                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-500">
                           1h por relatório enviado
                         </td>
                         <td className="text-center px-4 py-3 font-bold text-slate-800">{reportsTotal}</td>
@@ -1746,7 +1748,7 @@ export default function Reports() {
                       </tr>
                       <tr className="bg-slate-50 border-b-2 border-slate-200">
                         <td className="px-6 py-3 font-bold text-slate-700">REUNIÕES</td>
-                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-400">
+                        <td colSpan={months.length} className="text-center px-4 py-3 text-xs text-slate-500">
                           duração registrada por ata
                         </td>
                         <td className="text-center px-4 py-3 font-bold text-slate-800">{meetingsCount}</td>
@@ -1915,7 +1917,7 @@ export default function Reports() {
                       <Building2 className="h-7 w-7" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                       <p className="text-2xl font-black text-primary mt-0.5">Relatório Prefeitura</p>
                       <p className="text-slate-500 font-medium mt-1">Dados consolidados do projeto ativo.</p>
                     </div>
@@ -1928,24 +1930,24 @@ export default function Reports() {
                 {/* Total */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Total</p>
                     <p className="text-base font-black text-slate-700 mt-0.5">Alunos no Projeto</p>
                   </div>
                   <CardContent className="p-8 flex flex-col items-center justify-center gap-2">
                     <span className="text-6xl font-black text-primary leading-none">{total}</span>
-                    <span className="text-sm font-bold text-slate-400">alunos matriculados</span>
+                    <span className="text-sm font-bold text-slate-500">alunos matriculados</span>
                   </CardContent>
                 </Card>
 
                 {/* Rede de ensino */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden lg:col-span-2">
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Distribuição</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Distribuição</p>
                     <p className="text-base font-black text-slate-700 mt-0.5">Rede de Ensino</p>
                   </div>
                   <CardContent className="p-6 space-y-4">
                     {schoolTypes.length === 0 ? (
-                      <p className="text-slate-400 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
+                      <p className="text-slate-500 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
                     ) : (
                       schoolTypes.map((st) => {
                         const pct = schoolBase > 0 ? (st.count / schoolBase) * 100 : 0;
@@ -1976,12 +1978,12 @@ export default function Reports() {
                 {/* Faixas etárias */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Perfil</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Perfil</p>
                     <p className="text-base font-black text-slate-700 mt-0.5">Faixas Etárias</p>
                   </div>
                   <CardContent className="p-6 space-y-4">
                     {ageGroups.filter((g) => g.count > 0).length === 0 ? (
-                      <p className="text-slate-400 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
+                      <p className="text-slate-500 text-sm font-medium text-center py-4">Nenhum dado disponível.</p>
                     ) : (
                       ageGroups.filter((g) => g.count > 0).map((g) => {
                         const pct = total > 0 ? (g.count / total) * 100 : 0;
@@ -2007,17 +2009,17 @@ export default function Reports() {
                 {/* Aulas dadas */}
                 <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                   <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Frequência</p>
                     <p className="text-base font-black text-slate-700 mt-0.5">Aulas e Horas Dadas</p>
                   </div>
                   <CardContent className="p-8 grid grid-cols-2 gap-6">
                     <div className="flex flex-col items-center justify-center gap-1">
                       <span className="text-5xl font-black text-emerald-600 leading-none">{totalSessions}</span>
-                      <span className="text-sm font-bold text-slate-400 mt-1">aulas dadas</span>
+                      <span className="text-sm font-bold text-slate-500 mt-1">aulas dadas</span>
                     </div>
                     <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
                       <span className="text-5xl font-black text-primary leading-none">{totalHours}</span>
-                      <span className="text-sm font-bold text-slate-400 mt-1">horas de aula</span>
+                      <span className="text-sm font-bold text-slate-500 mt-1">horas de aula</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -2026,7 +2028,7 @@ export default function Reports() {
               {/* Taxa de frequência */}
               <Card className="border-none shadow-xl shadow-slate-200/40 bg-white rounded-[2.5rem] overflow-hidden">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Participação</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Participação</p>
                   <p className="text-base font-black text-slate-700 mt-0.5">Taxa de Frequência nas Oficinas</p>
                 </div>
                 <CardContent className="p-8 grid grid-cols-3 gap-6">
@@ -2036,15 +2038,15 @@ export default function Reports() {
                     ) : (
                       <span className="text-3xl font-black text-slate-300 leading-none">—</span>
                     )}
-                    <span className="text-sm font-bold text-slate-400 mt-1">taxa de frequência</span>
+                    <span className="text-sm font-bold text-slate-500 mt-1">taxa de frequência</span>
                   </div>
                   <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
                     <span className="text-5xl font-black text-primary leading-none">{freqPresent}</span>
-                    <span className="text-sm font-bold text-slate-400 mt-1">presenças registradas</span>
+                    <span className="text-sm font-bold text-slate-500 mt-1">presenças registradas</span>
                   </div>
                   <div className="flex flex-col items-center justify-center gap-1 border-l border-slate-100">
-                    <span className="text-5xl font-black text-slate-400 leading-none">{freqExpected}</span>
-                    <span className="text-sm font-bold text-slate-400 mt-1">presenças esperadas</span>
+                    <span className="text-5xl font-black text-slate-500 leading-none">{freqExpected}</span>
+                    <span className="text-sm font-bold text-slate-500 mt-1">presenças esperadas</span>
                   </div>
                 </CardContent>
               </Card>
@@ -2169,7 +2171,7 @@ export default function Reports() {
                 </div>
                 <CardContent className="p-6 space-y-3">
                   {total === 0 ? (
-                    <p className="text-sm font-bold text-slate-400 text-center py-8">Nenhum aluno matriculado.</p>
+                    <p className="text-sm font-bold text-slate-500 text-center py-8">Nenhum aluno matriculado.</p>
                   ) : (
                     genderRows.map((r) => {
                       const pct = total ? (r.count / total) * 100 : 0;
@@ -2187,7 +2189,7 @@ export default function Reports() {
                           <div className="flex items-center justify-between gap-3">
                             <span className="text-sm font-black text-slate-800">{r.label}</span>
                             <span className="text-sm font-black text-slate-700 tabular-nums">
-                              {r.count} <span className="text-slate-400 font-bold">({pct.toFixed(1)}%)</span>
+                              {r.count} <span className="text-slate-500 font-bold">({pct.toFixed(1)}%)</span>
                             </span>
                           </div>
                           <div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -2197,7 +2199,7 @@ export default function Reports() {
                       );
                     })
                   )}
-                  <p className="text-xs font-bold text-slate-400">Clique num gênero para filtrar a lista abaixo.</p>
+                  <p className="text-xs font-bold text-slate-500">Clique num gênero para filtrar a lista abaixo.</p>
                 </CardContent>
               </Card>
 
@@ -2227,14 +2229,14 @@ export default function Reports() {
                 </div>
                 <CardContent className="p-0">
                   {listed.length === 0 ? (
-                    <p className="text-sm font-bold text-slate-400 text-center py-10">Nenhum aluno para este filtro.</p>
+                    <p className="text-sm font-bold text-slate-500 text-center py-10">Nenhum aluno para este filtro.</p>
                   ) : (
                     <div className="divide-y divide-slate-50">
                       {listed.map((s, i) => (
                         <div key={s.id} className="px-6 py-3 flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-black text-slate-800 truncate">
-                              <span className="text-slate-400 font-bold mr-2 tabular-nums">{i + 1}.</span>
+                              <span className="text-slate-500 font-bold mr-2 tabular-nums">{i + 1}.</span>
                               {s.fullName}
                             </p>
                             <p className="text-xs font-bold text-slate-500 truncate">
@@ -2357,12 +2359,12 @@ export default function Reports() {
                     <FolderOpen className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Banco de Dados</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Banco de Dados</p>
                     <p className="text-lg font-black text-slate-700">Relatórios Salvos</p>
                   </div>
                 </div>
                 {pcSavedReports.length === 0 ? (
-                  <p className="text-sm text-slate-400 font-medium text-center py-6">Nenhum relatório salvo ainda.</p>
+                  <p className="text-sm text-slate-500 font-medium text-center py-6">Nenhum relatório salvo ainda.</p>
                 ) : (
                   <div className="space-y-2">
                     {pcSavedReports.map((r) => (
@@ -2372,7 +2374,7 @@ export default function Reports() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-black text-slate-700 truncate">{r.title || "(sem título)"}</p>
-                          <p className="text-xs font-medium text-slate-400 mt-0.5">
+                          <p className="text-xs font-medium text-slate-500 mt-0.5">
                             {r.month ? monthLabel(r.month) : "—"} &middot; Criado em {new Date(r.created_at).toLocaleDateString("pt-BR")}
                           </p>
                         </div>
@@ -2389,10 +2391,14 @@ export default function Reports() {
                             variant="outline"
                             size="sm"
                             className="rounded-xl font-bold text-xs border-rose-200 text-rose-600 hover:bg-rose-50 h-8 px-3"
-                            onClick={() => {
-                              if (window.confirm(`Excluir o relatório "${r.title || "(sem título)"}"? Esta ação não pode ser desfeita.`)) {
-                                void deleteReport(r.id);
-                              }
+                            onClick={async () => {
+                              const ok = await confirmDialog({
+                                title: "Excluir este relatório?",
+                                description: `"${r.title || "(sem título)"}" será excluído. Esta ação não pode ser desfeita.`,
+                                confirmText: "Excluir relatório",
+                                destructive: true,
+                              });
+                              if (ok) void deleteReport(r.id);
                             }}
                           >
                             Excluir
@@ -2414,7 +2420,7 @@ export default function Reports() {
                   <Receipt className="h-7 w-7" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-2xl font-black text-primary mt-0.5">Prestação de Contas de Objeto</p>
                   <p className="text-slate-500 font-medium mt-1">Preencha o título, descrição e adicione fotos.</p>
                 </div>
@@ -2423,7 +2429,7 @@ export default function Reports() {
               <div className="space-y-6">
                 {/* Título */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">
                     Título do Relatório
                   </label>
                   <input
@@ -2437,7 +2443,7 @@ export default function Reports() {
 
                 {/* Mês de referência */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">
                     Mês de Referência
                   </label>
                   <input
@@ -2450,7 +2456,7 @@ export default function Reports() {
 
                 {/* Texto/Descrição */}
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">
                     Descrição / Relato
                   </label>
                   <textarea
@@ -2464,7 +2470,7 @@ export default function Reports() {
 
                 {/* Upload de fotos */}
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <label className="text-xs font-black uppercase tracking-widest text-slate-500">
                     Fotos
                   </label>
                   <div>
@@ -2500,7 +2506,7 @@ export default function Reports() {
                             alt={photo.name}
                             className="w-full h-32 object-cover"
                           />
-                          <div className="px-2 py-1 text-[10px] font-bold text-slate-500 truncate bg-white border-t border-slate-100">
+                          <div className="px-2 py-1 text-xs font-bold text-slate-500 truncate bg-white border-t border-slate-100">
                             {photo.name}
                           </div>
                           <button
@@ -2536,7 +2542,7 @@ export default function Reports() {
               <span className="text-xs font-black text-amber-700">A</span>
               <span className="text-xs font-black text-rose-700">F</span>
               <span className="text-xs font-black text-sky-700">J</span>
-              <span className="text-xs font-bold text-slate-400">(em branco = não estava na turma)</span>
+              <span className="text-xs font-bold text-slate-500">(em branco = não estava na turma)</span>
             </div>
           </div>
 
@@ -2553,7 +2559,7 @@ export default function Reports() {
             <div className="p-6 md:p-8 border-b border-slate-100 bg-slate-50/50">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Relatório</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Relatório</p>
                   <p className="text-2xl font-black text-primary mt-1">Chamada</p>
                   <p className="text-slate-500 font-medium mt-1">
                     Primeiro você pode ver o resumo de todas as turmas. Se quiser, escolha uma turma específica.
@@ -2562,7 +2568,7 @@ export default function Reports() {
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Turma</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Turma</p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="h-12 w-full rounded-2xl border-slate-200 bg-white justify-between text-left font-medium text-sm">
@@ -2606,7 +2612,7 @@ export default function Reports() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mês</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Mês</p>
                     <Select value={selectedMonthPart} onValueChange={(m) => setMonth(`${selectedYear}-${m}`)}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
                         <SelectValue placeholder="Mês" />
@@ -2622,7 +2628,7 @@ export default function Reports() {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ano</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">Ano</p>
                     <Select value={selectedYear} onValueChange={(y) => setMonth(`${y}-${selectedMonthPart}`)}>
                       <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white">
                         <SelectValue placeholder="Ano" />
@@ -2743,7 +2749,7 @@ export default function Reports() {
                 <div className="p-10 text-center bg-white">
                   <ClipboardCheck className="h-12 w-12 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">Nenhuma chamada registrada neste mês para as turmas selecionadas.</p>
-                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
+                  <p className="text-xs text-slate-500 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : !matrix ? (
                 <div className="p-10 text-center bg-white">
@@ -2754,14 +2760,14 @@ export default function Reports() {
                 <div className="p-10 text-center bg-white">
                   <ClipboardCheck className="h-12 w-12 text-slate-200 mx-auto mb-3" />
                   <p className="text-sm font-bold text-slate-500">Nenhuma chamada registrada neste mês.</p>
-                  <p className="text-xs text-slate-400 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
+                  <p className="text-xs text-slate-500 mt-1">Crie chamadas na aba "Chamada" da turma.</p>
                 </div>
               ) : (
                 <div className="p-6 md:p-8 space-y-6">
                   <div className="grid gap-4 md:grid-cols-3">
                     <Card className="border border-slate-100 rounded-[2rem] shadow-sm">
                       <div className="p-5">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumo</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Resumo</p>
                         <p className="text-xl font-black text-primary mt-1">{matrix.className}</p>
                         <div className="mt-4 space-y-2">
                           <div className="flex items-center justify-between">
@@ -2783,13 +2789,13 @@ export default function Reports() {
                     <Card className="border border-slate-100 rounded-[2rem] shadow-sm md:col-span-2">
                       <div className="p-5 flex items-center justify-between">
                         <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Legenda</p>
+                          <p className="text-xs font-black uppercase tracking-widest text-slate-500">Legenda</p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {statusPill("presente")} <span className="text-xs font-bold self-center">Presente</span>
                             {statusPill("atrasado")} <span className="text-xs font-bold self-center">Atrasado</span>
                             {statusPill("falta")} <span className="text-xs font-bold self-center">Falta</span>
                             {statusPill("justificada")} <span className="text-xs font-bold self-center">Justificada</span>
-                            <span className="text-xs font-bold text-slate-400 self-center">— = não estava na turma</span>
+                            <span className="text-xs font-bold text-slate-500 self-center">— = não estava na turma</span>
                           </div>
                         </div>
                         <NotebookPen className="h-6 w-6 text-slate-300 shrink-0" />
@@ -2798,7 +2804,7 @@ export default function Reports() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Pré-visualização</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Pré-visualização</p>
 
                     {/* Mobile: cards por aluno */}
                     <div className="md:hidden space-y-2">
@@ -2806,7 +2812,7 @@ export default function Reports() {
                         <div key={st.id} className="rounded-2xl border border-slate-100 p-3 bg-white">
                           <p className="font-bold text-slate-800 text-sm">{st.socialName || st.preferredName || st.fullName}</p>
                           {(st.socialName || st.preferredName) && (
-                            <p className="text-[10px] text-slate-400 font-bold">{st.fullName}</p>
+                            <p className="text-xs text-slate-500 font-bold">{st.fullName}</p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {matrix.dates.map((d) => {
@@ -2814,7 +2820,7 @@ export default function Reports() {
                               if (!isMember) return null;
                               return (
                                 <div key={d} className="flex flex-col items-center">
-                                  <span className="text-[9px] text-slate-400 font-bold">{formatDateCol(d)}</span>
+                                  <span className="text-xs text-slate-500 font-bold">{formatDateCol(d)}</span>
                                   {statusPill(matrix.statusByStudentByDate[st.id]?.[d])}
                                 </div>
                               );
@@ -2842,7 +2848,7 @@ export default function Reports() {
                               <td className="px-4 py-3 sticky left-0 bg-white hover:bg-slate-50/60">
                                 <p className="font-bold text-slate-800 whitespace-nowrap">{st.socialName || st.preferredName || st.fullName}</p>
                                 {(st.socialName || st.preferredName) && (
-                                  <p className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{st.fullName}</p>
+                                  <p className="text-xs text-slate-500 font-bold whitespace-nowrap">{st.fullName}</p>
                                 )}
                               </td>
                               {matrix.dates.map((d) => {

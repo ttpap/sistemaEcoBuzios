@@ -10,7 +10,7 @@ const Item = ({ label, className }: { label: string; className: string }) => (
 export function StudentLegend() {
   return (
     <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Legenda</p>
+      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Legenda</p>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <Item label="Presença" className="bg-emerald-600" />
         <Item label="Falta" className="bg-rose-600" />

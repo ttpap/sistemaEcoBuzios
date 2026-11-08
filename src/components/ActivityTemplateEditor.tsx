@@ -86,7 +86,7 @@ export default function ActivityTemplateEditor({
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
+      <div className="flex items-center gap-2 text-slate-500 text-sm py-4">
         <Loader2 className="h-4 w-4 animate-spin" />
         Carregando atividades...
       </div>
@@ -137,10 +137,10 @@ export default function ActivityTemplateEditor({
                   />
                 </td>
                 <td className="px-3 py-2">
-                  <Button
+                  <Button aria-label="Excluir" title="Excluir"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-slate-400 hover:text-red-500"
+                    className="h-7 w-7 text-slate-500 hover:text-red-500"
                     onClick={() => removeActivity(index)}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -152,7 +152,7 @@ export default function ActivityTemplateEditor({
               <tr>
                 <td
                   colSpan={4}
-                  className="px-3 py-4 text-center text-slate-400 text-sm"
+                  className="px-3 py-4 text-center text-slate-500 text-sm"
                 >
                   Nenhuma atividade configurada.
                 </td>

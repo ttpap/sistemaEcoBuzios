@@ -111,7 +111,7 @@ export default function DbStatus() {
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Configuração
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -138,7 +138,7 @@ export default function DbStatus() {
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                 Resultado
               </p>
               <div className="mt-3">

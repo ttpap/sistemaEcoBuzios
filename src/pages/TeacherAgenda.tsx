@@ -69,8 +69,8 @@ export default function TeacherAgenda() {
       ) : weeks.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-12 text-center space-y-2">
           <CalendarDays className="h-10 w-10 text-slate-300 mx-auto" />
-          <p className="text-slate-400 font-medium">Nenhuma escala disponível ainda.</p>
-          <p className="text-slate-400 text-sm">Aguarde o coordenador enviar a escala.</p>
+          <p className="text-slate-500 font-medium">Nenhuma escala disponível ainda.</p>
+          <p className="text-slate-500 text-sm">Aguarde o coordenador enviar a escala.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -89,7 +89,7 @@ export default function TeacherAgenda() {
                     <p className="font-black text-slate-800 text-xl leading-tight">
                       {formatWeekPeriod(w.schedule.weekStartDate)}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {w.schedule.weekNumber}ª Semana
                     </p>
                   </div>

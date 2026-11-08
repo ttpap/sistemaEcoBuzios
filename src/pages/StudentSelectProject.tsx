@@ -110,7 +110,7 @@ export default function StudentSelectProject() {
           ) : null}
 
           <div className="rounded-[2rem] border border-slate-100 bg-slate-50/60 p-5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Projeto</p>
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">Projeto</p>
             <Select value={selected} onValueChange={setSelected}>
               <SelectTrigger className="mt-2 h-12 rounded-2xl border-slate-200 bg-white font-black">
                 <Layers className="h-4 w-4 mr-2 text-primary" />

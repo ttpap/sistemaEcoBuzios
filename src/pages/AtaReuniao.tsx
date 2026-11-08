@@ -398,7 +398,7 @@ export default function AtaReuniao() {
             <CardContent className="flex flex-col items-center justify-center py-16 text-center">
               <FileText className="h-12 w-12 text-slate-300 mb-4" />
               <p className="text-slate-500 font-bold">Nenhuma ata registrada</p>
-              <p className="text-slate-400 text-sm mt-1">Clique em "Nova Ata" para começar</p>
+              <p className="text-slate-500 text-sm mt-1">Clique em "Nova Ata" para começar</p>
             </CardContent>
           </Card>
         ) : (
@@ -534,7 +534,7 @@ export default function AtaReuniao() {
 
                 {viewingMinute.organized_content ? (
                   <div className="bg-slate-50 rounded-2xl p-5">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1">
                       <Sparkles className="h-3 w-3" /> Relatório organizado pela IA
                     </p>
                     <div
@@ -546,7 +546,7 @@ export default function AtaReuniao() {
                   </div>
                 ) : viewingMinute.raw_notes ? (
                   <div className="bg-slate-50 rounded-2xl p-4">
-                    <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Anotações</p>
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Anotações</p>
                     <p className="text-slate-700 whitespace-pre-wrap text-sm">{viewingMinute.raw_notes}</p>
                   </div>
                 ) : null}
@@ -645,12 +645,12 @@ export default function AtaReuniao() {
         </CardHeader>
         <CardContent className="space-y-5">
           {projectPeople.length === 0 ? (
-            <p className="text-sm text-slate-400">Nenhum professor ou coordenador vinculado a este projeto.</p>
+            <p className="text-sm text-slate-500">Nenhum professor ou coordenador vinculado a este projeto.</p>
           ) : (
             <>
               {coordinators.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Coordenadores</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Coordenadores</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {coordinators.map((p) => (
                       <label
@@ -670,7 +670,7 @@ export default function AtaReuniao() {
 
               {teachers.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Professores</p>
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Professores</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {teachers.map((p) => (
                       <label

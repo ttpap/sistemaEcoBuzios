@@ -31,7 +31,7 @@ export default function CoordinatorNewTeacher() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-4">
-        <Button
+        <Button aria-label="Voltar" title="Voltar"
           variant="ghost"
           size="icon"
           className="rounded-xl bg-white shadow-sm border border-slate-100"

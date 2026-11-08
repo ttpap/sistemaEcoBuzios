@@ -235,7 +235,7 @@ export default function TeacherJustification() {
             <div className="mt-2 space-y-4">
               {/* Período */}
               <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                   Período de ausência
                 </p>
                 <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-3 flex justify-center">
@@ -254,13 +254,13 @@ export default function TeacherJustification() {
                       : ""}
                   </p>
                 ) : (
-                  <p className="text-xs font-bold text-slate-400 text-center">Clique para selecionar uma data ou intervalo</p>
+                  <p className="text-xs font-bold text-slate-500 text-center">Clique para selecionar uma data ou intervalo</p>
                 )}
               </div>
 
               {/* Motivo */}
               <div className="space-y-1">
-                <p className="text-xs font-black uppercase tracking-widest text-slate-400">Motivo</p>
+                <p className="text-xs font-black uppercase tracking-widest text-slate-500">Motivo</p>
                 <Textarea
                   placeholder="Ex: Consulta médica, problema familiar, etc."
                   className="rounded-2xl resize-none font-medium border-slate-200"
@@ -286,12 +286,12 @@ export default function TeacherJustification() {
       <Card className="border-none shadow-xl shadow-slate-200/40 rounded-[2.75rem] overflow-hidden bg-white">
         {loading ? (
           <div className="p-12 text-center">
-            <p className="text-slate-400 font-bold">Carregando...</p>
+            <p className="text-slate-500 font-bold">Carregando...</p>
           </div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center">
             <CalendarDays className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="text-slate-400 font-bold">Nenhuma justificativa registrada.</p>
+            <p className="text-slate-500 font-bold">Nenhuma justificativa registrada.</p>
             <p className="text-slate-300 text-sm font-medium mt-1">Use o botão acima para registrar sua primeira ausência.</p>
           </div>
         ) : (
@@ -308,13 +308,13 @@ export default function TeacherJustification() {
                         <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
                         {formatPeriod(item)}
                       </Badge>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                         {new Date(item.createdAt).toLocaleDateString("pt-BR")}
                       </span>
                     </div>
                     <p className="text-sm font-medium text-slate-700 leading-relaxed">{item.message}</p>
                   </div>
-                  <Button
+                  <Button aria-label="Excluir" title="Excluir"
                     variant="ghost"
                     size="icon"
                     className="rounded-xl text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"

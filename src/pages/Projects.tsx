@@ -29,6 +29,7 @@ import {
 const _pctLabel = (v: number, t: number) => t > 0 ? `${Math.round((v / t) * 1000) / 10}%` : "0%";
 const _fmtPct = (t: number) => (v: any, n: any) => [`${v} (${_pctLabel(Number(v), t)})`, n ?? "Alunos"];
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import {
   createProject,
   fetchProjects,
@@ -328,9 +329,13 @@ export default function Projects() {
 
   const onDeleteProject = (p: Project) => {
     const run = async () => {
-      const ok = window.confirm(
-        `Excluir o projeto "${p.name}"?\n\nIsso vai remover também as turmas, chamadas e justificativas deste projeto. Essa ação não pode ser desfeita.`,
-      );
+      const ok = await confirmDialog({
+        title: `Excluir o projeto "${p.name}"?`,
+        description:
+          "Isso vai remover também as turmas, chamadas e justificativas deste projeto. Essa ação não pode ser desfeita.",
+        confirmText: "Excluir",
+        destructive: true,
+      });
       if (!ok) return;
 
       try {
@@ -361,9 +366,12 @@ export default function Projects() {
     const run = async () => {
       const willFinalize = !p.finalizedAt;
       if (willFinalize) {
-        const ok = window.confirm(
-          `Marcar "${p.name}" como FINALIZADO?\n\nO projeto vai sumir das listas usadas pelo sistema (relatórios, dashboard, seletores). Você pode reativar a qualquer momento aqui nesta tela.`,
-        );
+        const ok = await confirmDialog({
+          title: `Marcar "${p.name}" como FINALIZADO?`,
+          description:
+            "O projeto vai sumir das listas usadas pelo sistema (relatórios, dashboard, seletores). Você pode reativar a qualquer momento aqui nesta tela.",
+          confirmText: "Finalizar",
+        });
         if (!ok) return;
       }
       try {
@@ -597,7 +605,7 @@ export default function Projects() {
                 className="h-12 rounded-2xl border-slate-100 bg-slate-50/60 file:font-black file:text-primary file:border-0 file:bg-white file:rounded-xl file:px-4 file:py-2"
               />
               <div className="mt-3 flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                <div className="h-14 w-14 rounded-[1.6rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+                <div className="h-14 w-14 rounded-[1.6rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-500">
                   {systemLogo ? (
                     <img src={systemLogo} alt="Logo" className="h-full w-full object-cover" />
                   ) : (
@@ -681,7 +689,7 @@ export default function Projects() {
             </div>
 
             <div className="flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
-              <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+              <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-500">
                 {editImageUrl && !isPdfDataUrl(editImageUrl) && isImageDataUrl(editImageUrl) ? (
                   <img src={editImageUrl} alt="Prévia" className="h-full w-full object-cover" />
                 ) : editImageUrl && isPdfDataUrl(editImageUrl) ? (
@@ -823,7 +831,7 @@ export default function Projects() {
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3 rounded-[1.75rem] border border-slate-100 bg-white p-4">
-                  <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-400">
+                  <div className="h-12 w-12 rounded-[1.5rem] overflow-hidden bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center text-slate-500">
                     {imageUrl && !isPdfDataUrl(imageUrl) && (isImageDataUrl(imageUrl) || imageUrl.startsWith("http")) ? (
                       <img src={imageUrl} alt="Prévia" className="h-full w-full object-cover" />
                     ) : imageUrl && isPdfDataUrl(imageUrl) ? (
@@ -1075,7 +1083,7 @@ export default function Projects() {
                 <div className="w-7 h-7 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
                 </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-700">
                   Perfil dos novos alunos — último mês ({newStudentsLastMonth.length})
                 </span>
                 <div className="flex-1 h-px bg-emerald-200" />
@@ -1325,7 +1333,7 @@ export default function Projects() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xl font-black text-slate-800">{d.value}</span>
-                            <span className="text-xs font-bold text-slate-400">{pct}%</span>
+                            <span className="text-xs font-bold text-slate-500">{pct}%</span>
                           </div>
                         </div>
                       );
@@ -1373,7 +1381,7 @@ export default function Projects() {
                       </div>
                       <div className="shrink-0 text-right">
                         <div className="text-2xl font-black text-primary">{row.studentsCount}</div>
-                        <p className="text-[11px] font-bold text-slate-500">aluno(s)</p>
+                        <p className="text-xs font-bold text-slate-500">aluno(s)</p>
                       </div>
                     </div>
                   ))}
@@ -1392,7 +1400,7 @@ export default function Projects() {
             <CardContent className="p-6 md:p-8 pt-3 space-y-4">
               <div className="flex items-center gap-4 bg-slate-50/60 p-4 rounded-[2rem] border border-slate-100">
                 <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
                   <Input
                     placeholder="Buscar por nome ou matrícula..."
                     className="pl-12 h-12 rounded-2xl border-slate-100 bg-white"
@@ -1414,13 +1422,13 @@ export default function Projects() {
                 <Table>
                   <TableHeader className="bg-slate-50/60">
                     <TableRow className="hover:bg-transparent border-slate-100">
-                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest px-6">
+                      <TableHead className="font-black text-slate-500 uppercase text-xs tracking-widest px-6">
                         Aluno
                       </TableHead>
-                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest">
+                      <TableHead className="font-black text-slate-500 uppercase text-xs tracking-widest">
                         Matrícula
                       </TableHead>
-                      <TableHead className="font-black text-slate-400 uppercase text-xs tracking-widest">
+                      <TableHead className="font-black text-slate-500 uppercase text-xs tracking-widest">
                         Status
                       </TableHead>
                     </TableRow>
@@ -1428,7 +1436,7 @@ export default function Projects() {
                   <TableBody>
                     {studentsFiltered.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-12 text-slate-400 font-bold">
+                        <TableCell colSpan={3} className="text-center py-12 text-slate-500 font-bold">
                           Nenhum aluno encontrado.
                         </TableCell>
                       </TableRow>
@@ -1498,7 +1506,7 @@ export default function Projects() {
                   <a href="/api-keys" className="underline font-black">Sistema → Chaves de API</a>.
                 </p>
                 <div className="rounded-[1.25rem] bg-amber-100 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 mb-2">Exemplo cURL</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-600 mb-2">Exemplo cURL</p>
                   <code className="text-xs font-mono text-amber-900 break-all whitespace-pre-wrap">{`curl -H "x-api-key: SUA_CHAVE" \\
   https://ixgujnhdjrgoakqzdkgx.supabase.co/functions/v1/public-stats-api`}</code>
                 </div>

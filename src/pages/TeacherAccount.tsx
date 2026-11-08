@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showError, showSuccess } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 import { getTeacherSessionTeacherId } from "@/utils/teacher-auth";
 import { DEFAULT_TEACHER_PASSWORD, readGlobalTeachers, updateGlobalTeacher, resetTeacherPasswordToDefault } from "@/utils/teachers";
 import { KeyRound, RotateCcw, Save, ShieldCheck } from "lucide-react";
@@ -37,9 +38,14 @@ export default function TeacherAccount() {
     showSuccess("Senha atualizada.");
   };
 
-  const onReset = () => {
+  const onReset = async () => {
     if (!teacherId) return;
-    const ok = window.confirm(`Resetar sua senha para a senha padrão (${DEFAULT_TEACHER_PASSWORD})?`);
+    const ok = await confirmDialog({
+      title: "Resetar sua senha?",
+      description: `Sua senha será redefinida para a senha padrão (${DEFAULT_TEACHER_PASSWORD}).`,
+      confirmText: "Resetar senha",
+      destructive: true,
+    });
     if (!ok) return;
     resetTeacherPasswordToDefault(teacherId);
     setPw1("");

@@ -54,6 +54,7 @@ import { getAreaBaseFromPathname } from "@/utils/route-base";
 import { resetStudentPassword } from "@/utils/student-auth";
 import { getStudentPhoto } from "@/utils/student-photo-cache";
 import { showSuccess, showError } from "@/utils/toast";
+import { confirmDialog } from "@/components/ConfirmDialog";
 
 interface StudentDetailsDialogProps {
   student: StudentRegistration | null;
@@ -122,7 +123,7 @@ function buildAddressLine(student: StudentRegistration) {
 
 const Row = ({ label, value }: { label: string; value?: React.ReactNode }) => (
   <div className="rounded-2xl border border-slate-100 bg-white p-4">
-    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+    <p className="text-xs font-black uppercase tracking-widest text-slate-500">
       {label}
     </p>
     <div className="mt-1 text-sm font-bold text-slate-700 break-words">{value ?? "---"}</div>
@@ -349,7 +350,15 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
   };
 
   const onResetPassword = async () => {
-    if (!window.confirm(`Resetar a senha de ${student.fullName} para "EcoBuzios123"?`)) return;
+    if (
+      !(await confirmDialog({
+        title: "Resetar senha?",
+        description: `A senha de ${student.fullName} será redefinida para "EcoBuzios123".`,
+        confirmText: "Resetar senha",
+        destructive: true,
+      }))
+    )
+      return;
     const ok = await resetStudentPassword(student.id);
     if (ok) showSuccess("Senha resetada para EcoBuzios123.");
     else showError("Não foi possível resetar a senha.");
@@ -476,21 +485,21 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 return (
                   <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
                     <div className="flex items-center justify-between mb-1">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mensal</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Mensal</p>
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => navFreqMonth(-1)} className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100">
                           <ChevronLeft className="h-3 w-3 text-slate-600" />
                         </button>
-                        <p className="text-[10px] font-black text-primary capitalize px-1">{freqMonthLabel}</p>
+                        <p className="text-xs font-black text-primary capitalize px-1">{freqMonthLabel}</p>
                         <button type="button" onClick={() => navFreqMonth(1)} className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center hover:bg-slate-100">
                           <ChevronRight className="h-3 w-3 text-slate-600" />
                         </button>
                       </div>
                     </div>
                     {freqLoading ? (
-                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Carregando…</div>
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-500">Carregando…</div>
                     ) : donutData.length === 0 ? (
-                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Sem dados</div>
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-500">Sem dados</div>
                     ) : (
                       <>
                         <ResponsiveContainer width="100%" height={140}>
@@ -503,7 +512,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                         </ResponsiveContainer>
                         <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
                           {donutData.map((d) => (
-                            <span key={d.name} className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600">
+                            <span key={d.name} className="inline-flex items-center gap-1 text-xs font-black text-slate-600">
                               <span className="h-2 w-2 rounded-full shrink-0" style={{ background: d.color }} />
                               {d.name} ({d.value})
                             </span>
@@ -525,13 +534,13 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 ].filter((d) => d.value > 0);
                 return (
                   <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">
                       Anual — {new Date().getFullYear()}
                     </p>
                     {freqAnnualTotals.total === 0 ? (
-                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Carregando…</div>
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-500">Carregando…</div>
                     ) : donutData.length === 0 ? (
-                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-400">Sem dados</div>
+                      <div className="flex items-center justify-center h-[140px] text-sm font-bold text-slate-500">Sem dados</div>
                     ) : (
                       <>
                         <ResponsiveContainer width="100%" height={140}>
@@ -544,7 +553,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                         </ResponsiveContainer>
                         <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mt-1">
                           {donutData.map((d) => (
-                            <span key={d.name} className="inline-flex items-center gap-1 text-[10px] font-black text-slate-600">
+                            <span key={d.name} className="inline-flex items-center gap-1 text-xs font-black text-slate-600">
                               <span className="h-2 w-2 rounded-full shrink-0" style={{ background: d.color }} />
                               {d.name} ({d.value})
                             </span>
@@ -763,7 +772,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     {/* ── Turmas ─────────────────────────────────── */}
                     {turmasOnly.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                           Turmas ({turmasOnly.length})
                         </p>
                         <div className="grid gap-4 md:grid-cols-2">
@@ -786,7 +795,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                                   </div>
                                   {freqPct !== null && (
                                     <div className="text-right shrink-0">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Frequência</p>
                                       <p className="text-2xl font-black text-primary">{freqPct}%</p>
                                     </div>
                                   )}
@@ -794,19 +803,19 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                                 {st && st.total > 0 && (
                                   <div className="mt-4 grid grid-cols-4 gap-2 text-center">
                                     <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-emerald-700">Presenças</p>
+                                      <p className="text-xs font-black uppercase text-emerald-700">Presenças</p>
                                       <p className="text-lg font-black text-emerald-700">{presencas}</p>
                                     </div>
                                     <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-rose-700">Faltas</p>
+                                      <p className="text-xs font-black uppercase text-rose-700">Faltas</p>
                                       <p className="text-lg font-black text-rose-700">{st.falta}</p>
                                     </div>
                                     <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-violet-700">Justif.</p>
+                                      <p className="text-xs font-black uppercase text-violet-700">Justif.</p>
                                       <p className="text-lg font-black text-violet-700">{st.justificada}</p>
                                     </div>
                                     <div className="rounded-xl bg-slate-100 border border-slate-200 p-2">
-                                      <p className="text-[9px] font-black uppercase text-slate-600">Total</p>
+                                      <p className="text-xs font-black uppercase text-slate-600">Total</p>
                                       <p className="text-lg font-black text-slate-700">{st.total}</p>
                                     </div>
                                   </div>
@@ -821,7 +830,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     {/* ── Números ──────────────────────────────── */}
                     {numerosOnly.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                           Números ({numerosOnly.length})
                         </p>
                         <div className="grid gap-4 md:grid-cols-2">
@@ -846,12 +855,12 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                                   </div>
                                   {freqPct !== null ? (
                                     <div className="text-right shrink-0">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Frequência</p>
+                                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Frequência</p>
                                       <p className="text-2xl font-black text-amber-700">{freqPct}%</p>
                                     </div>
                                   ) : (
                                     <div className="text-right shrink-0">
-                                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sessões</p>
+                                      <p className="text-xs font-black uppercase tracking-widest text-slate-500">Sessões</p>
                                       <p className="text-sm font-bold text-slate-500">Nenhuma</p>
                                     </div>
                                   )}
@@ -859,19 +868,19 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                                 {st && st.total > 0 && (
                                   <div className="mt-4 grid grid-cols-4 gap-2 text-center">
                                     <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-emerald-700">Presenças</p>
+                                      <p className="text-xs font-black uppercase text-emerald-700">Presenças</p>
                                       <p className="text-lg font-black text-emerald-700">{presencas}</p>
                                     </div>
                                     <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-rose-700">Faltas</p>
+                                      <p className="text-xs font-black uppercase text-rose-700">Faltas</p>
                                       <p className="text-lg font-black text-rose-700">{st.falta}</p>
                                     </div>
                                     <div className="rounded-xl bg-violet-500/10 border border-violet-500/20 p-2">
-                                      <p className="text-[9px] font-black uppercase text-violet-700">Justif.</p>
+                                      <p className="text-xs font-black uppercase text-violet-700">Justif.</p>
                                       <p className="text-lg font-black text-violet-700">{st.justificada}</p>
                                     </div>
                                     <div className="rounded-xl bg-slate-100 border border-slate-200 p-2">
-                                      <p className="text-[9px] font-black uppercase text-slate-600">Total</p>
+                                      <p className="text-xs font-black uppercase text-slate-600">Total</p>
                                       <p className="text-lg font-black text-slate-700">{st.total}</p>
                                     </div>
                                   </div>
@@ -901,7 +910,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
               <TabsContent value="docs" className="mt-6">
                 <div className="rounded-[2rem] border border-slate-100 bg-white p-6">
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                     Documentos entregues
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -957,7 +966,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 {/* Calendário */}
                 <div className="rounded-[2rem] border border-slate-100 bg-white p-4">
                   {freqLoading ? (
-                    <p className="py-10 text-center text-sm font-bold text-slate-400">Carregando...</p>
+                    <p className="py-10 text-center text-sm font-bold text-slate-500">Carregando...</p>
                   ) : (
                     <>
                       <Calendar
@@ -997,7 +1006,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
 
                 {/* Totais do mês */}
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Totais do mês</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Totais do mês</p>
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     {[
                       { label: "Presenças", value: freqMonthTotals.presente, cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20" },
@@ -1006,7 +1015,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                       { label: "Justificativas", value: freqMonthTotals.justificada, cls: "bg-violet-500/10 text-violet-700 border-violet-500/20" },
                     ].map((item) => (
                       <div key={item.label} className={`rounded-2xl border p-4 ${item.cls}`}>
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">{item.label}</p>
+                        <p className="text-xs font-black uppercase tracking-widest mb-1">{item.label}</p>
                         <p className="text-3xl font-black tracking-tight">{item.value}</p>
                         {freqMonthTotals.total > 0 && (
                           <p className="text-xs font-bold opacity-70 mt-1">
@@ -1017,7 +1026,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                     ))}
                     {freqMonthTotals.total > 0 && (
                       <div className="rounded-2xl border p-4 bg-primary/10 text-primary border-primary/20">
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Frequência</p>
+                        <p className="text-xs font-black uppercase tracking-widest mb-1">Frequência</p>
                         <p className="text-3xl font-black tracking-tight">
                           {Math.round((freqMonthTotals.presente + freqMonthTotals.atrasado) / freqMonthTotals.total * 100)}%
                         </p>
@@ -1032,7 +1041,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 {/* Totais anuais */}
                 {freqAnnualTotals.total > 0 && (
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">
                       Totais anuais — {new Date().getFullYear()}
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
@@ -1043,7 +1052,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                         { label: "Justificativas", value: freqAnnualTotals.justificada, cls: "bg-violet-50 text-violet-700 border-violet-100" },
                       ].map((item) => (
                         <div key={item.label} className={`rounded-2xl border p-4 ${item.cls}`}>
-                          <p className="text-[10px] font-black uppercase tracking-widest mb-1">{item.label}</p>
+                          <p className="text-xs font-black uppercase tracking-widest mb-1">{item.label}</p>
                           <p className="text-3xl font-black tracking-tight">{item.value}</p>
                           {freqAnnualTotals.total > 0 && (
                             <p className="text-xs font-bold opacity-70 mt-1">
@@ -1053,7 +1062,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                         </div>
                       ))}
                       <div className="rounded-2xl border p-4 bg-primary/10 text-primary border-primary/20">
-                        <p className="text-[10px] font-black uppercase tracking-widest mb-1">Frequência</p>
+                        <p className="text-xs font-black uppercase tracking-widest mb-1">Frequência</p>
                         <p className="text-3xl font-black tracking-tight">
                           {Math.round((freqAnnualTotals.presente + freqAnnualTotals.atrasado) / freqAnnualTotals.total * 100)}%
                         </p>
@@ -1068,7 +1077,7 @@ const StudentDetailsDialog = ({ student, isOpen, onClose }: StudentDetailsDialog
                 {/* Gráfico anual */}
                 {freqYearRows.length > 0 && (
                   <div className="rounded-[2rem] border border-slate-100 bg-white p-5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4">
                       Gráfico anual — {new Date().getFullYear()}
                     </p>
                     <div className="h-[260px]">

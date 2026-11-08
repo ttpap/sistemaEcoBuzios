@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 import { TeacherRegistration } from '@/types/teacher';
 import { showSuccess } from '@/utils/toast';
+import { confirmDialog } from '@/components/ConfirmDialog';
 import TeacherDetailsDialog from '@/components/TeacherDetailsDialog';
 import { readScoped, writeScoped } from '@/utils/storage';
 
@@ -31,8 +32,15 @@ const Teachers = () => {
     setTeachers(saved);
   }, []);
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Tem certeza que deseja excluir este cadastro?")) {
+  const handleDelete = async (id: string) => {
+    if (
+      await confirmDialog({
+        title: "Excluir cadastro?",
+        description: "Tem certeza que deseja excluir este cadastro?",
+        confirmText: "Excluir",
+        destructive: true,
+      })
+    ) {
       const updated = teachers.filter(t => t.id !== id);
       writeScoped('teachers', updated);
       setTeachers(updated);
@@ -66,7 +74,7 @@ const Teachers = () => {
 
       <div className="flex items-center gap-4 bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
           <Input 
             placeholder="Buscar por nome, documento ou chave PIX..." 
             className="pl-12 h-12 rounded-xl border-slate-100 bg-slate-50/50" 
@@ -80,16 +88,16 @@ const Teachers = () => {
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow className="hover:bg-transparent border-slate-100">
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Nome / Razão Social</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Documento</TableHead>
-              <TableHead className="font-bold text-slate-400 uppercase text-xs tracking-widest">Chave PIX</TableHead>
-              <TableHead className="text-right font-bold text-slate-400 uppercase text-xs tracking-widest px-8">Ações</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest px-8">Nome / Razão Social</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest">Documento</TableHead>
+              <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-widest">Chave PIX</TableHead>
+              <TableHead className="text-right font-bold text-slate-500 uppercase text-xs tracking-widest px-8">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-slate-400 font-medium">
+                <TableCell colSpan={4} className="text-center py-12 text-slate-500 font-medium">
                   Nenhum cadastro encontrado.
                 </TableCell>
               </TableRow>
@@ -117,7 +125,7 @@ const Teachers = () => {
                   </TableCell>
                   <TableCell className="text-right px-8">
                     <div className="flex items-center justify-end gap-2">
-                      <Button 
+                      <Button aria-label="Ver detalhes" title="Ver detalhes" 
                         variant="ghost" 
                         size="icon" 
                         className="rounded-xl hover:bg-primary/10 hover:text-primary"
@@ -128,7 +136,7 @@ const Teachers = () => {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button 
+                      <Button aria-label="Editar" title="Editar" 
                         variant="ghost" 
                         size="icon" 
                         className="rounded-xl hover:bg-emerald-50 hover:text-emerald-600"
@@ -136,7 +144,7 @@ const Teachers = () => {
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button 
+                      <Button aria-label="Excluir" title="Excluir" 
                         variant="ghost" 
                         size="icon" 
                         className="rounded-xl hover:bg-red-50 hover:text-red-600"

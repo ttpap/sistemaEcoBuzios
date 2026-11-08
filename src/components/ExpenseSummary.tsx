@@ -22,7 +22,7 @@ const ExpenseSummary = ({ totalAmount, count }: ExpenseSummaryProps) => {
           <DollarSign size={80} />
         </div>
         <CardContent className="p-8">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">Total Acumulado</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Total Acumulado</p>
           <div className="text-4xl font-black tracking-tighter">{formattedTotal}</div>
           <div className="mt-4 flex items-center gap-2 text-emerald-400 text-xs font-medium">
             <TrendingUp className="h-3 w-3" />
@@ -36,9 +36,9 @@ const ExpenseSummary = ({ totalAmount, count }: ExpenseSummaryProps) => {
           <div className="bg-slate-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
             <Receipt className="h-6 w-6 text-slate-600" />
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Documentos</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Documentos</p>
           <div className="text-3xl font-bold text-slate-900">{count}</div>
-          <p className="text-slate-400 text-[10px] mt-1">Notas processadas</p>
+          <p className="text-slate-500 text-xs mt-1">Notas processadas</p>
         </CardContent>
       </Card>
 
@@ -47,11 +47,11 @@ const ExpenseSummary = ({ totalAmount, count }: ExpenseSummaryProps) => {
           <div className="bg-slate-50 w-12 h-12 rounded-2xl flex items-center justify-center mb-4">
             <TrendingUp className="h-6 w-6 text-slate-600" />
           </div>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">Média por Nota</p>
+          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-1">Média por Nota</p>
           <div className="text-3xl font-bold text-slate-900">
             {count > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalAmount / count) : 'R$ 0,00'}
           </div>
-          <p className="text-slate-400 text-[10px] mt-1">Valor médio unitário</p>
+          <p className="text-slate-500 text-xs mt-1">Valor médio unitário</p>
         </CardContent>
       </Card>
     </div>

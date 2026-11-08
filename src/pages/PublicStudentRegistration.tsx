@@ -65,7 +65,7 @@ export default function PublicStudentRegistration() {
                   <FileText className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Autoinscrição</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Autoinscrição</p>
                   <h1 className="text-xl font-black text-primary tracking-tight">Ficha de inscrição do aluno</h1>
                 </div>
               </div>

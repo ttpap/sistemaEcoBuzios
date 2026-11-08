@@ -45,7 +45,7 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
             {profileError ? (
               <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-900">
                 Erro ao consultar profile: <span className="font-black">{profileError}</span>
-                <div className="mt-2 text-[11px] font-black text-red-800/80">
+                <div className="mt-2 text-xs font-black text-red-800/80">
                   Se o erro mencionar RLS/permissão, confirme se existe a policy <span className="font-black">profiles_select_own</span>.
                 </div>
               </div>

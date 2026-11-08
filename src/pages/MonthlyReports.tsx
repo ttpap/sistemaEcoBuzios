@@ -151,7 +151,7 @@ function StudentCombobox({ students, value, onChange, disabled, placeholder }: S
             disabled && "opacity-60 cursor-not-allowed",
           )}
         >
-          <span className={cn("truncate", !selected && "text-slate-400 font-normal")}>
+          <span className={cn("truncate", !selected && "text-slate-500 font-normal")}>
             {selected ? selectedLabel : placeholder || "Selecione um aluno"}
           </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-60" />
@@ -760,7 +760,7 @@ export default function MonthlyReports() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                       {activeProject.name}
                     </p>
                     <h1 className="text-2xl md:text-3xl font-black text-primary tracking-tight">
@@ -774,7 +774,7 @@ export default function MonthlyReports() {
                 </div>
 
                 <div className="rounded-[1.75rem] border border-slate-200 bg-white p-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                     {draft?.authorRole === "coordinator" ? "Coordenador" : "Professor"}
                   </p>
                   <div className="mt-2 flex items-center gap-2">
@@ -799,7 +799,7 @@ export default function MonthlyReports() {
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno em destaque</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Aluno em destaque</p>
                   <StudentCombobox
                     students={selectableStudents}
                     value={draft?.positiveStudentId}
@@ -811,7 +811,7 @@ export default function MonthlyReports() {
                 </div>
 
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Aluno reflexivo</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-500">Aluno reflexivo</p>
                   <StudentCombobox
                     students={selectableStudents}
                     value={draft?.reflexiveStudentId}
@@ -985,7 +985,7 @@ export default function MonthlyReports() {
                   <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{monthLabel(r.month)}</p>
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-500">{monthLabel(r.month)}</p>
                         <p className="text-lg font-black text-primary mt-1">Relatório mensal</p>
                         {!isTeacherArea && (
                           <p className="mt-2 text-sm font-bold text-slate-600 truncate">{authorName}</p>
